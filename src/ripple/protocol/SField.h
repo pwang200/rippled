@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <map>
 #include <utility>
+#include "UintTypes.h"
 
 namespace ripple {
 
@@ -47,7 +48,11 @@ template <std::size_t>
 class STBitString;
 template <class>
 class STInteger;
-class STVector256;
+using STNodeID = base_uint<160, detail::NodeIDTag>;
+template <std::size_t, class Tag>
+class STVectorHugeInt;
+using STVectorNodeIDs = STVectorHugeInt<160, detail::NodeIDTag>;
+using STVector256 = STVectorHugeInt<256, void>;
 
 enum SerializedTypeID
 {
@@ -74,6 +79,8 @@ enum SerializedTypeID
     STI_HASH160 = 17,
     STI_PATHSET = 18,
     STI_VECTOR256 = 19,
+    STI_NodeID = 20,
+    STI_VECTORNodeIDs = 21,
 
     // high level types
     // cannot be serialized inside other types
@@ -310,6 +317,8 @@ using SF_Account = TypedField<STAccount>;
 using SF_Amount = TypedField<STAmount>;
 using SF_Blob = TypedField<STBlob>;
 using SF_Vec256 = TypedField<STVector256>;
+using SF_NodeID = TypedField<STNodeID>;
+using SF_VecNodeIDs = TypedField<STVectorNodeIDs>;
 
 //------------------------------------------------------------------------------
 
@@ -468,6 +477,10 @@ extern SF_Account const sfRegularKey;
 
 // path set
 extern SField const sfPaths;
+
+// NodeID
+extern SF_NodeID const sfNodeID;
+extern SF_VecNodeIDs const sfVecNodeIDs;//TODO rename, type -> meaning??
 
 // vector of 256-bit
 extern SF_Vec256 const sfIndexes;

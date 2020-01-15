@@ -211,6 +211,12 @@ LedgerFormats::LedgerFormats ()
             { sfPreviousTxnLgrSeq,   soeREQUIRED },
         },
         commonFields);
+
+    add (jss::NegativeUNL, ltNEGATIVE_UNL,
+        {
+            { sfVecNodeIDs,          soeOPTIONAL },
+        },
+        commonFields);
 }
 
 LedgerFormats const&

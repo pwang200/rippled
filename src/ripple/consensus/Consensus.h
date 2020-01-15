@@ -1451,6 +1451,8 @@ Consensus<Adaptor>::updateOurPositions()
             neededWeight = parms.avSTUCK_CONSENSUS_PCT;
 
         int participants = currPeerPositions_.size();
+        //TODO need to filter out negativeUNL listed
+
         if (mode_.get() == ConsensusMode::proposing)
         {
             ++closeTimeVotes[asCloseTime(result_->position.closeTime())];

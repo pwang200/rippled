@@ -135,7 +135,8 @@ public:
         NodeID const& nodeID,
         bool isFull,
         FeeSettings const& fees,
-        std::vector<uint256> const& amendments);
+        std::vector<uint256> const& amendments,
+        std::vector<NodeID> const& badValidators);
 
     STBase*
     copy(std::size_t n, void* buf) const override

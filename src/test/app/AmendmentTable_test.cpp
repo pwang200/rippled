@@ -408,7 +408,8 @@ public:
                 calcNodeID(val.first),
                 true,
                 STValidation::FeeSettings{},
-                field);
+                field,
+                std::vector<NodeID>{});
 
             validations.emplace_back(v);
         }

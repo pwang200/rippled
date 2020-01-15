@@ -62,6 +62,8 @@ private:
     TER applyAmendment ();
 
     TER applyFee ();
+
+    TER applyNegativeUNL ();
 };
 
 }

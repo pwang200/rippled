@@ -142,6 +142,13 @@ TxFormats::TxFormats ()
         },
         commonFields);
 
+    add (jss::SetNegativeUNL, ttNEGATIVE_UNL,
+        {
+            { sfLedgerSequence,      soeOPTIONAL },
+            { sfNodeID,              soeREQUIRED },
+        },
+        commonFields);
+
     add (jss::TicketCreate, ttTICKET_CREATE,
         {
             { sfTarget,              soeOPTIONAL },

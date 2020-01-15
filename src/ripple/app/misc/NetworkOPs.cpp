@@ -1578,8 +1578,27 @@ bool NetworkOPsImp::beginConsensus (uint256 const& networkClosed)
     assert (closingInfo.parentHash ==
             m_ledgerMaster.getClosedLedger()->info().hash);
 
+    {
+        //TODO find a better way/place to set the negative UNL
+        app_.validators().setNegativeUNL(
+                m_ledgerMaster.getValidatedLedger()->negativeUNL());
+    }
     TrustChanges const changes = app_.validators().updateTrusted(
         app_.getValidations().getCurrentNodeIDs());
+    {
+        //TODO find a better way/place to set the negative UNL and the trusted nodes
+        auto [_, trustedKeys] = app_.validators().getQuorumKeys();
+        (void)_;
+        std::vector<NodeID> trustedNodeIDs;
+        for (auto & k : trustedKeys)
+        {
+            trustedNodeIDs.push_back(calcNodeID(k));
+        }
+        app_.getValidations().measurement.setTrustedValidators(
+                prevLedger->seq()+1, trustedNodeIDs);//TODO need +1?
+        app_.getValidations().measurement.setNegativeUNL(
+                m_ledgerMaster.getValidatedLedger()->negativeUNL().value());
+    }
 
     if (!changes.added.empty() || !changes.removed.empty())
         app_.getValidations().trustChanged(changes.added, changes.removed);
@@ -1589,6 +1608,8 @@ bool NetworkOPsImp::beginConsensus (uint256 const& networkClosed)
         networkClosed,
         prevLedger,
         changes.removed);
+    //TODO Q: what to do with overlapping of the change and the negative UNL?
+    //     A: probably nothing
 
     const ConsensusPhase currPhase = mConsensus.phase();
     if (mLastConsensusPhase != currPhase)

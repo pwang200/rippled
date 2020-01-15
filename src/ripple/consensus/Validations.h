@@ -31,6 +31,7 @@
 #include <mutex>
 #include <utility>
 #include <vector>
+#include <queue>
 
 namespace ripple {
 
@@ -323,6 +324,81 @@ class Validations
     // Is NOT managed by the mutex_ above
     Adaptor adaptor_;
 
+public:
+    class ReliabilityMeasurement // TODO find a better place
+    {
+        static const unsigned int LedgersToKeep = 256;
+        constexpr static float LowThreshold  = 0.75;
+        constexpr static float HighThreshold = 0.99;
+        //TODO check Seq numbers are increasing, and continuous
+        //TODO check validations from the same node are added in order???
+        hash_map<NodeID, std::queue<Seq>> records_;
+
+        hash_map<NodeID, Seq> trusted;
+        hash_set<NodeID> negativeUNL;
+
+    public:
+        void setTrustedValidators(Seq const& current_seq, std::vector<NodeID> const& validators)
+        {
+            hash_set<NodeID> temp(validators.begin(), validators.end());
+            auto i = trusted.begin();
+            while (i != trusted.end())
+            {
+                if(temp.find(i->first) == temp.end())
+                {
+                    //TODO safe to purge?
+                    i = trusted.erase(i);
+                }
+                else
+                {
+                    temp.erase(i->first);
+                }
+            }
+            for(auto & i : temp)
+            {
+                assert(trusted.find(i) == trusted.end());
+                trusted[i] = current_seq;
+            }
+        }
+
+        void setNegativeUNL(std::vector<NodeID> const& negativeUNL)
+        {
+            this->negativeUNL = hash_set<NodeID>(negativeUNL.begin(), negativeUNL.end());
+        }
+
+        void validationReceived(NodeID const& nodeID, Seq const& seq)
+        {
+            auto & q = records_[nodeID];
+            assert(q.back() < seq);
+            q.push(seq);
+            if(seq - q.front() >= Seq(LedgersToKeep))
+                q.pop();
+        }
+
+        // also purge records_
+        void getTrustedButUnreliableValidators(Seq const& current, std::vector<NodeID> & badNodes)
+        {
+            for(auto & n : trusted)
+            {
+                auto & nID = n.first;
+                auto & starting_point = n.second;
+                if(current - starting_point < Seq(LedgersToKeep))
+                    //not enough history
+                    continue;
+                auto & q = records_[nID];
+                while (q.front() <= current - Seq(LedgersToKeep))
+                    q.pop();
+                auto threshold = (std::size_t)std::ceil(
+                        (negativeUNL.find(nID) == negativeUNL.end()?
+                        LowThreshold : HighThreshold) * LedgersToKeep);
+                if(q.size() < threshold)
+                    badNodes.push_back(nID);
+            }
+        }
+    };
+
+    ReliabilityMeasurement measurement; // TODO find a better place
+
 private:
     // Remove support of a validated ledger
     void
@@ -613,6 +689,7 @@ public:
             else if (val.trusted())
             {
                 updateTrie(lock, nodeID, val, boost::none);
+                measurement.validationReceived(nodeID, val.seq());
             }
         }
         return ValStatus::current;

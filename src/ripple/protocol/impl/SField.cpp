@@ -206,6 +206,10 @@ SF_Vec256 const sfIndexes    (access, STI_VECTOR256, 1, "Indexes", SField::sMD_N
 SF_Vec256 const sfHashes     (access, STI_VECTOR256, 2, "Hashes");
 SF_Vec256 const sfAmendments (access, STI_VECTOR256, 3, "Amendments");
 
+// NodeID
+SF_NodeID const sfNodeID           (access, STI_NodeID, 1, "NodeID");
+SF_VecNodeIDs const sfVecNodeIDs   (access, STI_VECTORNodeIDs, 1, "VecNodeIDs");
+
 // inner object
 // OBJECT/1 is reserved for end of object
 SField const sfTransactionMetaData (access, STI_OBJECT,  2, "TransactionMetaData");

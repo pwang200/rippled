@@ -506,7 +506,13 @@ public:
         return {quorum_, trustedKeys_};
     }
 
-
+    void setNegativeUNL(STVectorNodeIDs const& nUnl)
+    {
+        for(auto x : nUnl)
+        {
+            negativeList_.insert(x);
+        }
+    }
 private:
     /** Get the filename used for caching UNLs
     */
@@ -518,6 +524,8 @@ private:
     void
     CacheValidatorFile(PublicKey const& pubKey,
         PublisherList const& publisher);
+
+    hash_set<NodeID> negativeList_;
 
     /** Check response for trusted valid published list
 
@@ -556,7 +564,7 @@ private:
         recently received validations */
     std::size_t
     calculateQuorum (
-        std::size_t trusted, std::size_t seen);
+        std::size_t trusted_total, std::size_t trusted_reliable, std::size_t seen_reliable);
 };
 } // ripple
 

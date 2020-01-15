@@ -57,6 +57,12 @@ buildLedgerImpl(
         accum.apply(*built);
     }
 
+    //TODO copy negative unl over, double check if condition
+    if(built->seq() % 256 != 1)
+    {
+        built->setNegativeUNL(parent->negativeUNL());
+    }
+
     built->updateSkipList();
     {
         // Write the final version of all modified SHAMap

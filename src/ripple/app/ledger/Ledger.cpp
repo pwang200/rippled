@@ -71,6 +71,7 @@ calculateLedgerHash (LedgerInfo const& info)
         std::uint32_t(info.closeTime.time_since_epoch().count()),
         std::uint8_t(info.closeTimeResolution.count()),
         std::uint8_t(info.closeFlags));
+    //TODO add negativeUNL to hash??
 }
 
 //------------------------------------------------------------------------------
@@ -594,6 +595,12 @@ Ledger::setup (Config const& config)
 
             if (sle->getFieldIndex (sfReserveIncrement) != -1)
                 fees_.increment = sle->getFieldU32 (sfReserveIncrement);
+        }
+        //TODO is here the right place to add negativeUNL to the ledger object??
+        if (auto const sle = read(keylet::negativeUNL()))
+        {
+            if (sle->getFieldIndex (sfVecNodeIDs) != -1)
+                nUnl_ = sle->getFieldVNodeIDs();
         }
     }
     catch (SHAMapMissingNode &)

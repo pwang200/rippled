@@ -64,6 +64,7 @@ JSS ( EscrowCreate );               // transaction type.
 JSS ( EscrowFinish );               // transaction type.
 JSS ( Fee );                        // in/out: TransactionSign; field.
 JSS ( FeeSettings );                // ledger type.
+JSS ( NegativeUNL );                // ledger type.
 JSS ( Flags );                      // in/out: TransactionSign; field.
 JSS ( Invalid );                    //
 JSS ( LastLedgerSequence );         // in: TransactionSign; field
@@ -82,6 +83,7 @@ JSS ( PaymentChannelFund );         // transaction type.
 JSS ( RippleState );                // ledger type.
 JSS ( SLE_hit_rate );               // out: GetCounts.
 JSS ( SetFee );                     // transaction type.
+JSS ( SetNegativeUNL );             // transaction type.
 JSS ( SettleDelay );                // in: TransactionSign
 JSS ( SendMax );                    // in: TransactionSign
 JSS ( Sequence );                   // in/out: TransactionSign; field.

@@ -78,7 +78,8 @@ Change::preclaim(PreclaimContext const &ctx)
     }
 
     if (ctx.tx.getTxnType() != ttAMENDMENT
-        && ctx.tx.getTxnType() != ttFEE)
+        && ctx.tx.getTxnType() != ttFEE
+        && ctx.tx.getTxnType() != ttNEGATIVE_UNL)
         return temUNKNOWN;
 
     return tesSUCCESS;
@@ -88,11 +89,19 @@ Change::preclaim(PreclaimContext const &ctx)
 TER
 Change::doApply()
 {
+    assert( ctx_.tx.getTxnType() == ttAMENDMENT ||
+            ctx_.tx.getTxnType() == ttFEE ||
+            ctx_.tx.getTxnType() == ttNEGATIVE_UNL);
+
     if (ctx_.tx.getTxnType () == ttAMENDMENT)
         return applyAmendment ();
-
-    assert(ctx_.tx.getTxnType() == ttFEE);
-    return applyFee ();
+    else if (ctx_.tx.getTxnType() == ttFEE )
+        return applyFee ();
+    else
+    {
+        assert(ctx_.tx.getTxnType() == ttNEGATIVE_UNL);
+        return applyNegativeUNL();
+    }
 }
 
 void
@@ -229,4 +238,25 @@ Change::applyFee()
     return tesSUCCESS;
 }
 
+TER
+Change::applyNegativeUNL()
+{
+    auto const k = keylet::negativeUNL();
+    SLE::pointer nUnlObject = view().peek (k);
+
+    if (!nUnlObject)
+    {
+        nUnlObject = std::make_shared<SLE>(k);
+        view().insert(nUnlObject);
+    }
+
+    //TODO performance??
+    STVectorNodeIDs vec = nUnlObject->getFieldVNodeIDs();
+    vec.push_back(ctx_.tx.getFieldNodeID());
+    nUnlObject->setFieldVNodeIDs(vec);
+    view().update (nUnlObject);
+
+    JLOG(j_.warn()) << "applyNegativeUNL done";
+    return tesSUCCESS;
+}
 }

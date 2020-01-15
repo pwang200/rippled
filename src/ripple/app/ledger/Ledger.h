@@ -316,6 +316,16 @@ public:
 
     void invariants() const;
     void unshare() const;
+
+    STVectorNodeIDs const& negativeUNL() const
+    {
+        return nUnl_;
+    }
+
+    void setNegativeUNL(STVectorNodeIDs const& o)
+    {
+        nUnl_ = o;
+    }
 private:
     class sles_iter_impl;
     class txs_iter_impl;
@@ -337,6 +347,7 @@ private:
     Fees fees_;
     Rules rules_;
     LedgerInfo info_;
+    STVectorNodeIDs nUnl_;
 };
 
 /** A ledger wrapped in a CachedView. */

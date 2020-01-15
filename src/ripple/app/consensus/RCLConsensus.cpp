@@ -182,8 +182,8 @@ RCLConsensus::Adaptor::propose(RCLCxPeerPos::Proposal const& proposal)
 
     prop.set_currenttxhash(
         proposal.position().begin(), proposal.position().size());
-    prop.set_previousledger(
-        proposal.prevLedger().begin(), proposal.position().size());
+    prop.set_previousledger(//TODO check if here was a typo?
+        proposal.prevLedger().begin(), proposal.prevLedger().size());
     prop.set_proposeseq(proposal.proposeSeq());
     prop.set_closetime(proposal.closeTime().time_since_epoch().count());
 
@@ -281,7 +281,7 @@ RCLConsensus::Adaptor::onClose(
 {
     const bool wrongLCL = mode == ConsensusMode::wrongLedger;
     const bool proposing = mode == ConsensusMode::proposing;
-
+    //TODO Why need to notify?
     notify(protocol::neCLOSING_LEDGER, ledger, !wrongLCL);
 
     auto const& prevLedger = ledger.ledger_;
@@ -314,15 +314,80 @@ RCLConsensus::Adaptor::onClose(
         ((prevLedger->info().seq % 256) == 0))
     {
         // previous ledger was flag ledger, add pseudo-transactions
-        auto const validations =
+        // filter out validations from nUNL;
+        auto const unfiltered =
             app_.getValidations().getTrustedForLedger (
                 prevLedger->info().parentHash);
+        std::vector<STValidation::pointer> validations;
+        auto bad_nodes = ledgerMaster_.getValidatedLedger()->negativeUNL().value();
+        for(auto & p : unfiltered)
+        {
+            if(std::find(bad_nodes.begin(), bad_nodes.end(), p->getNodeID()) == bad_nodes.end())
+                validations.push_back(p);
+        }
 
-        if (validations.size() >= app_.validators ().quorum ())
+        auto quorum = app_.validators ().quorum ();
+        if (validations.size() >= quorum)
         {
             feeVote_->doVoting(prevLedger, validations, initialSet);
             app_.getAmendmentTable().doVoting(
                 prevLedger, validations, initialSet);
+
+            //TODO put the following code to a NegativeUNL class, as Fee
+            {
+                // 1. count votes
+                std::map <NodeID, int> NegativeUNLVotes;
+                for (auto const& val :validations)
+                {
+                    if (val->isTrusted ())
+                    {
+                        if (val->isFieldPresent (sfVecNodeIDs))
+                        {
+                            for ( auto const& nid : val->getFieldVNodeIDs())
+                            {
+                                ++NegativeUNLVotes[nid];
+                            }
+                        }
+                    }
+                }
+                // 2. pick bad validators. i.e. vote >= quorum
+                // 3. create transactions and add them to our position
+                // NOT-TODO one Tx for all bad validators
+                // std::vector<NodeID> badValidators;
+                auto const seq = prevLedger->info().seq + 1;
+                for (auto const& node : NegativeUNLVotes)
+                {
+                    if( node.second >= quorum)
+                    {
+                        auto const& nid = node.first;
+                        JLOG(j_.warn()) <<
+                            "We are voting for an unreliable validator: " <<
+                            nid;
+
+                        STTx nunlTx (ttNEGATIVE_UNL,
+                            [seq, nid](auto& obj)
+                            {
+                                obj[sfLedgerSequence] = seq;//TODO if needed??
+                                obj[sfNodeID] = nid;
+                            });
+
+                        uint256 txID = nunlTx.getTransactionID ();
+
+                        JLOG(j_.warn()) << "NegativeUNL: " << txID;
+
+                        Serializer s;
+                        nunlTx.add (s);
+
+                        auto tItem = std::make_shared<SHAMapItem> (txID, s.peekData ());
+
+                        if (!initialSet->addGiveItem (tItem, true, false))
+                        {
+                            JLOG(j_.warn()) <<
+                                "Ledger already had fee change";
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -752,6 +817,7 @@ RCLConsensus::Adaptor::validate(RCLCxLedger const& ledger,
 
     STValidation::FeeSettings fees;
     std::vector<uint256> amendments;
+    std::vector<NodeID> badValidators;
 
     auto const& feeTrack = app_.getFeeTrack();
     std::uint32_t fee =
@@ -766,6 +832,8 @@ RCLConsensus::Adaptor::validate(RCLCxLedger const& ledger,
         // Suggest fee changes and new features
         feeVote_->doValidation(ledger.ledger_, fees);
         amendments = app_.getAmendmentTable().doValidation (getEnabledAmendments(*ledger.ledger_));
+        app_.getValidations().measurement.getTrustedButUnreliableValidators(
+                ledger.seq(), badValidators);
     }
 
     auto v = std::make_shared<STValidation>(
@@ -778,12 +846,14 @@ RCLConsensus::Adaptor::validate(RCLCxLedger const& ledger,
         nodeID_,
         proposing /* full if proposed */,
         fees,
-        amendments);
+        amendments,
+        badValidators);
 
     // suppress it if we receive it
     app_.getHashRouter().addSuppression(
         sha512Half(makeSlice(v->getSerialized())));
-    handleNewValidation(app_, v, "local");
+    handleNewValidation(app_, v, "local");//TODO understand better
+    //TODO probably don't need to change, the validation field is just bytes
     Blob validation = v->getSerialized();
     protocol::TMValidation val;
     val.set_validation(&validation[0], validation.size());

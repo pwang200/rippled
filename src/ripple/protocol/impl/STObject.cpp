@@ -570,6 +570,24 @@ const STArray& STObject::getFieldArray (SField const& field) const
     return getFieldByConstRef <STArray> (field, empty);
 }
 
+const STVectorNodeIDs& STObject::getFieldVNodeIDs () const
+{
+    static STVectorNodeIDs const empty{};
+    return getFieldByConstRef <STVectorNodeIDs> (sfVecNodeIDs, empty);
+}
+
+STVectorNodeIDs STObject::getFieldVNodeIDs ()
+{
+    return static_cast<STVectorNodeIDs>(//TODO cast
+            getFieldByValue<STVectorNodeIDs>(sfVecNodeIDs));
+}
+
+const STNodeID& STObject::getFieldNodeID () const
+{
+    static STNodeID const empty{};
+    return getFieldByConstRef <STNodeID> (sfNodeID, empty);
+}
+
 void
 STObject::set (std::unique_ptr<STBase> v)
 {
@@ -616,6 +634,11 @@ void STObject::setFieldH128 (SField const& field, uint128 const& v)
 void STObject::setFieldH256 (SField const& field, uint256 const& v)
 {
     setFieldUsingSetValue <STHash256> (field, v);
+}
+
+void STObject::setFieldVNodeIDs(STVectorNodeIDs const& v)
+{
+    setFieldUsingSetValue <STVectorNodeIDs> (sfVecNodeIDs, v);
 }
 
 void STObject::setFieldV256 (SField const& field, STVector256 const& v)

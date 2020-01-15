@@ -281,7 +281,7 @@ LedgerMaster::setValidLedger(
     }
 
     NetClock::time_point signTime;
-
+    //TODO filter out times using negativeUNL;
     if (! times.empty () && times.size() >= app_.validators ().quorum ())
     {
         // Calculate the sample median
@@ -892,9 +892,15 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
         if (seq < mValidLedgerSeq)
             return;
 
-        valCount =
-            app_.getValidations().numTrustedForLedger (hash);
-
+        //filter out validations from nUNL;
+        //TODO performance
+        auto validation_vec = app_.getValidations().getTrustedForLedger (hash);
+        auto bad_nodes = getValidatedLedger()->negativeUNL().value();
+        for(auto & p : validation_vec)
+        {
+            if(std::find(bad_nodes.begin(), bad_nodes.end(), p->getNodeID()) == bad_nodes.end())
+                ++valCount;
+        }
         if (valCount >= app_.validators ().quorum ())
         {
             std::lock_guard ml (m_mutex);
@@ -938,6 +944,7 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
     */
 std::size_t
 LedgerMaster::getNeededValidations ()
+//TODO check where is this used, and see if need to filter with negative UNL
 {
     return standalone_ ? 0 : app_.validators().quorum ();
 }
@@ -1007,7 +1014,7 @@ LedgerMaster::checkAccept (
 }
 
 /** Report that the consensus process built a particular ledger */
-void
+void//TODO understand
 LedgerMaster::consensusBuilt(
     std::shared_ptr<Ledger const> const& ledger,
     uint256 const& consensusHash,

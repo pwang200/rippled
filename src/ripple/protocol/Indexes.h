@@ -148,6 +148,16 @@ struct fees_t
 };
 static fees_t const fees {};
 
+/** The ledger negative UNL entry */
+struct negativeUNL_t
+{
+    explicit negativeUNL_t() = default;
+
+    // VFALCO This could maybe be constexpr
+    Keylet operator()() const;
+};
+static negativeUNL_t const negativeUNL {};
+
 /** The beginning of an order book */
 struct book_t
 {
