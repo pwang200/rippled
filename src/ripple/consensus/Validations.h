@@ -984,6 +984,7 @@ public:
     {
         std::vector<WrappedValidationType> res;
         std::lock_guard lock{mutex_};
+        //TODO need to store a flag of validator's negative UNL status???
         byLedger(
             lock,
             ledgerID,

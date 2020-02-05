@@ -1387,6 +1387,7 @@ Consensus<Adaptor>::updateOurPositions()
             else
             {
                 // proposal is still fresh
+                //TODO filter by negative UNL??
                 ++closeTimeVotes[asCloseTime(peerProp.closeTime())];
                 ++it;
             }
@@ -1555,6 +1556,7 @@ Consensus<Adaptor>::haveConsensus()
     auto ourPosition = result_->position.position();
 
     // Count number of agreements/disagreements with our position
+    //TODO filter by negative UNL
     for (auto const& [nodeId, peerPos] : currPeerPositions_)
     {
         Proposal_t const& peerProp = peerPos.proposal();

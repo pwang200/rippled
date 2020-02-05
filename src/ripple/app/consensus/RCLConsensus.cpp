@@ -832,6 +832,7 @@ RCLConsensus::Adaptor::validate(RCLCxLedger const& ledger,
         // Suggest fee changes and new features
         feeVote_->doValidation(ledger.ledger_, fees);
         amendments = app_.getAmendmentTable().doValidation (getEnabledAmendments(*ledger.ledger_));
+        //TODO move to negative UNL vote class
         app_.getValidations().measurement.getTrustedButUnreliableValidators(
                 ledger.seq(), badValidators);
     }

@@ -124,7 +124,9 @@ checkConsensus(
 
     if (currentAgreeTime <= parms.ledgerMIN_CONSENSUS)
         return ConsensusState::No;
-
+    //TODO what if prevProposers is only 80% of UNL???
+    //     currentProposers could be as low as 60%
+    //     checkConsensusReached will check if > 80% of 60%
     if (currentProposers < (prevProposers * 3 / 4))
     {
         // Less than 3/4 of the last ledger's proposers are present; don't
