@@ -36,6 +36,8 @@
 
 namespace ripple {
 
+constexpr unsigned int FLAG_LEDGER = 16;
+
 class Application;
 class Job;
 class TransactionMaster;

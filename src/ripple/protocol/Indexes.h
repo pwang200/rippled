@@ -153,7 +153,6 @@ struct negativeUNL_t
 {
     explicit negativeUNL_t() = default;
 
-    // VFALCO This could maybe be constexpr
     Keylet operator()() const;
 };
 static negativeUNL_t const negativeUNL {};

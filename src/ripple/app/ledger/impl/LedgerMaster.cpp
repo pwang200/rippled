@@ -895,12 +895,20 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
         //filter out validations from nUNL;
         //TODO performance
         auto validation_vec = app_.getValidations().getTrustedForLedger (hash);
-        auto bad_nodes = getValidatedLedger()->negativeUNL().value();
-        for(auto & p : validation_vec)
+        if(getValidatedLedger() != nullptr)
         {
-            if(std::find(bad_nodes.begin(), bad_nodes.end(), p->getNodeID()) == bad_nodes.end())
-                ++valCount;
+            auto bad_nodes = getValidatedLedger()->negativeUNL().value();
+            for(auto & p : validation_vec)
+            {
+                if(std::find(bad_nodes.begin(), bad_nodes.end(), p->getNodeID()) == bad_nodes.end())
+                    ++valCount;
+            }
         }
+        else
+        {
+            valCount = validation_vec.size();
+        }
+
         if (valCount >= app_.validators ().quorum ())
         {
             std::lock_guard ml (m_mutex);

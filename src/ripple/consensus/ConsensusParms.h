@@ -80,7 +80,7 @@ struct ConsensusParms
 
     //! The number of seconds we wait minimum to ensure participation
     std::chrono::milliseconds ledgerMIN_CONSENSUS =
-        std::chrono::milliseconds {1950};
+        std::chrono::milliseconds {950};//TODO
 
     /** The maximum amount of time to spend pausing for laggards.
      *

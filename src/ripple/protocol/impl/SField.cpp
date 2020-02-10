@@ -127,6 +127,8 @@ SF_U160 const sfTakerPaysCurrency (access, STI_HASH160, 1, "TakerPaysCurrency");
 SF_U160 const sfTakerPaysIssuer   (access, STI_HASH160, 2, "TakerPaysIssuer");
 SF_U160 const sfTakerGetsCurrency (access, STI_HASH160, 3, "TakerGetsCurrency");
 SF_U160 const sfTakerGetsIssuer   (access, STI_HASH160, 4, "TakerGetsIssuer");
+// NodeID
+SF_U160 const sfNUnlNodeID        (access, STI_HASH160, 1, "NUnlNodeID");
 
 // 256-bit (common)
 SF_U256 const sfLedgerHash      (access, STI_HASH256, 1, "LedgerHash");
@@ -206,9 +208,8 @@ SF_Vec256 const sfIndexes    (access, STI_VECTOR256, 1, "Indexes", SField::sMD_N
 SF_Vec256 const sfHashes     (access, STI_VECTOR256, 2, "Hashes");
 SF_Vec256 const sfAmendments (access, STI_VECTOR256, 3, "Amendments");
 
-// NodeID
-SF_NodeID const sfNodeID           (access, STI_NodeID, 1, "NodeID");
-SF_VecNodeIDs const sfVecNodeIDs   (access, STI_VECTORNodeIDs, 1, "VecNodeIDs");
+// vector of NodeIDs
+SF_VecNodeIDs const sfVecNUnlNodeIDs   (access, STI_VECTORNodeIDs, 1, "VecNUnlNodeIDs");
 
 // inner object
 // OBJECT/1 is reserved for end of object

@@ -25,6 +25,7 @@
 #include <ripple/basics/chrono.h>
 #include <ripple/beast/container/aged_container_utility.h>
 #include <ripple/beast/container/aged_unordered_map.h>
+#include <ripple/app/ledger/Ledger.h>
 #include <ripple/consensus/LedgerTrie.h>
 #include <ripple/protocol/PublicKey.h>
 #include <boost/optional.hpp>
@@ -327,23 +328,29 @@ class Validations
 public:
     class ReliabilityMeasurement // TODO find a better place
     {
-        static const unsigned int LedgersToKeep = 256;
+        static const unsigned int LedgersToKeep = FLAG_LEDGER;
         constexpr static float LowThreshold  = 0.75;
-        constexpr static float HighThreshold = 0.99;
+        constexpr static float HighThreshold = 0.95;
         //TODO check Seq numbers are increasing, and continuous
         //TODO check validations from the same node are added in order???
+        //TODO lock
+        //HighThreshold floor instead of ceiling
         hash_map<NodeID, std::queue<Seq>> records_;
 
         hash_map<NodeID, Seq> trusted;
         hash_set<NodeID> negativeUNL;
 
     public:
-        void setTrustedValidators(Seq const& current_seq, std::vector<NodeID> const& validators)
+        void setTrustedValidators(Seq const& current_seq, std::vector<NodeID> const& validators, beast::Journal const & j)
         {
+            JLOG (j.debug()) << "N-UNL: ReliabilityMeasurement::setTrustedValidators, size="
+                                      << validators.size();
             hash_set<NodeID> temp(validators.begin(), validators.end());
             auto i = trusted.begin();
             while (i != trusted.end())
             {
+//                JLOG (j.debug()) << "N-UNL: ReliabilityMeasurement::setTrustedValidators, NodeID "
+//                                          << i->first;
                 if(temp.find(i->first) == temp.end())
                 {
                     //TODO safe to purge?
@@ -352,13 +359,17 @@ public:
                 else
                 {
                     temp.erase(i->first);
+                    ++i;
                 }
             }
             for(auto & i : temp)
             {
                 assert(trusted.find(i) == trusted.end());
                 trusted[i] = current_seq;
+                JLOG (j.debug()) << "N-UNL: ReliabilityMeasurement::setTrustedValidators, set "
+                                 << i << " starting at " << current_seq;
             }
+
         }
 
         void setNegativeUNL(std::vector<NodeID> const& negativeUNL)
@@ -369,22 +380,33 @@ public:
         void validationReceived(NodeID const& nodeID, Seq const& seq)
         {
             auto & q = records_[nodeID];
-            assert(q.back() < seq);
+            assert(q.empty() || q.back() < seq);
             q.push(seq);
             if(seq - q.front() >= Seq(LedgersToKeep))
                 q.pop();
         }
 
         // also purge records_
-        void getTrustedButUnreliableValidators(Seq const& current, std::vector<NodeID> & badNodes)
+        void getTrustedButUnreliableValidators(Seq const& current,
+                std::vector<NodeID> & badNodes, beast::Journal const & j)
         {
+            JLOG (j.debug()) << "N-UNL: ReliabilityMeasurement::"
+                                "getTrustedButUnreliableValidators seq " << current;
             for(auto & n : trusted)
             {
                 auto & nID = n.first;
                 auto & starting_point = n.second;
                 if(current - starting_point < Seq(LedgersToKeep))
+                {
                     //not enough history
+                    JLOG (j.debug()) << "N-UNL: ReliabilityMeasurement::"
+                                "getTrustedButUnreliableValidators "
+                                "not enough history nodeID "
+                                 << nID << " current " << current
+                                 << " starting_point " << starting_point
+                                 << " LedgersToKeep " << LedgersToKeep;
                     continue;
+                }
                 auto & q = records_[nID];
                 while (q.front() <= current - Seq(LedgersToKeep))
                     q.pop();
@@ -393,6 +415,10 @@ public:
                         LowThreshold : HighThreshold) * LedgersToKeep);
                 if(q.size() < threshold)
                     badNodes.push_back(nID);
+                JLOG (j.debug()) << "N-UNL: ReliabilityMeasurement::"
+                                    "getTrustedButUnreliableValidators nodeID "
+                                 << nID << " # of validations " << q.size()
+                                 << " threshold " << threshold;
             }
         }
     };
@@ -656,6 +682,7 @@ public:
     ValStatus
     add(NodeID const& nodeID, Validation const& val)
     {
+        JLOG (debugLog().debug()) << "N-UNL: Validations::add";
         if (!isCurrent(parms_, adaptor_.now(), val.signTime(), val.seenTime()))
             return ValStatus::stale;
 
@@ -681,7 +708,13 @@ public:
                     std::pair<Seq, ID> old(oldVal.seq(), oldVal.ledgerID());
                     it->second = val;
                     if (val.trusted())
+                    {
                         updateTrie(lock, nodeID, val, old);
+                        JLOG (debugLog().debug()) << "N-UNL: calling measurement.validationReceived,"
+                                                     " inserted == false";
+                        measurement.validationReceived(nodeID, val.seq());
+
+                    }
                 }
                 else
                     return ValStatus::stale;
@@ -689,6 +722,8 @@ public:
             else if (val.trusted())
             {
                 updateTrie(lock, nodeID, val, boost::none);
+                JLOG (debugLog().debug()) << "N-UNL: calling measurement.validationReceived,"
+                                             " inserted == true";
                 measurement.validationReceived(nodeID, val.seq());
             }
         }

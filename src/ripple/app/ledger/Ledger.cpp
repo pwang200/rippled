@@ -292,6 +292,10 @@ Ledger::Ledger (Ledger const& prevLedger,
         info_.closeTime =
             prevLedger.info_.closeTime + info_.closeTimeResolution;
     }
+    if(info_.seq % FLAG_LEDGER == 1)
+    {
+        stateMap_->delItem(keylet::negativeUNL().key);
+    }
 }
 
 Ledger::Ledger (
@@ -599,8 +603,8 @@ Ledger::setup (Config const& config)
         //TODO is here the right place to add negativeUNL to the ledger object??
         if (auto const sle = read(keylet::negativeUNL()))
         {
-            if (sle->getFieldIndex (sfVecNodeIDs) != -1)
-                nUnl_ = sle->getFieldVNodeIDs();
+            if (sle->getFieldIndex (sfVecNUnlNodeIDs) != -1)
+                nUnl_ = sle->getFieldVNodeIDs(sfVecNUnlNodeIDs);
         }
     }
     catch (SHAMapMissingNode &)

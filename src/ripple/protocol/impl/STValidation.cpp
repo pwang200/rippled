@@ -82,7 +82,7 @@ STValidation::STValidation(
 
     if (!badValidators.empty())
     {
-        setFieldVNodeIDs(STVectorNodeIDs(sfVecNodeIDs, badValidators));
+        setFieldVNodeIDs(sfVecNUnlNodeIDs, STVectorNodeIDs(sfVecNUnlNodeIDs, badValidators));
     }
 
     setFlag(vfFullyCanonicalSig);
@@ -176,7 +176,7 @@ SOTemplate const& STValidation::getFormat ()
             { sfBaseFee,          soeOPTIONAL },
             { sfReserveBase,      soeOPTIONAL },
             { sfReserveIncrement, soeOPTIONAL },
-            { sfVecNodeIDs,       soeOPTIONAL },
+            { sfVecNUnlNodeIDs,   soeOPTIONAL },
             { sfSigningTime,      soeREQUIRED },
             { sfSigningPubKey,    soeREQUIRED },
             { sfSignature,        soeOPTIONAL },

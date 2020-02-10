@@ -311,19 +311,32 @@ RCLConsensus::Adaptor::onClose(
 
     // Add pseudo-transactions to the set
     if ((app_.config().standalone() || (proposing && !wrongLCL)) &&
-        ((prevLedger->info().seq % 256) == 0))
+        ((prevLedger->info().seq % FLAG_LEDGER) == 0))
     {
         // previous ledger was flag ledger, add pseudo-transactions
         // filter out validations from nUNL;
+        JLOG(j_.debug()) << "N-UNL: Previous ledger "
+                         << prevLedger->info().seq
+                         << " was flag ledger, adding pseudo-transactions";
         auto const unfiltered =
             app_.getValidations().getTrustedForLedger (
                 prevLedger->info().parentHash);
         std::vector<STValidation::pointer> validations;
-        auto bad_nodes = ledgerMaster_.getValidatedLedger()->negativeUNL().value();
-        for(auto & p : unfiltered)
+        if(ledgerMaster_.getValidatedLedger() != nullptr)
         {
-            if(std::find(bad_nodes.begin(), bad_nodes.end(), p->getNodeID()) == bad_nodes.end())
-                validations.push_back(p);
+            auto bad_nodes = ledgerMaster_.getValidatedLedger()->negativeUNL().value();
+            for(auto & p : unfiltered)
+            {
+                auto f = std::find(bad_nodes.begin(), bad_nodes.end(), p->getNodeID());
+                if( f == bad_nodes.end())
+                    validations.push_back(p);
+                else
+                    JLOG(j_.debug()) << "N-UNL: filtered validation from " << *f;
+            }
+        }
+        else
+        {
+            validations = unfiltered;
         }
 
         auto quorum = app_.validators ().quorum ();
@@ -341,15 +354,21 @@ RCLConsensus::Adaptor::onClose(
                 {
                     if (val->isTrusted ())
                     {
-                        if (val->isFieldPresent (sfVecNodeIDs))
+                        if (val->isFieldPresent (sfVecNUnlNodeIDs))
                         {
-                            for ( auto const& nid : val->getFieldVNodeIDs())
+                            for ( auto const& nid : val->getFieldVNodeIDs(sfVecNUnlNodeIDs))
                             {
                                 ++NegativeUNLVotes[nid];
                             }
                         }
                     }
                 }
+                JLOG(j_.debug()) << "N-UNL: vote details: " << NegativeUNLVotes.size() << " candidates";
+                for(auto & v : NegativeUNLVotes)
+                {
+                    JLOG(j_.debug()) << "N-UNL: NodeID " << v.first << " #votes: " << v.second;
+                }
+
                 // 2. pick bad validators. i.e. vote >= quorum
                 // 3. create transactions and add them to our position
                 // NOT-TODO one Tx for all bad validators
@@ -361,19 +380,18 @@ RCLConsensus::Adaptor::onClose(
                     {
                         auto const& nid = node.first;
                         JLOG(j_.warn()) <<
-                            "We are voting for an unreliable validator: " <<
+                            "N-UNL: We are voting for an unreliable validator: " <<
                             nid;
 
                         STTx nunlTx (ttNEGATIVE_UNL,
                             [seq, nid](auto& obj)
                             {
-                                obj[sfLedgerSequence] = seq;//TODO if needed??
-                                obj[sfNodeID] = nid;
+                                obj.setFieldH160 (sfNUnlNodeID, nid);
                             });
 
                         uint256 txID = nunlTx.getTransactionID ();
 
-                        JLOG(j_.warn()) << "NegativeUNL: " << txID;
+                        JLOG(j_.warn()) << "N-UNL: txID: " << txID;
 
                         Serializer s;
                         nunlTx.add (s);
@@ -382,13 +400,15 @@ RCLConsensus::Adaptor::onClose(
 
                         if (!initialSet->addGiveItem (tItem, true, false))
                         {
-                            JLOG(j_.warn()) <<
-                                "Ledger already had fee change";
+                            JLOG(j_.warn()) << "N-UNL: add tx failed";
                         }
                     }
                 }
             }
         }
+        else
+            JLOG(j_.debug()) << "N-UNL: validations.size() < quorum {"
+                << validations.size() << " < " << quorum << "}";
     }
 
     // Now we need an immutable snapshot
@@ -827,14 +847,17 @@ RCLConsensus::Adaptor::validate(RCLCxLedger const& ledger,
         fees.loadFee = fee;
 
     // next ledger is flag ledger
-    if (((ledger.seq() + 1) % 256) == 0)
+    if (((ledger.seq() + 1) % FLAG_LEDGER) == 0)
     {
         // Suggest fee changes and new features
         feeVote_->doValidation(ledger.ledger_, fees);
         amendments = app_.getAmendmentTable().doValidation (getEnabledAmendments(*ledger.ledger_));
         //TODO move to negative UNL vote class
         app_.getValidations().measurement.getTrustedButUnreliableValidators(
-                ledger.seq(), badValidators);
+                ledger.seq(), badValidators, j_);
+        JLOG(j_.debug()) << "N-UNL: RCLConsensus::Adaptor::validate at seq "
+                         << ledger.seq() << " ledger. # candidates: "
+                         << badValidators.size();
     }
 
     auto v = std::make_shared<STValidation>(

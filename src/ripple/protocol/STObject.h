@@ -424,9 +424,8 @@ public:
     STPathSet const& getFieldPathSet (SField const& field) const;
     const STVector256& getFieldV256 (SField const& field) const;
     const STArray& getFieldArray (SField const& field) const;
-    const STVectorNodeIDs& getFieldVNodeIDs () const;
-    STVectorNodeIDs getFieldVNodeIDs ();
-    const STNodeID& getFieldNodeID () const;
+    const STVectorNodeIDs& getFieldVNodeIDs (SField const& field) const;
+    STVectorNodeIDs getFieldVNodeIDs (SField const& field);
 
     /** Return the value of a field.
 
@@ -486,7 +485,7 @@ public:
 
     void setFieldAmount (SField const& field, STAmount const&);
     void setFieldPathSet (SField const& field, STPathSet const&);
-    void setFieldVNodeIDs (STVectorNodeIDs const& v);
+    void setFieldVNodeIDs (SField const& field, STVectorNodeIDs const& v);
     void setFieldV256 (SField const& field, STVector256 const& v);
     void setFieldArray (SField const& field, STArray const& v);
 

@@ -508,6 +508,7 @@ public:
 
     void setNegativeUNL(STVectorNodeIDs const& nUnl)
     {
+        negativeList_.clear();
         for(auto x : nUnl)
         {
             negativeList_.insert(x);

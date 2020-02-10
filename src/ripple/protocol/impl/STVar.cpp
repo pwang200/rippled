@@ -128,6 +128,7 @@ STVar::STVar (SerialIter& sit, SField const& name, int depth)
     case STI_PATHSET:       construct<STPathSet>(sit, name); return;
     case STI_OBJECT:        construct<STObject>(sit, name, depth); return;
     case STI_ARRAY:         construct<STArray>(sit, name, depth); return;
+    case STI_VECTORNodeIDs: construct<STVectorNodeIDs>(sit, name); return;
     default:
         Throw<std::runtime_error> ("Unknown object type");
     }
@@ -153,6 +154,7 @@ STVar::STVar (SerializedTypeID id, SField const& name)
     case STI_PATHSET:       construct<STPathSet>(name); return;
     case STI_OBJECT:        construct<STObject>(name); return;
     case STI_ARRAY:         construct<STArray>(name); return;
+    case STI_VECTORNodeIDs: construct<STVectorNodeIDs>(name); return;
     default:
         Throw<std::runtime_error> ("Unknown object type");
     }

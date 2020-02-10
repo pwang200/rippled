@@ -246,17 +246,20 @@ Change::applyNegativeUNL()
 
     if (!nUnlObject)
     {
+        JLOG(j_.debug()) << "N-UNL: applyNegativeUNL new nUnlObject";
         nUnlObject = std::make_shared<SLE>(k);
         view().insert(nUnlObject);
     }
 
     //TODO performance??
-    STVectorNodeIDs vec = nUnlObject->getFieldVNodeIDs();
-    vec.push_back(ctx_.tx.getFieldNodeID());
-    nUnlObject->setFieldVNodeIDs(vec);
+    STVectorNodeIDs vec = nUnlObject->getFieldVNodeIDs(sfVecNUnlNodeIDs);
+    NodeID nid(ctx_.tx.getFieldH160(sfNUnlNodeID));
+    vec.push_back(nid);
+    nUnlObject->setFieldVNodeIDs(sfVecNUnlNodeIDs, vec);
     view().update (nUnlObject);
 
-    JLOG(j_.warn()) << "applyNegativeUNL done";
+    JLOG(j_.debug()) << "N-UNL: applyNegativeUNL, NodeID " << nid
+                << " vec size=" << vec.size();
     return tesSUCCESS;
 }
 }

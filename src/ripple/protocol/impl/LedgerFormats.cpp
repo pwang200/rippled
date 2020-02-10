@@ -214,7 +214,7 @@ LedgerFormats::LedgerFormats ()
 
     add (jss::NegativeUNL, ltNEGATIVE_UNL,
         {
-            { sfVecNodeIDs,          soeOPTIONAL },
+            { sfVecNUnlNodeIDs,      soeOPTIONAL },
         },
         commonFields);
 }

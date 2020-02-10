@@ -144,8 +144,7 @@ TxFormats::TxFormats ()
 
     add (jss::SetNegativeUNL, ttNEGATIVE_UNL,
         {
-            { sfLedgerSequence,      soeOPTIONAL },
-            { sfNodeID,              soeREQUIRED },
+            { sfNUnlNodeID,          soeREQUIRED },
         },
         commonFields);
 

@@ -210,7 +210,7 @@ handleNewValidation(Application& app,
     }
     else
     {
-        JLOG(j.debug()) << "Val for " << hash << " from "
+        JLOG(j.debug()) << "N-UNL: Val for " << hash << " from "
                     << toBase58(TokenType::NodePublic, signingKey)
                     << " not added UNlisted";
     }

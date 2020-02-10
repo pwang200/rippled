@@ -1580,8 +1580,14 @@ bool NetworkOPsImp::beginConsensus (uint256 const& networkClosed)
 
     {
         //TODO find a better way/place to set the negative UNL
-        app_.validators().setNegativeUNL(
-                m_ledgerMaster.getValidatedLedger()->negativeUNL());
+        auto const & validatedLedger = m_ledgerMaster.getValidatedLedger();
+        if(validatedLedger != nullptr)
+        {
+            JLOG(m_journal.debug()) << "N-UNL: beginConsensus, setNegativeUNL,"
+                                       << " from ledger seq=" << validatedLedger->seq()
+                                       << " negativeUNL size=" << validatedLedger->negativeUNL().size();
+            app_.validators().setNegativeUNL(validatedLedger->negativeUNL());
+        }
     }
     TrustChanges const changes = app_.validators().updateTrusted(
         app_.getValidations().getCurrentNodeIDs());
@@ -1595,9 +1601,10 @@ bool NetworkOPsImp::beginConsensus (uint256 const& networkClosed)
             trustedNodeIDs.push_back(calcNodeID(k));
         }
         app_.getValidations().measurement.setTrustedValidators(
-                prevLedger->seq()+1, trustedNodeIDs);//TODO need +1?
-        app_.getValidations().measurement.setNegativeUNL(
-                m_ledgerMaster.getValidatedLedger()->negativeUNL().value());
+                prevLedger->seq()+1, trustedNodeIDs, m_journal);//TODO need +1?
+        if(m_ledgerMaster.getValidatedLedger() != nullptr)
+            app_.getValidations().measurement.setNegativeUNL(
+                    m_ledgerMaster.getValidatedLedger()->negativeUNL().value());
     }
 
     if (!changes.added.empty() || !changes.removed.empty())

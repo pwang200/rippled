@@ -895,7 +895,9 @@ ValidatorList::calculateQuorum (
             << quorum
             << " as specified in the command line";
     }
-
+    JLOG (j_.debug()) << "N-UNL: calculateQuorum, quorum=" << quorum
+                << " trusted_reliable=" << trusted_reliable
+                << " trusted_total=" << trusted_total;
     return quorum;
 }
 
