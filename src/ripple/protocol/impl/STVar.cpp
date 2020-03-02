@@ -122,6 +122,7 @@ STVar::STVar (SerialIter& sit, SField const& name, int depth)
     case STI_HASH128:       construct<STHash128>(sit, name); return;
     case STI_HASH160:       construct<STHash160>(sit, name); return;
     case STI_HASH256:       construct<STHash256>(sit, name); return;
+    case STI_VECTOR160:     construct<STVector160>(sit, name); return;
     case STI_VECTOR256:     construct<STVector256>(sit, name); return;
     case STI_VL:            construct<STBlob>(sit, name); return;
     case STI_ACCOUNT:       construct<STAccount>(sit, name); return;
@@ -147,6 +148,7 @@ STVar::STVar (SerializedTypeID id, SField const& name)
     case STI_HASH128:       construct<STHash128>(name); return;
     case STI_HASH160:       construct<STHash160>(name); return;
     case STI_HASH256:       construct<STHash256>(name); return;
+    case STI_VECTOR160:     construct<STVector160>(name); return;
     case STI_VECTOR256:     construct<STVector256>(name); return;
     case STI_VL:            construct<STBlob>(name); return;
     case STI_ACCOUNT:       construct<STAccount>(name); return;

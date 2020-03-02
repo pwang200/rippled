@@ -946,10 +946,7 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
         if (seq < mValidLedgerSeq)
             return;
 
-        valCount =
-            app_.getValidations().numTrustedForLedger (hash);
-
-        if (valCount >= app_.validators ().quorum ())
+        if(haveEnoughValidations(hash))
         {
             std::lock_guard ml (m_mutex);
             if (seq > mLastValidLedger.second)
@@ -986,14 +983,33 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
 }
 
 /**
-    * Determines how many validations are needed to fully validate a ledger
-    *
-    * @return Number of validations needed
-    */
-std::size_t
-LedgerMaster::getNeededValidations ()
+ * Determines if have enough validations to fully validate a ledger
+ *
+ * @return fully validate or not
+*/
+bool
+LedgerMaster::haveEnoughValidations (LedgerHash const& h)
 {
-    return standalone_ ? 0 : app_.validators().quorum ();
+    if( standalone_)
+        return true;
+
+    auto const tvv = app_.getValidations().getTrustedForLedger(h);
+    auto const nUnl = app_.validators().getNegativeUNL();
+    unsigned int tvc = 0;
+    for(auto const& v : tvv)
+    {
+        if(nUnl.find(v->getNodeID()) == nUnl.end())
+            ++tvc;
+    }
+
+    auto quorum = app_.validators().quorum ();
+    auto fully = tvc >= quorum;
+    JLOG (m_journal.trace()) << h
+                             << (fully? " have enough  validations":
+                                 " do not have enough validations")
+                             << " need=" << quorum
+                             << " have=" << tvc;
+    return fully;
 }
 
 void
@@ -1012,19 +1028,11 @@ LedgerMaster::checkAccept (
     if (ledger->info().seq <= mValidLedgerSeq)
         return;
 
-    auto const minVal = getNeededValidations();
-    auto const tvc = app_.getValidations().numTrustedForLedger(ledger->info().hash);
-    if (tvc < minVal) // nothing we can do
-    {
-        JLOG (m_journal.trace()) <<
-            "Only " << tvc <<
-            " validations for " << ledger->info().hash;
+    if( !haveEnoughValidations(ledger->info().hash))
         return;
-    }
 
     JLOG (m_journal.info())
-        << "Advancing accepted ledger to " << ledger->info().seq
-        << " with >= " << minVal << " validations";
+        << "Advancing accepted ledger to " << ledger->info().seq;
 
     ledger->setValidated();
     ledger->setFull();
@@ -1124,14 +1132,18 @@ LedgerMaster::consensusBuilt(
     };
 
     // Count the number of current, trusted validations
+    auto const nUnl = app_.validators().getNegativeUNL();
     hash_map <uint256, valSeq> count;
     for (auto const& v : val)
     {
-        valSeq& vs = count[v->getLedgerHash()];
-        vs.mergeValidation (v->getFieldU32 (sfLedgerSequence));
+        if(nUnl.find(v->getNodeID()) == nUnl.end())
+        {
+            valSeq& vs = count[v->getLedgerHash()];
+            vs.mergeValidation (v->getFieldU32 (sfLedgerSequence));
+        }
     }
 
-    auto const neededValidations = getNeededValidations ();
+    auto const neededValidations = app_.validators().quorum();
     auto maxSeq = mValidLedgerSeq.load();
     auto maxLedger = ledger->info().hash;
 

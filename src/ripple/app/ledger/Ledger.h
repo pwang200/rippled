@@ -36,6 +36,8 @@
 
 namespace ripple {
 
+constexpr unsigned int FLAG_LEDGER = 16;
+
 class Application;
 class Job;
 class TransactionMaster;
@@ -316,6 +318,61 @@ public:
 
     void invariants() const;
     void unshare() const;
+
+    hash_set<NodeID> negativeUNL() const
+    {
+        hash_set<NodeID> nUnl;
+        if (auto sle = read(keylet::negativeUNL()))
+        {
+            auto const& oldNUnl = sle->getFieldV160(sfNegativeUNL);
+            for (auto const& n : oldNUnl)
+            {
+                NodeID nid(n);
+                nUnl.insert(nid);
+            }
+        }
+        return nUnl;
+    }
+
+    std::optional<NodeID> negativeUNLToAdd() const
+    {
+        if (auto sle = read(keylet::negativeUNL()))
+        {
+            if(sle->isFieldPresent (sfNegativeUNLToAdd))
+            {
+                return NodeID(sle->getFieldH160(sfNegativeUNLToAdd));
+            }
+        }
+        return std::nullopt;
+    }
+    std::optional<NodeID> negativeUNLToRemove() const
+    {
+        if (auto sle = read(keylet::negativeUNL()))
+        {
+            if(sle->isFieldPresent (sfNegativeUNLToRemove))
+            {
+                return NodeID(sle->getFieldH160(sfNegativeUNLToRemove));
+            }
+        }
+        return std::nullopt;
+    }
+
+//    void updateNegativeUNLNow()
+//    {
+//        nUnl_.updateList();
+//    }
+//
+//    void updateNegativeUNLLater(std::optional<PublicKey> const &add,
+//            std::optional<PublicKey> const &remove)
+//    {
+//        assert(add || remove);
+//        if(add)
+//            nUnl_.updateToAdd(*add);
+//        if(remove)
+//            nUnl_.updateToRemove(*remove);
+//    }
+//    void updateNegativeUNLToDo();
+
 private:
     class sles_iter_impl;
     class txs_iter_impl;

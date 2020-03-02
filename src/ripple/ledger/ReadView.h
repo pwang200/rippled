@@ -73,6 +73,45 @@ struct Fees
     }
 };
 
+//struct NegativeUNL
+//{
+//    hash_set<NodeID> negativeValidators;
+//    std::optional<NodeID> toAdd;
+//    std::optional<NodeID> toRemove;
+//
+//    explicit NegativeUNL() = default;
+//    NegativeUNL (NegativeUNL const&) = default;
+//    NegativeUNL& operator= (NegativeUNL const&) = default;
+//
+//    void updateToAdd(NodeID const &add)
+//    {
+//        assert(!toAdd && !toRemove);
+//        if(negativeValidators.find(add) == negativeValidators.end())
+//            toAdd = add;
+//    }
+//
+//    void updateToRemove(NodeID const &remove)
+//    {
+//        assert(!toAdd && !toRemove);
+//        if(negativeValidators.find(remove) != negativeValidators.end())
+//            toRemove = remove;
+//    }
+//
+//    void updateList()
+//    {
+//        if(toAdd)
+//        {
+//            negativeValidators.insert(*toAdd);
+//            toAdd.reset();
+//        }
+//        if(toRemove)
+//        {
+//            negativeValidators.erase(*toRemove);
+//            toRemove.reset();
+//        }
+//    }
+//};
+
 //------------------------------------------------------------------------------
 
 /** Information about the notional ledger backing the view. */

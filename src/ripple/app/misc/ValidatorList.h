@@ -511,6 +511,16 @@ public:
         return {quorum_, trustedSigningKeys_};
     }
 
+    hash_set<NodeID> getNegativeUNL()
+    {
+        std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        return negativeList_;
+    }
+    void setNegativeUNL(hash_set<NodeID> const& nUnl)
+    {
+        std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        negativeList_ = nUnl;
+    }
 
 private:
     /** Get the filename used for caching UNLs
@@ -523,6 +533,8 @@ private:
     void
     CacheValidatorFile(PublicKey const& pubKey,
         PublisherList const& publisher);
+
+    hash_set<NodeID> negativeList_;
 
     /** Check response for trusted valid published list
 
@@ -561,7 +573,7 @@ private:
         recently received validations */
     std::size_t
     calculateQuorum (
-        std::size_t trusted, std::size_t seen);
+        std::size_t trusted_total, std::size_t trusted_reliable, std::size_t seen_reliable);
 };
 } // ripple
 

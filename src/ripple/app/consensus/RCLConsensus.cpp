@@ -183,7 +183,7 @@ RCLConsensus::Adaptor::propose(RCLCxPeerPos::Proposal const& proposal)
     prop.set_currenttxhash(
         proposal.position().begin(), proposal.position().size());
     prop.set_previousledger(
-        proposal.prevLedger().begin(), proposal.position().size());
+        proposal.prevLedger().begin(), proposal.prevLedger().size());
     prop.set_proposeseq(proposal.proposeSeq());
     prop.set_closetime(proposal.closeTime().time_since_epoch().count());
 
@@ -310,19 +310,180 @@ RCLConsensus::Adaptor::onClose(
     }
 
     // Add pseudo-transactions to the set
-    if ((app_.config().standalone() || (proposing && !wrongLCL)) &&
-        ((prevLedger->info().seq % 256) == 0))
+    if (app_.config().standalone() || (proposing && !wrongLCL))
     {
-        // previous ledger was flag ledger, add pseudo-transactions
-        auto const validations =
-            app_.getValidations().getTrustedForLedger (
-                prevLedger->info().parentHash);
-
-        if (validations.size() >= app_.validators ().quorum ())
+        auto seq = prevLedger->info().seq + 1;
+        if (((seq - 1) % FLAG_LEDGER) == 0)
         {
-            feeVote_->doVoting(prevLedger, validations, initialSet);
-            app_.getAmendmentTable().doVoting(
-                prevLedger, validations, initialSet);
+            // previous ledger was flag ledger, add pseudo-transactions
+            auto const validations =
+                    app_.getValidations().getTrustedForLedger(
+                            prevLedger->info().parentHash);
+
+            if (validations.size() >= app_.validators().quorum())
+            {
+                feeVote_->doVoting(prevLedger, validations, initialSet);
+                app_.getAmendmentTable().doVoting(
+                        prevLedger, validations, initialSet);
+            }
+        }
+        else if ((seq % FLAG_LEDGER) == 0)
+        {
+            JLOG(j_.debug()) << "N-UNL: ledger " << seq
+                             << " is a flag ledger, try to add n-unl pseudo Tx";
+            /*
+             * Figure out the negative UNL Tx candidates
+             *
+             * Prepare:
+             * 1. create an empty validation agreement score table,
+             *    one row per validator in the UNL
+             * 2. for FLAG_LEDGER number of ledgers, starting at the prevLedger:
+             *    -- get the NodeIDs of validators agreed with us
+             *    -- increase their score by one
+             * 3. find the highest and lowest scores and use the numerical value
+             *    of NodeID xor prevLedger_hash as the tie breaker
+             *
+             * The candidate to remove from the negative UNL:
+             * -- on the negative UNL (including the to-be-added one) and
+             *    has the highest score, the score must >= high-water mark
+             * -- if not found, then find one on the negative UNL but not
+             *    on the UNL. If multiple are found, choose the one with
+             *    the smallest numerical value of NodeID xor prevLedger_hash
+             * -- if still not found, then no negative UNL Tx for removing
+             *
+             * The candidate to add to the negative UNL:
+             * -- not on the negative UNL (including the to-be-added one) and
+             *    has the lowest score that < low-water mark
+             * -- if still not found, then no negative UNL Tx for adding
+             */
+
+            auto [_, trustedKeys] = app_.validators().getQuorumKeys();
+            (void)_;
+            hash_map<NodeID, unsigned int> scoreTable;
+            for (auto & k : trustedKeys)
+            {
+                scoreTable[calcNodeID(k)] = 0;
+            }
+            auto ledgerHash = prevLedger->info().hash;
+            int i = 0;
+            for(; i < FLAG_LEDGER; ++i)
+            {
+                auto nids = app_.getValidations().getValidatorsForLedger(ledgerHash);
+                for (auto const& nid : nids)
+                {
+                    if(scoreTable.find(nid) != scoreTable.end())
+                        ++scoreTable[nid];
+                }
+                if (i + 1 < FLAG_LEDGER)
+                {
+                    auto const l = ledgerMaster_.getLedgerByHash(ledgerHash);
+                    if(l){
+                        ledgerHash = l->info().parentHash;
+                    }else{
+                        break;
+                    }
+                }
+            }
+
+            //TODO
+            unsigned int lowWaterMark = FLAG_LEDGER*0.5;
+            unsigned int highWaterMark = FLAG_LEDGER*0.8;
+
+            // have enough history
+            if(i == FLAG_LEDGER)
+            {
+                std::vector<NodeID> addCandidates;
+                std::vector<NodeID> removeCandidates;
+                hash_set<NodeID> nextNegativeUNL = prevLedger->negativeUNL();//TODO assign
+                auto negativeUNLToAdd = prevLedger->negativeUNLToAdd();
+                auto negativeUNLToRemove = prevLedger->negativeUNLToRemove();
+                if(negativeUNLToAdd)
+                    nextNegativeUNL.insert(*negativeUNLToAdd);
+                if(negativeUNLToRemove)
+                    nextNegativeUNL.erase(*negativeUNLToRemove);
+                for(auto it = scoreTable.cbegin(); it != scoreTable.cend(); ++it)
+                {
+                    if(it->second < lowWaterMark &&
+                       nextNegativeUNL.find(it->first) == nextNegativeUNL.end() )
+                    {
+                        addCandidates.push_back(it->first);
+                    }
+                    if(it->second > highWaterMark &&
+                       nextNegativeUNL.find(it->first) != nextNegativeUNL.end() )
+                    {
+                        removeCandidates.push_back(it->first);
+                    }
+                }
+
+                auto addTx = [&](NodeID const& nid, bool adding)
+                {
+                    STTx nunlTx (ttNEGATIVE_UNL,
+                                 [&](auto& obj)
+                                 {
+                                     obj.setFieldU8(sfNegativeUNLTxAdd, adding? 1 : 0);
+                                     obj.setFieldU32(sfLedgerSequence, seq);
+                                     obj.setFieldH160(sfNegativeUNLTxNodeID, nid);
+                                 });
+
+                    uint256 txID = nunlTx.getTransactionID ();
+                    JLOG(j_.debug()) << "N-UNL: txID: " << txID;
+                    Serializer s;
+                    nunlTx.add (s);
+                    auto tItem = std::make_shared<SHAMapItem> (txID, s.peekData ());
+                    if (!initialSet->addGiveItem (tItem, true, false))
+                    {
+                        JLOG(j_.warn()) << "N-UNL: add tx failed";
+                    }
+                };
+
+                NodeID randomPad;
+                assert(randomPad.size() <= prevLedger->info().hash.size()); //TODO
+                memcpy(randomPad.data(), prevLedger->info().hash.data(), randomPad.size());
+
+                auto findAndAddTx = [&](bool adding)
+                {
+                    auto & candidates = adding? addCandidates : removeCandidates;
+                    NodeID txNodeID = candidates[0];
+                    for(int j = 1; j < addCandidates.size(); ++j)
+                    {
+                        if( (addCandidates[j] ^ randomPad) < (txNodeID ^ randomPad))
+                        {
+                            txNodeID = addCandidates[j];
+                        }
+                    }
+                    JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                     << (adding? "toAdd: ":"toRemove: ") << txNodeID;
+                    addTx(txNodeID, adding);
+                };
+
+                if(addCandidates.size() > 0)
+                {
+                    findAndAddTx(true);
+                }
+
+                if(removeCandidates.size() > 0)
+                {
+                    findAndAddTx(false);
+                }
+                else
+                {
+                    for(auto & n : nextNegativeUNL)
+                    {
+                        if(scoreTable.find(n) == scoreTable.end())
+                        {
+                            removeCandidates.push_back(n);
+                        }
+                    }
+                    if(removeCandidates.size() > 0)
+                    {
+                        findAndAddTx(false);
+                    };
+                }
+            }
+            else{
+                JLOG(j_.debug()) << "N-UNL: Adaptor::onClose not enough history. "
+                                    " Can trace back only " << i + 1 << " ledgers.";
+            }
         }
     }
 
@@ -761,7 +922,7 @@ RCLConsensus::Adaptor::validate(RCLCxLedger const& ledger,
         fees.loadFee = fee;
 
     // next ledger is flag ledger
-    if (((ledger.seq() + 1) % 256) == 0)
+    if (((ledger.seq() + 1) % FLAG_LEDGER) == 0)
     {
         // Suggest fee changes and new features
         feeVote_->doValidation(ledger.ledger_, fees);

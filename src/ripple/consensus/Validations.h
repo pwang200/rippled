@@ -25,12 +25,14 @@
 #include <ripple/basics/chrono.h>
 #include <ripple/beast/container/aged_container_utility.h>
 #include <ripple/beast/container/aged_unordered_map.h>
+#include <ripple/app/ledger/Ledger.h>
 #include <ripple/consensus/LedgerTrie.h>
 #include <ripple/protocol/PublicKey.h>
 #include <boost/optional.hpp>
 #include <mutex>
 #include <utility>
 #include <vector>
+#include <queue>
 
 namespace ripple {
 
@@ -916,6 +918,22 @@ public:
                     res.emplace_back(v.unwrap());
             });
 
+        return res;
+    }
+
+    std::vector<NodeID>
+    getValidatorsForLedger(ID const& ledgerID)
+    {
+        std::vector<NodeID> res;
+        std::lock_guard lock{mutex_};
+        byLedger(
+                lock,
+                ledgerID,
+                [&](std::size_t numValidations) { res.reserve(numValidations); },
+                [&](NodeID const& nid, Validation const& v) {
+                    if (v.full())//TODO
+                        res.emplace_back(nid);
+                });
         return res;
     }
 

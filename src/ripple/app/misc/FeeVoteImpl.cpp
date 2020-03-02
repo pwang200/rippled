@@ -18,6 +18,7 @@
 //==============================================================================
 
 #include <ripple/protocol/st.h>
+#include <ripple/app/ledger/Ledger.h>
 #include <ripple/app/misc/FeeVote.h>
 #include <ripple/app/main/Application.h>
 #include <ripple/protocol/STValidation.h>
@@ -150,7 +151,7 @@ FeeVoteImpl::doVoting(
     std::shared_ptr<SHAMap> const& initialPosition)
 {
     // LCL must be flag ledger
-    assert ((lastClosedLedger->info().seq % 256) == 0);
+    assert ((lastClosedLedger->info().seq % FLAG_LEDGER) == 0);
 
     detail::VotableValue baseFeeVote (
         lastClosedLedger->fees().base,

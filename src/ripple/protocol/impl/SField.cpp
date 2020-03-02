@@ -56,6 +56,7 @@ SF_U8 const sfTransactionResult (access, STI_UINT8, 3, "TransactionResult");
 
 // 8-bit integers (uncommon)
 SF_U8 const sfTickSize          (access, STI_UINT8, 16, "TickSize");
+SF_U8 const sfNegativeUNLTxAdd  (access, STI_UINT8, 17, "NegativeUNLAdd");
 
 // 16-bit integers
 SF_U16 const sfLedgerEntryType (access, STI_UINT16, 1, "LedgerEntryType", SField::sMD_Never);
@@ -127,6 +128,11 @@ SF_U160 const sfTakerPaysCurrency (access, STI_HASH160, 1, "TakerPaysCurrency");
 SF_U160 const sfTakerPaysIssuer   (access, STI_HASH160, 2, "TakerPaysIssuer");
 SF_U160 const sfTakerGetsCurrency (access, STI_HASH160, 3, "TakerGetsCurrency");
 SF_U160 const sfTakerGetsIssuer   (access, STI_HASH160, 4, "TakerGetsIssuer");
+// NodeID
+SF_U160 const sfNegativeUNLTxNodeID        (access, STI_HASH160, 5, "NegativeUNLTxNodeID");
+SF_U160 const sfNegativeUNLToAdd           (access, STI_HASH160, 6, "NegativeUNLToAdd");
+SF_U160 const sfNegativeUNLToRemove        (access, STI_HASH160, 7, "NegativeUNLToRemove");
+//SF_U160 const sfNegativeUNLItem            (access, STI_HASH160, 8, "NegativeUNLItem");
 
 // 256-bit (common)
 SF_U256 const sfLedgerHash      (access, STI_HASH256, 1, "LedgerHash");
@@ -201,6 +207,9 @@ SF_Account const sfRegularKey  (access, STI_ACCOUNT, 8, "RegularKey");
 // path set
 SField const sfPaths (access, STI_PATHSET, 1, "Paths");
 
+// vector of 160-bit
+SF_Vec160 const sfNegativeUNL  (access, STI_VECTOR160, 1, "NegativeUNL");
+
 // vector of 256-bit
 SF_Vec256 const sfIndexes    (access, STI_VECTOR256, 1, "Indexes", SField::sMD_Never);
 SF_Vec256 const sfHashes     (access, STI_VECTOR256, 2, "Hashes");
@@ -234,6 +243,7 @@ SField const sfNecessary       (access, STI_ARRAY, 6, "Necessary");
 SField const sfSufficient      (access, STI_ARRAY, 7, "Sufficient");
 SField const sfAffectedNodes   (access, STI_ARRAY, 8, "AffectedNodes");
 SField const sfMemos           (access, STI_ARRAY, 9, "Memos");
+//SField const sfNegativeUNL     (access, STI_ARRAY, 10, "NegativeUNL");
 
 // array of objects (uncommon)
 SField const sfMajorities      (access, STI_ARRAY, 16, "Majorities");

@@ -78,7 +78,8 @@ Change::preclaim(PreclaimContext const &ctx)
     }
 
     if (ctx.tx.getTxnType() != ttAMENDMENT
-        && ctx.tx.getTxnType() != ttFEE)
+        && ctx.tx.getTxnType() != ttFEE
+        && ctx.tx.getTxnType() != ttNEGATIVE_UNL)
         return temUNKNOWN;
 
     return tesSUCCESS;
@@ -88,11 +89,19 @@ Change::preclaim(PreclaimContext const &ctx)
 TER
 Change::doApply()
 {
+    assert( ctx_.tx.getTxnType() == ttAMENDMENT ||
+            ctx_.tx.getTxnType() == ttFEE ||
+            ctx_.tx.getTxnType() == ttNEGATIVE_UNL);
+
     if (ctx_.tx.getTxnType () == ttAMENDMENT)
         return applyAmendment ();
-
-    assert(ctx_.tx.getTxnType() == ttFEE);
-    return applyFee ();
+    else if (ctx_.tx.getTxnType() == ttFEE )
+        return applyFee ();
+    else
+    {
+        assert(ctx_.tx.getTxnType() == ttNEGATIVE_UNL);
+        return applyNegativeUNL();
+    }
 }
 
 void
@@ -226,6 +235,45 @@ Change::applyFee()
     view().update (feeObject);
 
     JLOG(j_.warn()) << "Fees have been changed";
+    return tesSUCCESS;
+}
+
+TER
+Change::applyNegativeUNL()
+{
+    assert(view().seq() % FLAG_LEDGER == 0);
+    auto const k = keylet::negativeUNL();
+    SLE::pointer nUnlObject = view().peek (k);
+
+    if (!nUnlObject)
+    {
+        JLOG(j_.debug()) << "N-UNL: applyNegativeUNL new nUnlObject";
+        nUnlObject = std::make_shared<SLE>(k);
+        //nUnlObject->setFieldArray(sfNegativeUNL, STArray(sfNegativeUNL));
+        view().insert(nUnlObject);
+    }
+
+    if (ctx_.tx.getFieldU8(sfNegativeUNLTxAdd))
+    {
+        assert(!nUnlObject->isFieldPresent(sfNegativeUNLToAdd));
+        nUnlObject->setFieldH160(sfNegativeUNLToAdd, ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
+    }
+    else
+    {
+        assert(!nUnlObject->isFieldPresent(sfNegativeUNLToRemove));
+        nUnlObject->setFieldH160(sfNegativeUNLToRemove, ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
+    }
+    view().update (nUnlObject);
+
+    {
+        SLE::pointer nUnlObject = view().peek (k);
+         if (!nUnlObject)
+         {
+             JLOG(j_.debug()) << "N-UNL: applyNegativeUNL did not add nUnlObject";
+         }
+    }
+
+    JLOG(j_.debug()) << "N-UNL: applyNegativeUNL Tx done.";
     return tesSUCCESS;
 }
 

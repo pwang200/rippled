@@ -570,6 +570,12 @@ const STArray& STObject::getFieldArray (SField const& field) const
     return getFieldByConstRef <STArray> (field, empty);
 }
 
+const STVector160& STObject::getFieldV160 (SField const& field) const
+{
+    static STVector160 const empty{};
+    return getFieldByConstRef <STVector160> (field, empty);
+}
+
 void
 STObject::set (std::unique_ptr<STBase> v)
 {
@@ -613,9 +619,19 @@ void STObject::setFieldH128 (SField const& field, uint128 const& v)
     setFieldUsingSetValue <STHash128> (field, v);
 }
 
+void STObject::setFieldH160 (SField const& field, uint160 const& v)
+{
+    setFieldUsingSetValue <STHash160> (field, v);
+}
+
 void STObject::setFieldH256 (SField const& field, uint256 const& v)
 {
     setFieldUsingSetValue <STHash256> (field, v);
+}
+
+void STObject::setFieldV160(SField const& field, STVector160 const& v)
+{
+    setFieldUsingSetValue <STVector160> (field, v);
 }
 
 void STObject::setFieldV256 (SField const& field, STVector256 const& v)

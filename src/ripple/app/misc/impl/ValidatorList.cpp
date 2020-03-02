@@ -840,7 +840,7 @@ ValidatorList::getAvailable(boost::beast::string_view const& pubKey)
 
 std::size_t
 ValidatorList::calculateQuorum (
-    std::size_t trusted, std::size_t seen)
+    std::size_t trusted_total, std::size_t trusted_reliable, std::size_t seen_reliable)
 {
     // Do not use achievable quorum until lists from all configured
     // publishers are available
@@ -880,11 +880,13 @@ ValidatorList::calculateQuorum (
     // Oi,j > nj/2 + ni − qi + ti,j
     // ni - pi > (ni - pi + pj)/2 + ni − .8*ni + .2*ni
     // pi + pj < .2*ni
-    auto quorum = static_cast<std::size_t>(std::ceil(trusted * 0.8f));
+    auto quorum = static_cast<std::size_t>(std::max(
+            std::ceil(trusted_reliable * 0.8f),
+            std::ceil(trusted_total * 0.6f)));
 
     // Use lower quorum specified via command line if the normal quorum appears
     // unreachable based on the number of recently received validations.
-    if (minimumQuorum_ && *minimumQuorum_ < quorum && seen < quorum)
+    if (minimumQuorum_ && *minimumQuorum_ < quorum && seen_reliable < quorum)
     {
         quorum = *minimumQuorum_;
 
@@ -893,7 +895,9 @@ ValidatorList::calculateQuorum (
             << quorum
             << " as specified in the command line";
     }
-
+    JLOG (j_.debug()) << "N-UNL: calculateQuorum, quorum=" << quorum
+                << " trusted_reliable=" << trusted_reliable
+                << " trusted_total=" << trusted_total;
     return quorum;
 }
 
@@ -927,11 +931,17 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
         }
     }
 
+    hash_set<NodeID> effectiveUNL;
     for (auto const& val : keyListings_)
     {
-        if (!validatorManifests_.revoked(val.first) &&
-            trustedMasterKeys_.emplace(val.first).second)
-            trustChanges.added.insert(calcNodeID(val.first));
+        if (! validatorManifests_.revoked(val.first) )
+        {
+            auto nid = calcNodeID(val.first);
+            if ( trustedMasterKeys_.emplace(val.first).second)
+                trustChanges.added.insert(nid);
+            if ( negativeList_.find(nid) == negativeList_.end() )
+                effectiveUNL.insert(nid);
+        }
     }
 
     // If there were any changes, we need to update the ephemeral signing keys:
@@ -947,7 +957,16 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
         << trustedMasterKeys_.size() << "  of " << keyListings_.size()
         << " listed validators eligible for inclusion in the trusted set";
 
-    quorum_ = calculateQuorum (trustedMasterKeys_.size(), seenValidators.size());
+    auto numSeen = seenValidators.size();
+    if(!negativeList_.empty())
+    {
+        for (auto & nid : seenValidators)
+        {
+            if ( negativeList_.find(nid) != negativeList_.end())
+                --numSeen;
+        }
+    }
+    quorum_ = calculateQuorum (trustedMasterKeys_.size(), effectiveUNL.size(), numSeen);
 
     JLOG(j_.debug())
         << "Using quorum of " << quorum_ << " for new set of "

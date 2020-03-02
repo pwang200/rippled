@@ -71,6 +71,7 @@ calculateLedgerHash (LedgerInfo const& info)
         std::uint32_t(info.closeTime.time_since_epoch().count()),
         std::uint8_t(info.closeTimeResolution.count()),
         std::uint8_t(info.closeFlags));
+    //TODO add negativeUNL to hash??
 }
 
 //------------------------------------------------------------------------------
@@ -290,6 +291,69 @@ Ledger::Ledger (Ledger const& prevLedger,
     {
         info_.closeTime =
             prevLedger.info_.closeTime + info_.closeTimeResolution;
+    }
+
+    if(info_.seq % FLAG_LEDGER == 0)
+    {
+        std::cout <<std::endl<< "N-UNL: FLAG_LEDGER now." <<std::endl;
+        if (auto sle = peek(keylet::negativeUNL()))
+        {
+            bool hasToAdd = sle->isFieldPresent(sfNegativeUNLToAdd);
+            bool hasToRemove = sle->isFieldPresent(sfNegativeUNLToRemove);
+            if (hasToAdd || hasToRemove)
+            {
+                std::cout << std::endl << "N-UNL: FLAG_LEDGER now. update" << std::endl;
+                if (hasToAdd)
+                {
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toAdd "
+                              << sle->getFieldH160(sfNegativeUNLToAdd)
+                              << std::endl;
+                }
+                if (hasToRemove)
+                {
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toRemove "
+                              << sle->getFieldH160(sfNegativeUNLToRemove)
+                              << std::endl;
+                }
+                STVector160 newNUnl(sfNegativeUNL);
+                auto const &oldNUnl = sle->getFieldV160(sfNegativeUNL);
+                for (auto const &n : oldNUnl)
+                {
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. oldNUnl has "
+                              << n
+                              << std::endl;
+                    if (!hasToRemove || n != sle->getFieldH160(sfNegativeUNLToRemove))
+                    {
+                        newNUnl.push_back(n);
+                    }
+                }
+                std::cout << std::endl << "N-UNL: FLAG_LEDGER now. copied" << std::endl;
+                if (hasToAdd)
+                {
+                    newNUnl.push_back(sle->getFieldH160(sfNegativeUNLToAdd));
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. added" << std::endl;
+                }
+                if(!newNUnl.empty())
+                {
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. not empty" << std::endl;
+                    sle->setFieldV160(sfNegativeUNL, newNUnl);
+                    if (hasToRemove)
+                        sle->delField(sfNegativeUNLToRemove);
+
+                    if (hasToAdd)
+                        sle->delField(sfNegativeUNLToAdd);
+
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. replace" << std::endl;
+                    rawReplace(sle);
+                }
+                else
+                {
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. empty" << std::endl;
+                    rawErase(sle);
+                }
+                std::cout << std::endl << "N-UNL: FLAG_LEDGER now. Negative UNL update done" << std::endl;
+            }
+        }
     }
 }
 

@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <map>
 #include <utility>
+#include "UintTypes.h"
 
 namespace ripple {
 
@@ -47,7 +48,10 @@ template <std::size_t>
 class STBitString;
 template <class>
 class STInteger;
-class STVector256;
+template <std::size_t>//, class Tag>
+class STVectorHugeInt;
+using STVector160 = STVectorHugeInt<160>;
+using STVector256 = STVectorHugeInt<256>;
 
 enum SerializedTypeID
 {
@@ -74,6 +78,7 @@ enum SerializedTypeID
     STI_HASH160 = 17,
     STI_PATHSET = 18,
     STI_VECTOR256 = 19,
+    STI_VECTOR160 = 20,
 
     // high level types
     // cannot be serialized inside other types
@@ -310,6 +315,7 @@ using SF_Account = TypedField<STAccount>;
 using SF_Amount = TypedField<STAmount>;
 using SF_Blob = TypedField<STBlob>;
 using SF_Vec256 = TypedField<STVector256>;
+using SF_Vec160 = TypedField<STVector160>;
 
 //------------------------------------------------------------------------------
 
@@ -325,6 +331,7 @@ extern SF_U8 const sfCloseResolution;
 extern SF_U8 const sfMethod;
 extern SF_U8 const sfTransactionResult;
 extern SF_U8 const sfTickSize;
+extern SF_U8 const sfNegativeUNLTxAdd;
 
 // 16-bit integers
 extern SF_U16 const sfLedgerEntryType;
@@ -396,6 +403,11 @@ extern SF_U160 const sfTakerPaysCurrency;
 extern SF_U160 const sfTakerPaysIssuer;
 extern SF_U160 const sfTakerGetsCurrency;
 extern SF_U160 const sfTakerGetsIssuer;
+//// NodeID
+extern SF_U160 const sfNegativeUNLTxNodeID;
+extern SF_U160 const sfNegativeUNLToAdd;
+extern SF_U160 const sfNegativeUNLToRemove;
+//extern SF_U160 const sfNegativeUNLItem;
 
 // 256-bit (common)
 extern SF_U256 const sfLedgerHash;
@@ -469,6 +481,9 @@ extern SF_Account const sfRegularKey;
 // path set
 extern SField const sfPaths;
 
+// vector of NodeID
+extern SF_Vec160 const sfNegativeUNL;
+
 // vector of 256-bit
 extern SF_Vec256 const sfIndexes;
 extern SF_Vec256 const sfHashes;
@@ -500,7 +515,7 @@ extern SField const sfSufficient;
 extern SField const sfAffectedNodes;
 extern SField const sfMemos;
 extern SField const sfMajorities;
-
+//extern SField const sfNegativeUNL;
 //------------------------------------------------------------------------------
 
 } // ripple
