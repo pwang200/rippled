@@ -56,6 +56,7 @@
 #include <ripple/overlay/Overlay.h>
 #include <ripple/overlay/predicates.h>
 #include <ripple/protocol/BuildInfo.h>
+#include <ripple/protocol/Feature.h>
 #include <ripple/resource/ResourceManager.h>
 #include <ripple/rpc/DeliveredAmount.h>
 #include <boost/asio/ip/host_name.hpp>
@@ -1751,6 +1752,8 @@ NetworkOPsImp::beginConsensus(uint256 const& networkClosed)
         closingInfo.parentHash ==
         m_ledgerMaster.getClosedLedger()->info().hash);
 
+    if (prevLedger->rules().enabled(featureNegativeUNL))
+        app_.validators().setnUnl(prevLedger->nUnl());
     TrustChanges const changes = app_.validators().updateTrusted(
         app_.getValidations().getCurrentNodeIDs());
 
@@ -1761,7 +1764,8 @@ NetworkOPsImp::beginConsensus(uint256 const& networkClosed)
         app_.timeKeeper().closeTime(),
         networkClosed,
         prevLedger,
-        changes.removed);
+        changes.removed,
+        changes.added);
 
     const ConsensusPhase currPhase = mConsensus.phase();
     if (mLastConsensusPhase != currPhase)

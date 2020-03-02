@@ -245,4 +245,26 @@ handleNewValidation(
     return shouldRelay;
 }
 
+void
+filterValsWithnUnl(
+    std::vector<std::shared_ptr<STValidation>>& validations,
+    hash_set<NodeID> const& nUnl)
+{
+    if (nUnl.empty())
+        return;
+    size_t i = 0;
+    while (i < validations.size())
+    {
+        if (nUnl.find(validations[i]->getNodeID()) != nUnl.end())
+        {
+            validations[i] = validations.back();
+            validations.pop_back();
+        }
+        else
+        {
+            ++i;
+        }
+    }
+}
+
 }  // namespace ripple
