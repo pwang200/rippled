@@ -66,7 +66,8 @@ invoke_preflight (PreflightContext const& ctx)
     case ttTRUST_SET:            return SetTrust          ::preflight(ctx);
     case ttACCOUNT_DELETE:       return DeleteAccount     ::preflight(ctx);
     case ttAMENDMENT:
-    case ttFEE:                  return Change            ::preflight(ctx);
+    case ttFEE:
+    case ttUNL_MODIDY:            return Change            ::preflight(ctx);
     default:
         assert(false);
         return temUNKNOWN;
@@ -136,7 +137,8 @@ invoke_preclaim (PreclaimContext const& ctx)
     case ttTRUST_SET:            return invoke_preclaim<SetTrust>(ctx);
     case ttACCOUNT_DELETE:       return invoke_preclaim<DeleteAccount>(ctx);
     case ttAMENDMENT:
-    case ttFEE:                  return invoke_preclaim<Change>(ctx);
+    case ttFEE:
+    case ttUNL_MODIDY:            return invoke_preclaim<Change>(ctx);
     default:
         assert(false);
         return temUNKNOWN;
@@ -172,7 +174,8 @@ invoke_calculateBaseFee(
     case ttTRUST_SET:            return SetTrust::calculateBaseFee(view, tx);
     case ttACCOUNT_DELETE:       return DeleteAccount::calculateBaseFee(view, tx);
     case ttAMENDMENT:
-    case ttFEE:                  return Change::calculateBaseFee(view, tx);
+    case ttFEE:
+    case ttUNL_MODIDY:            return Change::calculateBaseFee(view, tx);
     default:
         assert(false);
         return FeeUnit64{0};
@@ -220,6 +223,7 @@ invoke_calculateConsequences(STTx const& tx)
     case ttACCOUNT_DELETE:       return invoke_calculateConsequences<DeleteAccount>(tx);
     case ttAMENDMENT:
     case ttFEE:
+    case ttUNL_MODIDY:
         [[fallthrough]];
     default:
         assert(false);
@@ -255,7 +259,8 @@ invoke_apply (ApplyContext& ctx)
     case ttTRUST_SET:            { SetTrust           p(ctx); return p(); }
     case ttACCOUNT_DELETE:       { DeleteAccount      p(ctx); return p(); }
     case ttAMENDMENT:
-    case ttFEE:                  { Change             p(ctx); return p(); }
+    case ttFEE:
+    case ttUNL_MODIDY:            { Change             p(ctx); return p(); }
     default:
         assert(false);
         return { temUNKNOWN, false };

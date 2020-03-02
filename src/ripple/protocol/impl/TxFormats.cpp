@@ -142,6 +142,14 @@ TxFormats::TxFormats ()
         },
         commonFields);
 
+    add (jss::UNLModify, ttUNL_MODIDY,
+         {
+            {sfUNLModifyDisabling,   soeREQUIRED },
+            {sfLedgerSequence,       soeREQUIRED },
+            {sfUNLModifyValidator,   soeREQUIRED },
+        },
+        commonFields);
+
     add (jss::TicketCreate, ttTICKET_CREATE,
         {
             { sfTarget,              soeOPTIONAL },

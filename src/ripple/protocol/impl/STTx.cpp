@@ -528,7 +528,7 @@ isPseudoTx(STObject const& tx)
     if (!t)
         return false;
     auto tt = safe_cast<TxType>(*t);
-    return tt == ttAMENDMENT || tt == ttFEE;
+    return tt == ttAMENDMENT || tt == ttFEE || tt == ttUNL_MODIDY;
 }
 
 } // ripple

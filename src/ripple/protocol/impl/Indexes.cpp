@@ -55,6 +55,13 @@ getLedgerFeeIndex ()
     return sha512Half(std::uint16_t(spaceFee));
 }
 
+// get the index of the node that holds the negative UNL
+uint256
+getLedgerNegativeUNLIndex ()
+{
+    return sha512Half(std::uint16_t(spaceNegativeUNL));
+}
+
 uint256
 getGeneratorIndex (AccountID const& uGeneratorID)
 {
@@ -237,6 +244,12 @@ Keylet fees_t::operator()() const
 {
     return { ltFEE_SETTINGS,
         getLedgerFeeIndex() };
+}
+
+Keylet negativeUNL_t::operator()() const
+{
+    return { ltNEGATIVE_UNL,
+             getLedgerNegativeUNLIndex() };
 }
 
 Keylet book_t::operator()(Book const& b) const

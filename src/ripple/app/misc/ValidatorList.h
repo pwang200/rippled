@@ -511,6 +511,49 @@ public:
         return {quorum_, trustedSigningKeys_};
     }
 
+    /**
+     * get the trusted master public keys
+     * @return the public keys
+     */
+    hash_set<PublicKey>
+    getTrustedMasterKeys()
+    {
+        std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        return trustedMasterKeys_;
+    }
+
+    /**
+     * get the NodeIDs of Negative UNL validators
+     * @return the NodeIDs
+     */
+    hash_set<NodeID>
+    getnUnlNodeIDs()
+    {
+        std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        return nUnlNodeIDs();
+    }
+
+    /**
+     * get the master public keys of Negative UNL validators
+     * @return the public keys
+     */
+    hash_set<PublicKey>
+    getnUnl()
+    {
+        std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        return nUnl_;
+    }
+
+    /**
+     * set the Negative UNL with validators' master public keys
+     * @param nUnl the public keys
+     */
+    void
+    setnUnl(hash_set<PublicKey> const& nUnl)
+    {
+        std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        nUnl_ = nUnl;
+    }
 
 private:
     /** Get the filename used for caching UNLs
@@ -523,6 +566,8 @@ private:
     void
     CacheValidatorFile(PublicKey const& pubKey,
         PublisherList const& publisher);
+
+    hash_set<PublicKey> nUnl_;
 
     /** Check response for trusted valid published list
 
@@ -561,7 +606,23 @@ private:
         recently received validations */
     std::size_t
     calculateQuorum (
-        std::size_t trusted, std::size_t seen);
+        std::size_t unlSize, std::size_t effectiveUnlSize, std::size_t seenSize);
+
+    /**
+     * get the NodeIDs of Negative UNL validators
+     * @return the NodeIDs
+     */
+    hash_set<NodeID>
+    nUnlNodeIDs()
+    {
+        hash_set<NodeID> res;
+        res.reserve(nUnl_.size());
+        for(auto const & k : nUnl_)
+        {
+            res.insert(calcNodeID(k));
+        }
+        return res;
+    }
 };
 } // ripple
 

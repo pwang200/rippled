@@ -82,6 +82,7 @@ JSS ( PaymentChannelFund );         // transaction type.
 JSS ( RippleState );                // ledger type.
 JSS ( SLE_hit_rate );               // out: GetCounts.
 JSS ( SetFee );                     // transaction type.
+JSS ( UNLModify );                  // transaction type.
 JSS ( SettleDelay );                // in: TransactionSign
 JSS ( SendMax );                    // in: TransactionSign
 JSS ( Sequence );                   // in/out: TransactionSign; field.
@@ -577,6 +578,7 @@ JSS ( warning );                    // rpc:
 JSS ( warnings );                   // out: server_info, server_state
 JSS ( workers );
 JSS ( write_load );                 // out: GetCounts
+JSS ( NegativeUNL );                // out: ValidatorList; ledger type
 
 #undef JSS
 

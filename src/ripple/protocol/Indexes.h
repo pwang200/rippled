@@ -148,6 +148,15 @@ struct fees_t
 };
 static fees_t const fees {};
 
+/** The negative UNL */
+struct negativeUNL_t
+{
+    explicit negativeUNL_t() = default;
+
+    Keylet operator()() const;
+};
+static negativeUNL_t const negativeUNL {};
+
 /** The beginning of an order book */
 struct book_t
 {

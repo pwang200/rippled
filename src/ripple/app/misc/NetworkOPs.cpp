@@ -1589,6 +1589,7 @@ bool NetworkOPsImp::beginConsensus (uint256 const& networkClosed)
     assert (closingInfo.parentHash ==
             m_ledgerMaster.getClosedLedger()->info().hash);
 
+    app_.validators().setnUnl(prevLedger->nUnl());
     TrustChanges const changes = app_.validators().updateTrusted(
         app_.getValidations().getCurrentNodeIDs());
 
@@ -1599,7 +1600,8 @@ bool NetworkOPsImp::beginConsensus (uint256 const& networkClosed)
         app_.timeKeeper().closeTime(),
         networkClosed,
         prevLedger,
-        changes.removed);
+        changes.removed,
+        changes.added);
 
     const ConsensusPhase currPhase = mConsensus.phase();
     if (mLastConsensusPhase != currPhase)
