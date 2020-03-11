@@ -302,47 +302,55 @@ Ledger::Ledger (Ledger const& prevLedger,
             bool hasToRemove = sle->isFieldPresent(sfNegativeUNLToRemove);
             if (hasToAdd || hasToRemove)
             {
-                std::cout << std::endl << "N-UNL: FLAG_LEDGER now. update" << std::endl;
-                if (hasToAdd)
-                {
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toAdd "
-                              << sle->getFieldH160(sfNegativeUNLToAdd)
-                              << std::endl;
-                }
-                if (hasToRemove)
-                {
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toRemove "
-                              << sle->getFieldH160(sfNegativeUNLToRemove)
-                              << std::endl;
-                }
-                STVector160 newNUnl(sfNegativeUNL);
-                auto const &oldNUnl = sle->getFieldV160(sfNegativeUNL);
-                for (auto const &n : oldNUnl)
-                {
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. oldNUnl has "
-                              << n
-                              << std::endl;
-                    if (!hasToRemove || n != sle->getFieldH160(sfNegativeUNLToRemove))
+                {//just prints
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. update" << std::endl;
+                    if (hasToAdd)
                     {
-                        newNUnl.push_back(n);
+                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toAdd "
+                                  << sle->getFieldH160(sfNegativeUNLToAdd)
+                                  << std::endl;
+                    }
+                    if (hasToRemove)
+                    {
+                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toRemove "
+                                  << sle->getFieldH160(sfNegativeUNLToRemove)
+                                  << std::endl;
+                    }
+                    auto const &oldNUnl = sle->getFieldV160(sfNegativeUNL);
+                    for (auto const &n : oldNUnl)
+                    {
+                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. oldNUnl has "
+                                  << n
+                                  << std::endl;
                     }
                 }
-                std::cout << std::endl << "N-UNL: FLAG_LEDGER now. copied" << std::endl;
+
+                std::vector<uint160> newNUnl =
+                        sle->getFieldV160(sfNegativeUNL).value(); //TODO assign
+                if(hasToRemove)
+                {
+                    auto it = std::find(newNUnl.begin(), newNUnl.end(),
+                            sle->getFieldH160(sfNegativeUNLToRemove));
+                    if(it != newNUnl.end())
+                        newNUnl.erase(it);
+                    else
+                        assert(it != newNUnl.end());
+                }
                 if (hasToAdd)
                 {
+                    auto it = std::find(newNUnl.begin(), newNUnl.end(),
+                                        sle->getFieldH160(sfNegativeUNLToAdd));
+                    assert(it == newNUnl.end());
                     newNUnl.push_back(sle->getFieldH160(sfNegativeUNLToAdd));
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. added" << std::endl;
                 }
                 if(!newNUnl.empty())
                 {
                     std::cout << std::endl << "N-UNL: FLAG_LEDGER now. not empty" << std::endl;
-                    sle->setFieldV160(sfNegativeUNL, newNUnl);
+                    sle->setFieldV160(sfNegativeUNL, STVector160(newNUnl));
                     if (hasToRemove)
                         sle->delField(sfNegativeUNLToRemove);
-
                     if (hasToAdd)
                         sle->delField(sfNegativeUNLToAdd);
-
                     std::cout << std::endl << "N-UNL: FLAG_LEDGER now. replace" << std::endl;
                     rawReplace(sle);
                 }

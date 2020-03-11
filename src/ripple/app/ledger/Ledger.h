@@ -357,22 +357,6 @@ public:
         return std::nullopt;
     }
 
-//    void updateNegativeUNLNow()
-//    {
-//        nUnl_.updateList();
-//    }
-//
-//    void updateNegativeUNLLater(std::optional<PublicKey> const &add,
-//            std::optional<PublicKey> const &remove)
-//    {
-//        assert(add || remove);
-//        if(add)
-//            nUnl_.updateToAdd(*add);
-//        if(remove)
-//            nUnl_.updateToRemove(*remove);
-//    }
-//    void updateNegativeUNLToDo();
-
 private:
     class sles_iter_impl;
     class txs_iter_impl;

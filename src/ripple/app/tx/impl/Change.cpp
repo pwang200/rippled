@@ -249,7 +249,6 @@ Change::applyNegativeUNL()
     {
         JLOG(j_.debug()) << "N-UNL: applyNegativeUNL new nUnlObject";
         nUnlObject = std::make_shared<SLE>(k);
-        //nUnlObject->setFieldArray(sfNegativeUNL, STArray(sfNegativeUNL));
         view().insert(nUnlObject);
     }
 
@@ -264,14 +263,6 @@ Change::applyNegativeUNL()
         nUnlObject->setFieldH160(sfNegativeUNLToRemove, ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
     }
     view().update (nUnlObject);
-
-    {
-        SLE::pointer nUnlObject = view().peek (k);
-         if (!nUnlObject)
-         {
-             JLOG(j_.debug()) << "N-UNL: applyNegativeUNL did not add nUnlObject";
-         }
-    }
 
     JLOG(j_.debug()) << "N-UNL: applyNegativeUNL Tx done.";
     return tesSUCCESS;

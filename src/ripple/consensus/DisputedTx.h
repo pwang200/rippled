@@ -199,6 +199,11 @@ DisputedTx<Tx_t, NodeID_t>::updateVote(
     bool proposing,
     ConsensusParms const& p)
 {
+    JLOG(j_.info()) << "DisputedTx<Tx_t, NodeID_t>::updateVote"
+                    << " TxID " << tx_.id()
+                    << " outVote " << (ourVote_ ? "YES" : "NO")
+                    << " yays_" <<  yays_
+                    << " nays_ " << nays_;
     if (ourVote_ && (nays_ == 0))
         return false;
 
@@ -223,6 +228,11 @@ DisputedTx<Tx_t, NodeID_t>::updateVote(
             newPosition = weight > p.avLATE_CONSENSUS_PCT;
         else
             newPosition = weight > p.avSTUCK_CONSENSUS_PCT;
+
+        JLOG(j_.info()) << "DisputedTx<Tx_t, NodeID_t>::updateVote in if (proposing){} "
+                        << " TxID " << tx_.id()
+                        << " percentTime " << percentTime
+                        << " newPosition " << newPosition;
     }
     else
     {
