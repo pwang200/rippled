@@ -334,7 +334,7 @@ Ledger::Ledger (Ledger const& prevLedger,
                     if(it != newNUnl.end())
                         newNUnl.erase(it);
                     else
-                        assert(it != newNUnl.end());
+                        assert(it != newNUnl.end());//TODO
                 }
                 if (hasToAdd)
                 {

@@ -363,7 +363,8 @@ RCLConsensus::Adaptor::onClose(
             {
                 auto ancestors = hashIndex->getFieldV256(sfHashes).value();
                 auto numAncestors = ancestors.size();
-                JLOG(j_.debug()) << __func__ << " ledger->seq() " << seq
+                JLOG(j_.debug()) << "N-UNL: Adaptor::onClose seq " << seq
+                                 << " my nodeId " << nodeID_
                                  << " ancestors.size " << numAncestors;
 
                 // have enough history
@@ -373,126 +374,174 @@ RCLConsensus::Adaptor::onClose(
                     hash_map<NodeID, unsigned int> scoreTable;
                     for (auto & k : unl)
                     {
-                        scoreTable[k] = 0;
+                        if(k != nodeID_)
+                            scoreTable[k] = 0;
                     }
 
-                    for(int i = numAncestors - 1; i >= 0; --i)
+//                    for(int i = numAncestors - 1; i >= 0; --i)
+//                    {
+//                        for (auto const& nid :
+//                                app_.getValidations().getValidatorsForLedger(ancestors[i]))
+//                        {
+//                            if(scoreTable.find(nid) != scoreTable.end())
+//                                ++scoreTable[nid];
+//                        }
+//                    }
+
+                    unsigned int idx = numAncestors - 1;
+                    unsigned int myValidationCount = 0;
+                    for(int i = 0; i < FLAG_LEDGER; ++i)
                     {
                         for (auto const& nid :
-                                app_.getValidations().getValidatorsForLedger(ancestors[i]))
+                                app_.getValidations().getValidatorsForLedger(ancestors[idx--]))
                         {
-                            if(scoreTable.find(nid) != scoreTable.end())
-                                ++scoreTable[nid];
-                        }
-                    }
-
-                    //TODO
-                    unsigned int lowWaterMark = FLAG_LEDGER*0.5;
-                    unsigned int highWaterMark = FLAG_LEDGER*0.8;
-
-                    std::vector<NodeID> addCandidates;
-                    std::vector<NodeID> removeCandidates;
-                    hash_set<NodeID> nextNegativeUNL = prevLedger->negativeUNL();//TODO assign
-                    auto negativeUNLToAdd = prevLedger->negativeUNLToAdd();
-                    auto negativeUNLToRemove = prevLedger->negativeUNLToRemove();
-                    if(negativeUNLToAdd)
-                        nextNegativeUNL.insert(*negativeUNLToAdd);
-                    if(negativeUNLToRemove)
-                        nextNegativeUNL.erase(*negativeUNLToRemove);
-
-                    auto maxNegativeListed = (std::size_t)ceil(unl.size() * 0.25); //TODO 0.25
-                    std::size_t negativeListed = 0;
-                    for(auto const & n : unl)
-                    {
-                        if(nextNegativeUNL.find(n) != nextNegativeUNL.end())
-                            ++negativeListed;
-                    }
-                    bool canAdd = maxNegativeListed > negativeListed;
-                    JLOG(j_.debug()) << __func__ << " N-UNL: ledger->seq() " << seq
-                                 << " canAdd " << canAdd
-                                 << " maxNegativeListed " << maxNegativeListed
-                                 << " negativeListed " << negativeListed;
-
-                    for(auto it = scoreTable.cbegin(); it != scoreTable.cend(); ++it)
-                    {
-                        if(canAdd && it->second < lowWaterMark &&
-                           nextNegativeUNL.find(it->first) == nextNegativeUNL.end() )
-                        {
-                            addCandidates.push_back(it->first);
-                        }
-                        if(it->second > highWaterMark &&
-                           nextNegativeUNL.find(it->first) != nextNegativeUNL.end() )
-                        {
-                            removeCandidates.push_back(it->first);
-                        }
-                    }
-
-                    auto addTx = [&](NodeID const& nid, bool adding)
-                    {
-                        STTx nunlTx (ttNEGATIVE_UNL,
-                                     [&](auto& obj)
-                                     {
-                                         obj.setFieldU8(sfNegativeUNLTxAdd, adding? 1 : 0);
-                                         obj.setFieldU32(sfLedgerSequence, seq);
-                                         obj.setFieldH160(sfNegativeUNLTxNodeID, nid);
-                                     });
-
-                        uint256 txID = nunlTx.getTransactionID ();
-                        JLOG(j_.debug()) << "N-UNL: txID: " << txID;
-                        Serializer s;
-                        nunlTx.add (s);
-                        auto tItem = std::make_shared<SHAMapItem> (txID, s.peekData ());
-                        if (!initialSet->addGiveItem (tItem, true, false))
-                        {
-                            JLOG(j_.warn()) << "N-UNL: add tx failed";
-                        }
-                    };
-
-                    NodeID randomPad;
-                    assert(randomPad.size() <= prevLedger->info().hash.size()); //TODO
-                    memcpy(randomPad.data(), prevLedger->info().hash.data(), randomPad.size());
-
-                    auto findAndAddTx = [&](bool adding)
-                    {
-                        auto & candidates = adding? addCandidates : removeCandidates;
-                        NodeID txNodeID = candidates[0];
-                        for(int j = 1; j < addCandidates.size(); ++j)
-                        {
-                            if( (addCandidates[j] ^ randomPad) < (txNodeID ^ randomPad))
+                            if(nid == nodeID_)
                             {
-                                txNodeID = addCandidates[j];
+                                ++myValidationCount;
+                            }
+                            else
+                            {
+                                if(scoreTable.find(nid) != scoreTable.end())
+                                    ++scoreTable[nid];
                             }
                         }
+                    }
+
+                    JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                     << " scoreTable size " << scoreTable.size()
+                                     << " myValidationCount " << myValidationCount;
+                    assert(myValidationCount <= FLAG_LEDGER);
+                    if(myValidationCount == FLAG_LEDGER)
+                    {
+                        //TODO
+                        unsigned int lowWaterMark = FLAG_LEDGER * 0.5;
+                        unsigned int highWaterMark = FLAG_LEDGER * 0.8;
                         JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
-                                         << (adding? "toAdd: ":"toRemove: ") << txNodeID;
-                        addTx(txNodeID, adding);
-                    };
+                                         << " lowWaterMark " << lowWaterMark
+                                         << " highWaterMark " << highWaterMark;
+                        std::vector<NodeID> addCandidates;
+                        std::vector<NodeID> removeCandidates;
+                        hash_set<NodeID> nextNegativeUNL = prevLedger->negativeUNL();//TODO assign
+                        auto negativeUNLToAdd = prevLedger->negativeUNLToAdd();
+                        auto negativeUNLToRemove = prevLedger->negativeUNLToRemove();
+                        if (negativeUNLToAdd)
+                            nextNegativeUNL.insert(*negativeUNLToAdd);
+                        if (negativeUNLToRemove)
+                            nextNegativeUNL.erase(*negativeUNLToRemove);
 
-                    if(addCandidates.size() > 0)
-                    {
-                        findAndAddTx(true);
-                    }
-
-                    if(removeCandidates.size() > 0)
-                    {
-                        findAndAddTx(false);
-                    }
-                    else
-                    {
-                        for(auto & n : nextNegativeUNL)
+                        auto maxNegativeListed = (std::size_t) ceil(unl.size() * 0.25); //TODO 0.25
+                        std::size_t negativeListed = 0;
+                        for (auto const &n : unl)
                         {
-                            if(scoreTable.find(n) == scoreTable.end())
+                            if (nextNegativeUNL.find(n) != nextNegativeUNL.end())
+                                ++negativeListed;
+                        }
+                        bool canAdd = maxNegativeListed > negativeListed;
+                        JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                         << " N-UNL: seq " << seq
+                                         << " canAdd " << canAdd
+                                         << " maxNegativeListed " << maxNegativeListed
+                                         << " negativeListed " << negativeListed;
+
+                        for (auto it = scoreTable.cbegin(); it != scoreTable.cend(); ++it)
+                        {
+                            JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                             << " N-UNL: seq " << seq
+                                             << " node " << it->first
+                                             << " score " << it->second;
+
+                            if (canAdd && it->second < lowWaterMark &&
+                                nextNegativeUNL.find(it->first) == nextNegativeUNL.end())
                             {
-                                removeCandidates.push_back(n);
+                                JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                                 << " addCandidates.push_back " << it->first;
+                                addCandidates.push_back(it->first);
+                            }
+                            if (it->second > highWaterMark &&
+                                nextNegativeUNL.find(it->first) != nextNegativeUNL.end())
+                            {
+                                JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                                 << " removeCandidates.push_back " << it->first;
+                                removeCandidates.push_back(it->first);
                             }
                         }
-                        if(removeCandidates.size() > 0)
-                        {
-                            findAndAddTx(false);
-                        };
-                    }
 
-                    //bad validator
+                        auto addTx = [&](NodeID const &nid, bool adding)
+                        {
+                            STTx nunlTx(ttNEGATIVE_UNL,
+                                        [&](auto &obj)
+                                        {
+                                            obj.setFieldU8(sfNegativeUNLTxAdd, adding ? 1 : 0);
+                                            obj.setFieldU32(sfLedgerSequence, seq);
+                                            obj.setFieldH160(sfNegativeUNLTxNodeID, nid);
+                                        });
+
+                            uint256 txID = nunlTx.getTransactionID();
+                            JLOG(j_.debug()) << "N-UNL: txID: " << txID;
+                            Serializer s;
+                            nunlTx.add(s);
+                            auto tItem = std::make_shared<SHAMapItem>(txID, s.peekData());
+                            if (!initialSet->addGiveItem(tItem, true, false))
+                            {
+                                JLOG(j_.warn()) << "N-UNL: add tx failed";
+                            }
+                        };
+
+                        NodeID randomPad;
+                        assert(randomPad.size() <= prevLedger->info().hash.size()); //TODO
+                        memcpy(randomPad.data(), prevLedger->info().hash.data(), randomPad.size());
+
+                        auto findAndAddTx = [&](bool adding)
+                        {
+                            auto &candidates = adding ? addCandidates : removeCandidates;
+                            NodeID txNodeID = candidates[0];
+                            for (int j = 1; j < candidates.size(); ++j)
+                            {
+                                JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                                 << " randomPad " << randomPad
+                                                 << " txNodeID " << txNodeID
+                                                 << " candidates[j] " << candidates[j]
+                                                 << " txNodeID ^ randomPad " << (txNodeID ^ randomPad)
+                                                 << " candidates[j] ^ randomPad) " << (candidates[j] ^ randomPad);
+                                if ((candidates[j] ^ randomPad) < (txNodeID ^ randomPad))
+                                {
+                                    txNodeID = candidates[j];
+                                }
+                            }
+                            JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                             << (adding ? "toAdd: " : "toRemove: ") << txNodeID;
+                            addTx(txNodeID, adding);
+                        };
+
+                        if (addCandidates.size() > 0)
+                        {
+                            JLOG(j_.debug()) << "N-UNL: Adaptor::onClose addCandidates.size() "
+                                             << addCandidates.size();
+                            findAndAddTx(true);
+                        }
+
+                        if (removeCandidates.size() > 0)
+                        {
+                            JLOG(j_.debug()) << "N-UNL: Adaptor::onClose removeCandidates.size() "
+                                             << removeCandidates.size();
+                            findAndAddTx(false);
+                        }
+                        else
+                        {
+                            for (auto &n : nextNegativeUNL)
+                            {
+                                if (scoreTable.find(n) == scoreTable.end())
+                                {
+                                    removeCandidates.push_back(n);
+                                }
+                            }
+                            if (removeCandidates.size() > 0)
+                            {
+                                findAndAddTx(false);
+                            };
+                        }
+
+                        //bad validator
 //                    {
 //                        std::vector<NodeID> ids(unl.begin(), unl.end());
 //                        std::sort(ids.begin(), ids.end());
@@ -504,6 +553,13 @@ RCLConsensus::Adaptor::onClose(
 //                        ++unl_i;
 //                        addTx(*unl_i, true);
 //                    }
+                    }
+                    else
+                    {
+                        JLOG(j_.debug()) << "N-UNL: Adaptor::onClose "
+                                            << " not enough local validations "
+                                            << " myValidationCount " << myValidationCount;
+                    }
                 }
                 else
                 {

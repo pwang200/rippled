@@ -256,11 +256,15 @@ Change::applyNegativeUNL()
     {
         assert(!nUnlObject->isFieldPresent(sfNegativeUNLToAdd));
         nUnlObject->setFieldH160(sfNegativeUNLToAdd, ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
+        JLOG(j_.debug()) << "N-UNL: applyNegativeUNL Tx add "
+                    << ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID);
     }
     else
     {
         assert(!nUnlObject->isFieldPresent(sfNegativeUNLToRemove));
         nUnlObject->setFieldH160(sfNegativeUNLToRemove, ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
+        JLOG(j_.debug()) << "N-UNL: applyNegativeUNL Tx remove "
+                    << ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID);
     }
     view().update (nUnlObject);
 
