@@ -243,7 +243,6 @@ SField const sfNecessary       (access, STI_ARRAY, 6, "Necessary");
 SField const sfSufficient      (access, STI_ARRAY, 7, "Sufficient");
 SField const sfAffectedNodes   (access, STI_ARRAY, 8, "AffectedNodes");
 SField const sfMemos           (access, STI_ARRAY, 9, "Memos");
-//SField const sfNegativeUNL     (access, STI_ARRAY, 10, "NegativeUNL");
 
 // array of objects (uncommon)
 SField const sfMajorities      (access, STI_ARRAY, 16, "Majorities");

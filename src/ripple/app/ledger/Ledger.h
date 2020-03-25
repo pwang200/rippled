@@ -36,7 +36,7 @@
 
 namespace ripple {
 
-constexpr unsigned int FLAG_LEDGER = 16;
+constexpr unsigned int FLAG_LEDGER = 256;
 
 class Application;
 class Job;
@@ -366,6 +366,9 @@ private:
 
     std::shared_ptr<SLE>
     peek (Keylet const& k) const;
+
+    void
+    updateNegativeUNL();
 
     bool mImmutable;
 

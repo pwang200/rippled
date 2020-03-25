@@ -241,34 +241,107 @@ Change::applyFee()
 TER
 Change::applyNegativeUNL()
 {
-    assert(view().seq() % FLAG_LEDGER == 0);
-    auto const k = keylet::negativeUNL();
-    SLE::pointer nUnlObject = view().peek (k);
+    if(view().seq() % FLAG_LEDGER != 0)
+    {
+        JLOG(j_.warn()) << "N-UNL: applyNegativeUNL, not a flag ledger seq="
+                        << view().seq();
+        return tefFAILURE;
+    }
 
+    auto const k = keylet::negativeUNL();
+    SLE::pointer nUnlObject = view().peek(k);
     if (!nUnlObject)
     {
-        JLOG(j_.debug()) << "N-UNL: applyNegativeUNL new nUnlObject";
+        JLOG(j_.trace()) << "N-UNL: applyNegativeUNL new nUnlObject";//TODO remove
         nUnlObject = std::make_shared<SLE>(k);
         view().insert(nUnlObject);
     }
 
+    auto txNodeId = ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID);
+    bool found = false;
+    if(nUnlObject->isFieldPresent(sfNegativeUNL))
+    {
+        auto const & nUnl = nUnlObject->getFieldV160(sfNegativeUNL);
+        found = std::find(nUnl.begin(), nUnl.end(), txNodeId) != nUnl.end();
+    }
+
     if (ctx_.tx.getFieldU8(sfNegativeUNLTxAdd))
     {
-        assert(!nUnlObject->isFieldPresent(sfNegativeUNLToAdd));
-        nUnlObject->setFieldH160(sfNegativeUNLToAdd, ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
-        JLOG(j_.debug()) << "N-UNL: applyNegativeUNL Tx add "
-                    << ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID);
+        // one add Tx
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToAdd))
+        {
+            JLOG(j_.warn()) << "N-UNL: applyNegativeUNL, already has ToAdd "
+                        << nUnlObject->getFieldH160(sfNegativeUNLToAdd)
+                        << " trying to add "
+                        << txNodeId;
+            return tefFAILURE;
+        }
+
+        // cannot be the same as toRemove
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToRemove))
+        {
+            if(nUnlObject->getFieldH160(sfNegativeUNLToRemove) == txNodeId)
+            {
+                JLOG(j_.warn())
+                    << "N-UNL: applyNegativeUNL, ToAdd is same as ToRemove "
+                    << txNodeId;
+                return tefFAILURE;
+            }
+        }
+
+        // cannot be already in nUNL
+        if(found)
+        {
+            JLOG(j_.warn())
+                    << "N-UNL: applyNegativeUNL, ToAdd is already in nUNL "
+                    << txNodeId;
+                return tefFAILURE;
+        }
+
+        nUnlObject->setFieldH160(sfNegativeUNLToAdd, txNodeId);
+        JLOG(j_.info()) << "N-UNL: applyNegativeUNL Tx add "
+                         << txNodeId;
     }
     else
     {
-        assert(!nUnlObject->isFieldPresent(sfNegativeUNLToRemove));
-        nUnlObject->setFieldH160(sfNegativeUNLToRemove, ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
-        JLOG(j_.debug()) << "N-UNL: applyNegativeUNL Tx remove "
-                    << ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID);
-    }
-    view().update (nUnlObject);
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToRemove))
+        {
+            JLOG(j_.warn()) << "N-UNL: applyNegativeUNL, already has ToRemove "
+                            << nUnlObject->getFieldH160(sfNegativeUNLToRemove)
+                            << " trying to remove "
+                            << txNodeId;
+            return tefFAILURE;
+        }
 
-    JLOG(j_.debug()) << "N-UNL: applyNegativeUNL Tx done.";
+        // cannot be the same as toAdd
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToAdd))
+        {
+            if(nUnlObject->getFieldH160(sfNegativeUNLToAdd) == txNodeId)
+            {
+                JLOG(j_.warn())
+                    << "N-UNL: applyNegativeUNL, ToRemove is same as ToAdd "
+                    << txNodeId;
+                return tefFAILURE;
+            }
+        }
+
+        // must be already in nUNL
+        if(! found)
+        {
+            JLOG(j_.warn())
+                    << "N-UNL: applyNegativeUNL, ToRemove is not in nUNL "
+                    << txNodeId;
+                return tefFAILURE;
+        }
+
+        nUnlObject->setFieldH160(sfNegativeUNLToRemove,
+                ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
+        JLOG(j_.info()) << "N-UNL: applyNegativeUNL Tx remove "
+                         << txNodeId;
+    }
+    view().update(nUnlObject);
+
+    JLOG(j_.trace()) << "N-UNL: applyNegativeUNL Tx done.";//TODO remove
     return tesSUCCESS;
 }
 

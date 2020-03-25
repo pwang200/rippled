@@ -293,76 +293,7 @@ Ledger::Ledger (Ledger const& prevLedger,
             prevLedger.info_.closeTime + info_.closeTimeResolution;
     }
 
-    if(info_.seq % FLAG_LEDGER == 0)
-    {
-        std::cout <<std::endl<< "N-UNL: FLAG_LEDGER now." <<std::endl;
-        if (auto sle = peek(keylet::negativeUNL()))
-        {
-            bool hasToAdd = sle->isFieldPresent(sfNegativeUNLToAdd);
-            bool hasToRemove = sle->isFieldPresent(sfNegativeUNLToRemove);
-            if (hasToAdd || hasToRemove)
-            {
-                {//just prints
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. update" << std::endl;
-                    if (hasToAdd)
-                    {
-                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toAdd "
-                                  << sle->getFieldH160(sfNegativeUNLToAdd)
-                                  << std::endl;
-                    }
-                    if (hasToRemove)
-                    {
-                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toRemove "
-                                  << sle->getFieldH160(sfNegativeUNLToRemove)
-                                  << std::endl;
-                    }
-                    auto const &oldNUnl = sle->getFieldV160(sfNegativeUNL);
-                    for (auto const &n : oldNUnl)
-                    {
-                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. oldNUnl has "
-                                  << n
-                                  << std::endl;
-                    }
-                }
-
-                std::vector<uint160> newNUnl =
-                        sle->getFieldV160(sfNegativeUNL).value(); //TODO assign
-                if(hasToRemove)
-                {
-                    auto it = std::find(newNUnl.begin(), newNUnl.end(),
-                            sle->getFieldH160(sfNegativeUNLToRemove));
-                    if(it != newNUnl.end())
-                        newNUnl.erase(it);
-                    else
-                        assert(it != newNUnl.end());//TODO
-                }
-                if (hasToAdd)
-                {
-                    auto it = std::find(newNUnl.begin(), newNUnl.end(),
-                                        sle->getFieldH160(sfNegativeUNLToAdd));
-                    assert(it == newNUnl.end());
-                    newNUnl.push_back(sle->getFieldH160(sfNegativeUNLToAdd));
-                }
-                if(!newNUnl.empty())
-                {
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. not empty" << std::endl;
-                    sle->setFieldV160(sfNegativeUNL, STVector160(newNUnl));
-                    if (hasToRemove)
-                        sle->delField(sfNegativeUNLToRemove);
-                    if (hasToAdd)
-                        sle->delField(sfNegativeUNLToAdd);
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. replace" << std::endl;
-                    rawReplace(sle);
-                }
-                else
-                {
-                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. empty" << std::endl;
-                    rawErase(sle);
-                }
-                std::cout << std::endl << "N-UNL: FLAG_LEDGER now. Negative UNL update done" << std::endl;
-            }
-        }
-    }
+    updateNegativeUNL();
 }
 
 Ledger::Ledger (
@@ -707,7 +638,83 @@ Ledger::peek (Keylet const& k) const
     return sle;
 }
 
-//------------------------------------------------------------------------------
+void
+Ledger::updateNegativeUNL()
+{
+    if(info_.seq % FLAG_LEDGER == 0)
+    {
+        std::cout <<std::endl<< "N-UNL: FLAG_LEDGER now." <<std::endl;
+        if (auto sle = peek(keylet::negativeUNL()))
+        {
+            bool hasToAdd = sle->isFieldPresent(sfNegativeUNLToAdd);
+            bool hasToRemove = sle->isFieldPresent(sfNegativeUNLToRemove);
+            if (hasToAdd || hasToRemove)
+            {
+                {//just prints
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. update" << std::endl;
+                    if (hasToAdd)
+                    {
+                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toAdd "
+                                  << sle->getFieldH160(sfNegativeUNLToAdd)
+                                  << std::endl;
+                    }
+                    if (hasToRemove)
+                    {
+                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. toRemove "
+                                  << sle->getFieldH160(sfNegativeUNLToRemove)
+                                  << std::endl;
+                    }
+                    auto const &oldNUnl = sle->getFieldV160(sfNegativeUNL);
+                    for (auto const &n : oldNUnl)
+                    {
+                        std::cout << std::endl << "N-UNL: FLAG_LEDGER now. oldNUnl has "
+                                  << n
+                                  << std::endl;
+                    }
+                }
+
+                std::vector<uint160> newNUnl =
+                        sle->getFieldV160(sfNegativeUNL).value(); //TODO assign
+                if(hasToRemove)
+                {
+                    auto it = std::find(newNUnl.begin(), newNUnl.end(),
+                            sle->getFieldH160(sfNegativeUNLToRemove));
+                    if(it != newNUnl.end())
+                        newNUnl.erase(it);
+                    else
+                        assert(it != newNUnl.end());//TODO
+                }
+                if (hasToAdd)
+                {
+                    auto it = std::find(newNUnl.begin(), newNUnl.end(),
+                                        sle->getFieldH160(sfNegativeUNLToAdd));
+                    assert(it == newNUnl.end());
+                    newNUnl.push_back(sle->getFieldH160(sfNegativeUNLToAdd));
+                }
+                if(!newNUnl.empty())
+                {
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. not empty" << std::endl;
+                    sle->setFieldV160(sfNegativeUNL, STVector160(newNUnl));
+                    if (hasToRemove)
+                        sle->delField(sfNegativeUNLToRemove);
+                    if (hasToAdd)
+                        sle->delField(sfNegativeUNLToAdd);
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. replace" << std::endl;
+                    rawReplace(sle);
+                }
+                else
+                {
+                    std::cout << std::endl << "N-UNL: FLAG_LEDGER now. empty" << std::endl;
+                    rawErase(sle);
+                }
+                std::cout << std::endl << "N-UNL: FLAG_LEDGER now. Negative UNL update done" << std::endl;
+            }
+        }
+    }
+}
+
+
+    //------------------------------------------------------------------------------
 bool Ledger::walkLedger (beast::Journal j) const
 {
     std::vector <SHAMapMissingNode> missingNodes1;

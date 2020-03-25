@@ -378,16 +378,6 @@ RCLConsensus::Adaptor::onClose(
                             scoreTable[k] = 0;
                     }
 
-//                    for(int i = numAncestors - 1; i >= 0; --i)
-//                    {
-//                        for (auto const& nid :
-//                                app_.getValidations().getValidatorsForLedger(ancestors[i]))
-//                        {
-//                            if(scoreTable.find(nid) != scoreTable.end())
-//                                ++scoreTable[nid];
-//                        }
-//                    }
-
                     unsigned int idx = numAncestors - 1;
                     unsigned int myValidationCount = 0;
                     for(int i = 0; i < FLAG_LEDGER; ++i)
@@ -421,7 +411,7 @@ RCLConsensus::Adaptor::onClose(
                                          << " highWaterMark " << highWaterMark;
                         std::vector<NodeID> addCandidates;
                         std::vector<NodeID> removeCandidates;
-                        hash_set<NodeID> nextNegativeUNL = prevLedger->negativeUNL();//TODO assign
+                        hash_set<NodeID> nextNegativeUNL = prevLedger->negativeUNL();
                         auto negativeUNLToAdd = prevLedger->negativeUNLToAdd();
                         auto negativeUNLToRemove = prevLedger->negativeUNLToRemove();
                         if (negativeUNLToAdd)

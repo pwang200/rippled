@@ -24,7 +24,7 @@
 
 namespace ripple {
 
-template <std::size_t Bits>//, class Tag>
+template <std::size_t Bits>
 STVectorHugeInt<Bits>::STVectorHugeInt(SerialIter& sit, SField const& name)
     : STBase(name)
 {

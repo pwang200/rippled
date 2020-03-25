@@ -26,14 +26,14 @@
 
 namespace ripple {
 
-template <std::size_t Bits>//, class Tag = void>
+template <std::size_t Bits>
 class STVectorHugeInt
     : public STBase
 {
 public:
     static_assert(Bits == 256 || Bits == 160);
 
-    using int_type = base_uint<Bits>;//, Tag>;
+    using int_type = base_uint<Bits>;
     using value_type = std::vector<int_type> const&;
     using ref = typename std::vector<int_type>::reference;
     using const_ref = typename std::vector<int_type>::const_reference;

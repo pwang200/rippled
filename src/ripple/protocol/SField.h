@@ -48,7 +48,7 @@ template <std::size_t>
 class STBitString;
 template <class>
 class STInteger;
-template <std::size_t>//, class Tag>
+template <std::size_t>
 class STVectorHugeInt;
 using STVector160 = STVectorHugeInt<160>;
 using STVector256 = STVectorHugeInt<256>;
@@ -407,7 +407,6 @@ extern SF_U160 const sfTakerGetsIssuer;
 extern SF_U160 const sfNegativeUNLTxNodeID;
 extern SF_U160 const sfNegativeUNLToAdd;
 extern SF_U160 const sfNegativeUNLToRemove;
-//extern SF_U160 const sfNegativeUNLItem;
 
 // 256-bit (common)
 extern SF_U256 const sfLedgerHash;
@@ -481,7 +480,7 @@ extern SF_Account const sfRegularKey;
 // path set
 extern SField const sfPaths;
 
-// vector of NodeID
+// vector of 160-bit
 extern SF_Vec160 const sfNegativeUNL;
 
 // vector of 256-bit
@@ -515,7 +514,7 @@ extern SField const sfSufficient;
 extern SField const sfAffectedNodes;
 extern SField const sfMemos;
 extern SField const sfMajorities;
-//extern SField const sfNegativeUNL;
+
 //------------------------------------------------------------------------------
 
 } // ripple
