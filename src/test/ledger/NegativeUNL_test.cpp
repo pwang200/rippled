@@ -23,7 +23,6 @@
 #include <ripple/beast/unit_test.h>
 #include <ripple/app/tx/apply.h>
 #include <test/jtx.h>
-#include <vector>
 
 namespace ripple {
 namespace test {
@@ -46,10 +45,6 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         NodeID n1(0xA1);
         NodeID n2(0xA2);
-        //NodeID n3(0xA3);
-        //NodeID e1(0xE1);
-        //NodeID e2(0xE2);
-        //NodeID e3(0xE3);
         NodeID badfood(0xBADDF00D);
 
         bool adding;
