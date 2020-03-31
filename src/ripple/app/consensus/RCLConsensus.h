@@ -25,6 +25,7 @@
 #include <ripple/app/consensus/RCLCxTx.h>
 #include <ripple/app/consensus/RCLCensorshipDetector.h>
 #include <ripple/app/misc/FeeVote.h>
+#include <ripple/app/misc/NegativeUNLVote.h>
 #include <ripple/basics/CountedObject.h>
 #include <ripple/basics/Log.h>
 #include <ripple/beast/utility/Journal.h>
@@ -81,6 +82,7 @@ class RCLConsensus
         std::atomic<ConsensusMode> mode_{ConsensusMode::observing};
 
         RCLCensorshipDetector<TxID, LedgerIndex> censorshipDetector_;
+        NegativeUNLVote nUNLVote_;
 
     public:
         using Ledger_t = RCLCxLedger;
@@ -168,6 +170,9 @@ class RCLConsensus
         {
             return parms_;
         }
+
+        void
+        newValidators(LedgerIndex seq, hash_set<NodeID> const& nowTrusted);
 
     private:
         //---------------------------------------------------------------------
@@ -471,7 +476,8 @@ public:
         NetClock::time_point const& now,
         RCLCxLedger::ID const& prevLgrId,
         RCLCxLedger const& prevLgr,
-        hash_set<NodeID> const& nowUntrusted);
+        hash_set<NodeID> const& nowUntrusted,
+        hash_set<NodeID> const& nowTrusted);
 
     //! @see Consensus::timerEntry
     void

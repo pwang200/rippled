@@ -20,69 +20,26 @@
 #include <ripple/app/consensus/RCLValidations.h>
 #include <ripple/app/ledger/Ledger.h>
 #include <ripple/app/misc/NegativeUNLVote.h>
-#include <ripple/beast/utility/Journal.h>
+//#include <ripple/beast/utility/Journal.h>
 
 namespace ripple {
 
+NegativeUNLVote::NegativeUNLVote(NodeID const& myId,
+    RCLValidations & validations,
+    beast::Journal j)
+    : myId_(myId)
+    , validations_(validations)
+    , j_(j)
+{}
+
 void
-doNegativeUNLVoting (NodeID const & myId,
-          std::shared_ptr<Ledger const> const& prevLedger,
-          hash_set<NodeID> unl,
-          RCLValidations & validations,
-          std::shared_ptr<SHAMap> const& initialSet,
-          beast::Journal const & journal)
+NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
+          hash_set<NodeID> const & unl,
+          std::shared_ptr<SHAMap> const& initialSet)
 {
-    auto const hashIndex = prevLedger->read(keylet::skip());
-    if (!hashIndex )
-        return;
     auto const seq = prevLedger->info().seq + 1;
-    auto ledgerAncestors = hashIndex->getFieldV256(sfHashes).value();
-    auto numAncestors = ledgerAncestors.size();
-    if(numAncestors < FLAG_LEDGER)
-    {
-        JLOG(journal.debug()) << "N-UNL: ledger " << seq
-                              << " not enough history. Can trace back only "
-                              << numAncestors << " ledgers.";
-        return;
-    }
-
-    // have enough ledger ancestors
     hash_map<NodeID, unsigned int> scoreTable;
-    for (auto & k : unl)
-    {
-        if(k != myId)
-            scoreTable[k] = 0;
-    }
-    auto idx = numAncestors - 1;
-    unsigned int myValidationCount = 0;
-    for(int i = 0; i < FLAG_LEDGER; ++i)
-    {
-        for (auto const& v :
-                validations.getTrustedForLedger(ledgerAncestors[idx--]))
-        {
-            if(v->getNodeID() == myId)
-            {
-                ++myValidationCount;
-            }
-            else
-            {
-                if(scoreTable.find(v->getNodeID()) != scoreTable.end())
-                    ++scoreTable[v->getNodeID()];
-            }
-        }
-    }
-
-    if(myValidationCount < nUnlMinLocalValsToVote)
-    {
-        JLOG(journal.debug()) << "N-UNL: ledger " << seq
-                              << ". I only issued " << myValidationCount
-                              << " validations in last " << FLAG_LEDGER
-                              << " ledgers."
-                              << " My reliability measurement could be wrong.";
-        return;
-    }
-    else if(myValidationCount >= nUnlMinLocalValsToVote
-            && myValidationCount <= FLAG_LEDGER)
+    if(buildScoreTable(prevLedger, unl, scoreTable))
     {
         hash_set<NodeID> nextNegativeUNL = prevLedger->negativeUNL();
         auto negativeUNLToAdd = prevLedger->negativeUNLToAdd();
@@ -92,153 +49,242 @@ doNegativeUNLVoting (NodeID const & myId,
         if (negativeUNLToRemove)
             nextNegativeUNL.erase(*negativeUNLToRemove);
 
-        auto maxNegativeListed = (std::size_t) std::ceil(unl.size() * nUnlMaxListed);
-        std::size_t negativeListed = 0;
-        for (auto const &n : unl)
-        {
-            if (nextNegativeUNL.find(n) != nextNegativeUNL.end())
-                ++negativeListed;
-        }
-        bool canAdd = maxNegativeListed > negativeListed;
-        JLOG(journal.trace()) << "N-UNL: ledger " << seq
-                              << " my nodeId " << myId
-                              << " lowWaterMark " << nUnlLowWaterMark
-                              << " highWaterMark " << nUnlHighWaterMark
-                              << " canAdd " << canAdd
-                              << " maxNegativeListed " << maxNegativeListed
-                              << " negativeListed " << negativeListed;
+        purgeNewValidators(seq);
 
         std::vector<NodeID> addCandidates;
         std::vector<NodeID> removeCandidates;
-        for (auto it = scoreTable.cbegin(); it != scoreTable.cend(); ++it)
+        findAllCandidates(unl, nextNegativeUNL, scoreTable,
+            addCandidates,removeCandidates);
+
+        if (!addCandidates.empty())
         {
-            JLOG(journal.debug()) << "N-UNL: ledger " << seq //TODO delete
-                             << " node " << it->first
-                             << " score " << it->second;
-
-            if (canAdd && it->second < nUnlLowWaterMark &&
-                nextNegativeUNL.find(it->first) == nextNegativeUNL.end())
-            {
-                JLOG(journal.debug()) << "N-UNL: ledger " << seq //TODO delete
-                                 << " addCandidates.push_back " << it->first;
-                addCandidates.push_back(it->first);
-            }
-            if (it->second > nUnlHighWaterMark &&
-                nextNegativeUNL.find(it->first) != nextNegativeUNL.end())
-            {
-                JLOG(journal.debug()) << "N-UNL: ledger " << seq //TODO delete
-                                 << " removeCandidates.push_back " << it->first;
-                removeCandidates.push_back(it->first);
-            }
-        }
-
-        auto addTx = [&](NodeID const &nid, bool adding)
-        {
-            STTx nunlTx(ttNEGATIVE_UNL,
-                        [&](auto &obj)
-                        {
-                            obj.setFieldU8(sfNegativeUNLTxAdd, adding ? 1 : 0);
-                            obj.setFieldU32(sfLedgerSequence, seq);
-                            obj.setFieldH160(sfNegativeUNLTxNodeID, nid);
-                        });
-
-            uint256 txID = nunlTx.getTransactionID();
-            Serializer s;
-            nunlTx.add(s);
-            auto tItem = std::make_shared<SHAMapItem>(txID, s.peekData());
-            if (!initialSet->addGiveItem(tItem, true, false))
-            {
-                JLOG(journal.warn()) << "N-UNL: ledger " << seq
-                                     << " add tx failed";
-            }
-            else
-            {
-                JLOG(journal.trace()) << "N-UNL: ledger " << seq
-                                     << " add Tx with txID: " << txID;
-            }
-        };
-
-        uint256 randomPadData = prevLedger->info().hash;
-        static_assert(NodeID::bytes <= uint256::bytes);
-        NodeID randomPad = NodeID::fromVoid(randomPadData.data());
-
-        auto findAndAddTx = [&](bool adding)
-        {
-            auto &candidates = adding ? addCandidates : removeCandidates;
-            NodeID txNodeID = candidates[0];
-            for (int j = 1; j < candidates.size(); ++j)
-            {
-                //TODO remove log line
-                JLOG(journal.debug()) << "N-UNL: ledger " << seq
-                                 << " randomPad " << randomPad
-                                 << " txNodeID " << txNodeID
-                                 << " candidates[j] " << candidates[j]
-                                 << " txNodeID ^ randomPad " << (txNodeID ^ randomPad)
-                                 << " candidates[j] ^ randomPad) " << (candidates[j] ^ randomPad);
-                if ((candidates[j] ^ randomPad) < (txNodeID ^ randomPad))
-                {
-                    txNodeID = candidates[j];
-                }
-            }
-            JLOG(journal.debug()) << "N-UNL: ledger " << seq
-                                  << (adding ? "toAdd: " : "toRemove: ") << txNodeID;
-            addTx(txNodeID, adding);
-        };
-
-        if (addCandidates.size() > 0)
-        {
-            JLOG(journal.debug()) << "N-UNL: addCandidates.size "//TODO remove log line
+            JLOG(j_.debug()) << "N-UNL: addCandidates.size "//TODO remove log line
                              << addCandidates.size();
-            findAndAddTx(true);
+            addTx(seq, pickOneCandidate(prevLedger->info().hash, addCandidates), true, initialSet);
         }
 
-        if (removeCandidates.size() > 0)
+        if (!removeCandidates.empty())
         {
-            JLOG(journal.debug()) << "N-UNL: removeCandidates in UNL, size "//TODO remove log line
+            JLOG(j_.debug()) << "N-UNL: removeCandidates in UNL, size "//TODO remove log line
                              << removeCandidates.size();
-            findAndAddTx(false);
+            addTx(seq, pickOneCandidate(prevLedger->info().hash, removeCandidates), false, initialSet);
         }
-        else
-        {
-            for (auto &n : nextNegativeUNL)
+    }
+}
+
+void
+NegativeUNLVote::addTx(LedgerIndex seq,
+        NodeID const &nid,
+        bool adding,
+        std::shared_ptr<SHAMap> const& initialSet)
+{
+//    JLOG(j_.trace()) << "N-UNL: ledger " << seq;
+    STTx nunlTx(ttNEGATIVE_UNL,
+            [&](auto &obj)
             {
-                if (scoreTable.find(n) == scoreTable.end())
-                {
-                    removeCandidates.push_back(n);
-                }
-            }
-            if (removeCandidates.size() > 0)
-            {
-                JLOG(journal.debug()) << "N-UNL: removeCandidates not in UNL, size "//TODO remove log line
-                             << removeCandidates.size();
-                findAndAddTx(false);
-            };
-        }
-        return;
+                obj.setFieldU8(sfNegativeUNLTxAdd, adding ? 1 : 0);
+                obj.setFieldU32(sfLedgerSequence, seq);
+                obj.setFieldH160(sfNegativeUNLTxNodeID, nid);
+            });
+
+    uint256 txID = nunlTx.getTransactionID();
+    Serializer s;
+    nunlTx.add(s);
+    auto tItem = std::make_shared<SHAMapItem>(txID, s.peekData());
+    if (!initialSet->addGiveItem(tItem, true, false))
+    {
+        JLOG(j_.warn()) << "N-UNL: ledger " << seq
+                        << " add tx failed";
     }
     else
     {
-        JLOG(journal.error()) << "N-UNL: ledger " << seq
+        JLOG(j_.debug()) << "N-UNL: ledger " << seq
+                         << " add Tx with txID: " << txID;
+    }
+}
+
+NodeID
+NegativeUNLVote::pickOneCandidate(uint256 randomPadData,
+        std::vector<NodeID> & candidates)
+{
+    assert(!candidates.empty());
+    static_assert(NodeID::bytes <= uint256::bytes);
+    NodeID randomPad = NodeID::fromVoid(randomPadData.data());
+    NodeID txNodeID = candidates[0];
+    for (int j = 1; j < candidates.size(); ++j)
+    {
+        //TODO remove log line
+        JLOG(j_.trace()) << "N-UNL:"// ledger " << seq
+                         << " randomPad " << randomPad
+                         << " txNodeID " << txNodeID
+                         << " candidates[j] " << candidates[j]
+                         << " txNodeID ^ randomPad " << (txNodeID ^ randomPad)
+                         << " candidates[j] ^ randomPad) " << (candidates[j] ^ randomPad);
+        if ((candidates[j] ^ randomPad) < (txNodeID ^ randomPad))
+        {
+            txNodeID = candidates[j];
+        }
+    }
+    JLOG(j_.debug()) << "N-UNL:"// ledger " << seq
+                          << " picked candidate " << txNodeID;
+    return txNodeID;
+}
+
+bool
+NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
+        hash_set<NodeID> const & unl,
+        hash_map<NodeID, unsigned int> & scoreTable)
+{
+    assert(scoreTable.empty());
+    auto const hashIndex = prevLedger->read(keylet::skip());
+    if (!hashIndex)
+        return false;
+    auto const seq = prevLedger->info().seq + 1; // TODO delete
+    auto ledgerAncestors = hashIndex->getFieldV256(sfHashes).value();
+    auto numAncestors = ledgerAncestors.size();
+    if(numAncestors < FLAG_LEDGER)
+    {
+        JLOG(j_.debug()) << "N-UNL: ledger " << seq
+                              << " not enough history. Can trace back only "
+                              << numAncestors << " ledgers.";
+        return false;
+    }
+
+    // have enough ledger ancestors
+    for (auto & k : unl)
+    {
+        scoreTable[k] = 0;
+    }
+    auto idx = numAncestors - 1;
+    for(int i = 0; i < FLAG_LEDGER; ++i)
+    {
+        for (auto const& v :
+                validations_.getTrustedForLedger(ledgerAncestors[idx--]))
+        {
+            if(scoreTable.find(v->getNodeID()) != scoreTable.end())
+                    ++scoreTable[v->getNodeID()];
+        }
+    }
+
+    unsigned int myValidationCount = 0;
+    if(scoreTable.find(myId_) != scoreTable.end())
+        myValidationCount = scoreTable[myId_];
+    if(myValidationCount < nUnlMinLocalValsToVote)
+    {
+        JLOG(j_.debug()) << "N-UNL: ledger " << seq
+                              << ". I only issued " << myValidationCount
+                              << " validations in last " << FLAG_LEDGER
+                              << " ledgers."
+                              << " My reliability measurement could be wrong.";
+        return false;
+    }
+    else if(myValidationCount >= nUnlMinLocalValsToVote
+            && myValidationCount <= FLAG_LEDGER)
+    {
+        return true;
+    }
+    else
+    {
+        //cannot happen unless validations_.getTrustedForLedger returns
+        //multiple validations from the same validator.
+        JLOG(j_.error()) << "N-UNL: ledger " << seq
                               << ". I issued " << myValidationCount
                               << " validations in last " << FLAG_LEDGER
                               << " ledgers. I issued too many.";
-        return;
+        return false;
     }
 }
-} // ripple
 
-//bad validator
-//                    {
-//                        std::vector<NodeID> ids(unl.begin(), unl.end());
-//                        std::sort(ids.begin(), ids.end());
-//
-//                        auto unl_i = ids.begin();
-//                        addTx(*unl_i, true);
-//                        ++unl_i;
-//                        addTx(*unl_i, true);
-//                        ++unl_i;
-//                        addTx(*unl_i, true);
-//                    }
+void
+NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
+        hash_set<NodeID> const& nextNUnl,
+        hash_map<NodeID, unsigned int> const& scoreTable,
+        std::vector<NodeID> & addCandidates,
+        std::vector<NodeID> & removeCandidates)
+{
+    auto maxNegativeListed = (std::size_t) std::ceil(unl.size() * nUnlMaxListed);
+    std::size_t negativeListed = 0;
+    for (auto const &n : unl)
+    {
+        if (nextNUnl.find(n) != nextNUnl.end())
+            ++negativeListed;
+    }
+    bool canAdd = maxNegativeListed > negativeListed;
+    JLOG(j_.trace()) << "N-UNL:"// ledger " << seq //TODO delete
+                          << " my nodeId " << myId_
+                          << " lowWaterMark " << nUnlLowWaterMark
+                          << " highWaterMark " << nUnlHighWaterMark
+                          << " canAdd " << canAdd
+                          << " maxNegativeListed " << maxNegativeListed
+                          << " negativeListed " << negativeListed;
+
+    for (auto it = scoreTable.cbegin(); it != scoreTable.cend(); ++it)
+    {
+        JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
+                         << " node " << it->first
+                         << " score " << it->second;
+
+        if (canAdd &&
+            it->second < nUnlLowWaterMark &&
+            nextNUnl.find(it->first) == nextNUnl.end() &&
+            newValidators_.find(it->first) == newValidators_.end())
+        {
+            JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
+                             << " addCandidates.push_back " << it->first;
+            addCandidates.push_back(it->first);
+        }
+
+        if (it->second > nUnlHighWaterMark &&
+            nextNUnl.find(it->first) != nextNUnl.end())
+        {
+            JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
+                             << " removeCandidates.push_back " << it->first;
+            removeCandidates.push_back(it->first);
+        }
+    }
+
+    if (removeCandidates.empty())
+    {
+        for (auto &n : nextNUnl)
+        {
+            if (unl.find(n) == unl.end())
+            {
+                removeCandidates.push_back(n);
+            }
+        }
+    }
+}
+
+void
+NegativeUNLVote::newValidators (LedgerIndex seq,
+        hash_set<NodeID> const& nowTrusted)
+{
+    for(auto & n : nowTrusted)
+    {
+        if(newValidators_.find(n) == newValidators_.end())
+        {
+            newValidators_[n] = seq;
+        }
+    }
+}
+
+void
+NegativeUNLVote::purgeNewValidators(LedgerIndex seq)
+{
+    auto i = newValidators_.begin();
+    while(i != newValidators_.end())
+    {
+        if(seq - i->second > newValidatorMeasureSkip)
+        {
+            i = newValidators_.erase(i);
+        }
+        else{
+            ++i;
+        }
+    }
+}
+
+} // ripple
 
     //TODO rewrite after unit test
     /*

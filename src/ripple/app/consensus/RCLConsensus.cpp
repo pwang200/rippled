@@ -86,6 +86,7 @@ RCLConsensus::Adaptor::Adaptor(
         , nodeID_{validatorKeys.nodeID}
         , valPublic_{validatorKeys.publicKey}
         , valSecret_{validatorKeys.secretKey}
+        , nUNLVote_(nodeID_, app.getValidations(), j_)
 {
 }
 
@@ -333,12 +334,9 @@ RCLConsensus::Adaptor::onClose(
         }
         else if ((seq % FLAG_LEDGER) == 0)
         {
-            doNegativeUNLVoting(nodeID_,
-                    prevLedger,
+            nUNLVote_.doVoting(prevLedger,
                     app_.validators().getUNL(),
-                    app_.getValidations(),
-                    initialSet,
-                    j_);
+                    initialSet);
         }
     }
 
@@ -975,13 +973,21 @@ RCLConsensus::Adaptor::updateOperatingMode(std::size_t const positions) const
 }
 
 void
+RCLConsensus::Adaptor::newValidators (LedgerIndex seq, hash_set<NodeID> const& nowTrusted)
+{
+    nUNLVote_.newValidators(seq, nowTrusted);
+}
+
+void
 RCLConsensus::startRound(
     NetClock::time_point const& now,
     RCLCxLedger::ID const& prevLgrId,
     RCLCxLedger const& prevLgr,
-    hash_set<NodeID> const& nowUntrusted)
+    hash_set<NodeID> const& nowUntrusted,
+    hash_set<NodeID> const& nowTrusted)
 {
     std::lock_guard _{mutex_};
+    adaptor_.newValidators(prevLgr.seq(), nowTrusted);
     consensus_.startRound(
         now, prevLgrId, prevLgr, nowUntrusted, adaptor_.preStartRound(prevLgr));
 }

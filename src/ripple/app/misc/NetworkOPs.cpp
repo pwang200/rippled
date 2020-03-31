@@ -1600,7 +1600,8 @@ bool NetworkOPsImp::beginConsensus (uint256 const& networkClosed)
         app_.timeKeeper().closeTime(),
         networkClosed,
         prevLedger,
-        changes.removed);
+        changes.removed,
+        changes.added);
 
     const ConsensusPhase currPhase = mConsensus.phase();
     if (mLastConsensusPhase != currPhase)
