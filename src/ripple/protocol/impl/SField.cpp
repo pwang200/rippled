@@ -132,7 +132,6 @@ SF_U160 const sfTakerGetsIssuer   (access, STI_HASH160, 4, "TakerGetsIssuer");
 SF_U160 const sfNegativeUNLTxNodeID        (access, STI_HASH160, 5, "NegativeUNLTxNodeID");
 SF_U160 const sfNegativeUNLToAdd           (access, STI_HASH160, 6, "NegativeUNLToAdd");
 SF_U160 const sfNegativeUNLToRemove        (access, STI_HASH160, 7, "NegativeUNLToRemove");
-//SF_U160 const sfNegativeUNLItem            (access, STI_HASH160, 8, "NegativeUNLItem");
 
 // 256-bit (common)
 SF_U256 const sfLedgerHash      (access, STI_HASH256, 1, "LedgerHash");

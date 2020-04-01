@@ -33,7 +33,7 @@ class NegativeUNL_test : public beast::unit_test::suite
     testNegativeUNL()
     {
         jtx::Env env(*this);
-        env.app().logs().threshold(beast::severities::kAll);
+        //env.app().logs().threshold(beast::severities::kAll);
         Config config;
         auto l = std::make_shared<Ledger>(
                 create_genesis, config,

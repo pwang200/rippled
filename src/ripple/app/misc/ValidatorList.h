@@ -511,10 +511,11 @@ public:
         return {quorum_, trustedSigningKeys_};
     }
 
-    hash_set<NodeID> getUNL()//update
+    hash_set<NodeID> getUNL()
     {
         hash_set<NodeID> res;
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        res.reserve(trustedKeys_.size());
         for(auto const & k : trustedKeys_)
         {
             res.insert(calcNodeID(k));

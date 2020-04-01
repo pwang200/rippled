@@ -975,7 +975,8 @@ RCLConsensus::Adaptor::updateOperatingMode(std::size_t const positions) const
 void
 RCLConsensus::Adaptor::newValidators (LedgerIndex seq, hash_set<NodeID> const& nowTrusted)
 {
-    nUNLVote_.newValidators(seq, nowTrusted);
+    if(!nowTrusted.empty())
+        nUNLVote_.newValidators(seq, nowTrusted);
 }
 
 void

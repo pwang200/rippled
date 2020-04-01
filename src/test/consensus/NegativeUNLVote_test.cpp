@@ -350,6 +350,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                     firstRound = history.back();
                 }
             }
+
             {
                 LedgerHistory history;
                 bool goodHistory = createLedgerHistory(history, env, nodeIDs,
@@ -375,6 +376,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                 }
             }
         }
+
         {
             jtx::Env env(*this);
             //env.app().logs().threshold(beast::severities::kAll);
@@ -426,8 +428,6 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             for(uint sp = 0; sp < 4; ++sp)
             {
-                //std::cout << scorePattern[i][j] << std::endl;
-
                 jtx::Env env(*this);
                 //env.app().logs().threshold(beast::severities::kAll);
                 RCLValidations & validations = env.app().getValidations();
@@ -516,7 +516,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
          * == combination 2:
          * -- unl size: 34, 35, 80
          * -- nUnl size: 0, all
-         * -- nUnl size: one on one off one on off,
+         * -- nUnl size: one on, one off, one on, one off,
          * -- score pattern: 2*(nUnlLowWaterMark, +1, -1) & 2*(nUnlHighWaterMark, +1, -1) & rest nUnlMinLocalValsToVote
          */
 
@@ -855,8 +855,8 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         NegativeUNLVote vote(myId, validations, env.journal);
 
         //empty, add
-        //three, add new, add same
-        //empty, purge
+        //not empty, add new, add same
+        //not empty, purge
         //three, 0, 1, 2, 3 expired
 
         NodeID n1(0xA1);
@@ -1161,7 +1161,6 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             }
         }
 
-
         {
             //== 2 in nUnl, but not in unl, no other remove candidates
             //-- txSet.size = 1
@@ -1197,7 +1196,6 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                 BEAST_EXPECT(countTx(txSet) == 1);
             }
         }
-
 
         {
             //== 2 new validators have bad scores
