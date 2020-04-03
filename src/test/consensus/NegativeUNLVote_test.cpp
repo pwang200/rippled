@@ -65,20 +65,20 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                                       << " actual " << l->negativeUNL().size();
         }
 
-        bool sameToAdd = (l->negativeUNLToAdd() != std::nullopt) == hasToAdd;
+        bool sameToAdd = (l->negativeUNLToAdd() != boost::none) == hasToAdd;
         if(!sameToAdd)
         {
             JLOG (env.journal.warn()) << "negativeUNL has ToAdd,"
                                       << " expect " << hasToAdd
-                                      << " actual " << (l->negativeUNLToAdd() != std::nullopt);
+                                      << " actual " << (l->negativeUNLToAdd() != boost::none);
         }
 
-        bool sameToRemove = (l->negativeUNLToRemove() != std::nullopt) == hasToRemove;
+        bool sameToRemove = (l->negativeUNLToRemove() != boost::none) == hasToRemove;
         if(!sameToRemove)
         {
             JLOG (env.journal.warn()) << "negativeUNL has ToRemove,"
                                       << " expect " << hasToRemove
-                                      << " actual " << (l->negativeUNLToRemove() != std::nullopt);
+                                      << " actual " << (l->negativeUNLToRemove() != boost::none);
         }
 
         return sameSize && sameToAdd && sameToRemove;
@@ -121,7 +121,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             obj.setFieldU8(sfNegativeUNLTxAdd, adding ? 1 : 0);
             obj.setFieldU32(sfLedgerSequence, l->seq());
             obj.setFieldH160(sfNegativeUNLTxNodeID, nodeIDs[nidx]);
-            std::cout << nodeIDs[nidx] << std::endl;
+            //std::cout << nodeIDs[nidx] << std::endl;
         };
 
         auto applyAndTestResult = [&](OpenView& view, STTx const& tx, bool pass) -> bool
@@ -135,7 +135,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
 
         if(! numLedgers)
             numLedgers = FLAG_LEDGER * (nUNLSize + 1);
-        std::cout << "ledger seq=" << l->seq() << std::endl;
+        //std::cout << "ledger seq=" << l->seq() << std::endl;
         while(l->seq() <= numLedgers)
         {
             auto next = std::make_shared<Ledger>(
@@ -176,7 +176,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             }
             l->updateSkipList ();
         }
-        std::cout << "ledger seq=" << l->seq() << std::endl;
+        //std::cout << "ledger seq=" << l->seq() << std::endl;
         return nUnlSizeTest(env, l, nUNLSize, hasToAdd, hasToRemove);
     }
 
@@ -1273,6 +1273,40 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         }
     }
 
+    void
+    testFilterValidations()
+    {
+        jtx::Env env(*this);
+        //env.app().logs().threshold(beast::severities::kAll);
+        RCLValidations &validations = env.app().getValidations();
+        std::vector<NodeID> nodeIDs;
+        hash_set<NodeID> UNL;
+        createNodeIDs(30, nodeIDs, UNL);
+
+        LedgerHistory history;
+        bool goodHistory = createLedgerHistory(history, env, nodeIDs,
+                                               3, false, false);
+        BEAST_EXPECT(goodHistory);
+        if (goodHistory)
+        {
+            for (auto &l : history)
+            {
+                for (auto &n : nodeIDs)
+                {
+                    RCLValidation v(createSTVal(env, l, n));
+                    v.setTrusted();
+                    validations.add(n, v);
+                }
+            }
+            auto l = history.back();
+            auto nUnl = l->negativeUNL();
+            auto vals = validations.getTrustedForLedger(l->info().hash);
+            BEAST_EXPECT(vals.size() == 30);
+            filterValidationsWithnUnl(vals, nUnl);
+            BEAST_EXPECT(vals.size() == 30-3);
+        }
+    }
+
     void run() override
     {
         testAddTx();
@@ -1283,6 +1317,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         testFindAllCandidatesCombination();
         testNewValidators();
         testDoVoting();
+        testFilterValidations();
     }
 };
 

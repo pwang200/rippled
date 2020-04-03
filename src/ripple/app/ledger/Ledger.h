@@ -334,7 +334,7 @@ public:
         return nUnl;
     }
 
-    std::optional<NodeID> negativeUNLToAdd() const
+    boost::optional<NodeID> negativeUNLToAdd() const
     {
         if (auto sle = read(keylet::negativeUNL()))
         {
@@ -343,9 +343,9 @@ public:
                 return NodeID(sle->getFieldH160(sfNegativeUNLToAdd));
             }
         }
-        return std::nullopt;
+        return boost::none;
     }
-    std::optional<NodeID> negativeUNLToRemove() const
+    boost::optional<NodeID> negativeUNLToRemove() const
     {
         if (auto sle = read(keylet::negativeUNL()))
         {
@@ -354,7 +354,7 @@ public:
                 return NodeID(sle->getFieldH160(sfNegativeUNLToRemove));
             }
         }
-        return std::nullopt;
+        return boost::none;
     }
 
 private:

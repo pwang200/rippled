@@ -325,7 +325,8 @@ LedgerMaster::setValidLedger(
 
     if (! standalone_)
     {
-        auto const vals = app_.getValidations().getTrustedForLedger(l->info().hash);
+        auto vals = app_.getValidations().getTrustedForLedger(l->info().hash);
+        filterValidationsWithnUnl(vals, app_.validators().getNegativeUNL());
         times.reserve(vals.size());
         for(auto const& val: vals)
             times.push_back(val->getSignTime());
@@ -946,7 +947,11 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
         if (seq < mValidLedgerSeq)
             return;
 
-        if(haveEnoughValidations(hash))
+        auto validations = app_.getValidations().getTrustedForLedger(hash);
+        filterValidationsWithnUnl(validations,
+                    app_.validators().getNegativeUNL());
+        valCount = validations.size();
+        if (valCount >= app_.validators ().quorum ())
         {
             std::lock_guard ml (m_mutex);
             if (seq > mLastValidLedger.second)
@@ -983,33 +988,14 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
 }
 
 /**
- * Determines if have enough validations to fully validate a ledger
- *
- * @return fully validate or not
-*/
-bool
-LedgerMaster::haveEnoughValidations (LedgerHash const& h)
+    * Determines how many validations are needed to fully validate a ledger
+    *
+    * @return Number of validations needed
+    */
+std::size_t
+LedgerMaster::getNeededValidations ()
 {
-    if( standalone_)
-        return true;
-
-    auto const tvv = app_.getValidations().getTrustedForLedger(h);
-    auto const nUnl = app_.validators().getNegativeUNL();
-    unsigned int tvc = 0;
-    for(auto const& v : tvv)
-    {
-        if(nUnl.find(v->getNodeID()) == nUnl.end())
-            ++tvc;
-    }
-
-    auto quorum = app_.validators().quorum ();
-    auto fully = tvc >= quorum;
-    JLOG (m_journal.trace()) << h
-                             << (fully? " have enough  validations":
-                                 " do not have enough validations")
-                             << " need=" << quorum
-                             << " have=" << tvc;
-    return fully;
+    return standalone_ ? 0 : app_.validators().quorum ();
 }
 
 void
@@ -1028,11 +1014,23 @@ LedgerMaster::checkAccept (
     if (ledger->info().seq <= mValidLedgerSeq)
         return;
 
-    if( !haveEnoughValidations(ledger->info().hash))
+    auto const minVal = getNeededValidations();
+    auto validations = app_.getValidations().getTrustedForLedger(
+                    ledger->info().hash);
+    filterValidationsWithnUnl(validations,
+                              app_.validators().getNegativeUNL());
+    auto const tvc = validations.size();
+    if (tvc < minVal) // nothing we can do
+    {
+        JLOG (m_journal.trace()) <<
+            "Only " << tvc <<
+            " validations for " << ledger->info().hash;
         return;
+    }
 
     JLOG (m_journal.info())
-        << "Advancing accepted ledger to " << ledger->info().seq;
+        << "Advancing accepted ledger to " << ledger->info().seq
+        << " with >= " << minVal << " validations";
 
     ledger->setValidated();
     ledger->setFull();
@@ -1108,8 +1106,8 @@ LedgerMaster::consensusBuilt(
     // This ledger cannot be the new fully-validated ledger, but
     // maybe we saved up validations for some other ledger that can be
 
-    auto const val =
-        app_.getValidations().currentTrusted();
+    auto val = app_.getValidations().currentTrusted();
+    filterValidationsWithnUnl(val, app_.validators().getNegativeUNL());
 
     // Track validation counts with sequence numbers
     class valSeq
@@ -1132,18 +1130,14 @@ LedgerMaster::consensusBuilt(
     };
 
     // Count the number of current, trusted validations
-    auto const nUnl = app_.validators().getNegativeUNL();
     hash_map <uint256, valSeq> count;
     for (auto const& v : val)
     {
-        if(nUnl.find(v->getNodeID()) == nUnl.end())
-        {
-            valSeq& vs = count[v->getLedgerHash()];
-            vs.mergeValidation (v->getFieldU32 (sfLedgerSequence));
-        }
+        valSeq& vs = count[v->getLedgerHash()];
+        vs.mergeValidation (v->getFieldU32 (sfLedgerSequence));
     }
 
-    auto const neededValidations = app_.validators().quorum();
+    auto const neededValidations = getNeededValidations ();
     auto maxSeq = mValidLedgerSeq.load();
     auto maxLedger = ledger->info().hash;
 

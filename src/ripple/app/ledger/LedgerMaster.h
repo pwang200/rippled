@@ -271,7 +271,7 @@ private:
     boost::optional<LedgerHash> getLedgerHashForHistory(
         LedgerIndex index, InboundLedger::Reason reason);
 
-    bool haveEnoughValidations(LedgerHash const& h);
+    std::size_t getNeededValidations();
     void advanceThread();
     void fetchForHistory(
         std::uint32_t missing,

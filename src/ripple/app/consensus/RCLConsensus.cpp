@@ -321,9 +321,12 @@ RCLConsensus::Adaptor::onClose(
         if (((seq - 1) % FLAG_LEDGER) == 0)
         {
             // previous ledger was flag ledger, add pseudo-transactions
-            auto const validations =
+            auto validations =
                     app_.getValidations().getTrustedForLedger(
                             prevLedger->info().parentHash);
+
+            filterValidationsWithnUnl(validations,
+                    app_.validators().getNegativeUNL());
 
             if (validations.size() >= app_.validators().quorum())
             {

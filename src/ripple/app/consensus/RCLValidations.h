@@ -246,6 +246,11 @@ handleNewValidation(
     STValidation::ref val,
     std::string const& source);
 
+void
+filterValidationsWithnUnl(
+    std::vector<std::shared_ptr<STValidation>> & validations,
+    hash_set<NodeID> const & nUnl);
+
 }  // namespace ripple
 
 #endif

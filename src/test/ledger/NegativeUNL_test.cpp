@@ -91,19 +91,19 @@ class NegativeUNL_test : public beast::unit_test::suite
                            << " expect " << size
                            << " actual " << l->negativeUNL().size();
             }
-            bool sameToAdd = (l->negativeUNLToAdd() != std::nullopt) == hasToAdd;
+            bool sameToAdd = (l->negativeUNLToAdd() != boost::none) == hasToAdd;
             if(!sameToAdd)
             {
                 JLOG (env.journal.debug()) << "negativeUNL has ToAdd,"
                            << " expect " << hasToAdd
-                           << " actual " << (l->negativeUNLToAdd() != std::nullopt);
+                           << " actual " << (l->negativeUNLToAdd() != boost::none);
             }
-            bool sameToRemove = (l->negativeUNLToRemove() != std::nullopt) == hasToRemove;
+            bool sameToRemove = (l->negativeUNLToRemove() != boost::none) == hasToRemove;
             if(!sameToRemove)
             {
                 JLOG (env.journal.debug()) << "negativeUNL has ToRemove,"
                            << " expect " << hasToRemove
-                           << " actual " << (l->negativeUNLToRemove() != std::nullopt);
+                           << " actual " << (l->negativeUNLToRemove() != boost::none);
             }
 
             return sameSize && sameToAdd && sameToRemove;

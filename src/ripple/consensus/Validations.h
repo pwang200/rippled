@@ -943,22 +943,6 @@ public:
         return res;
     }
 
-//    std::vector<NodeID>
-//    getValidatorsForLedger(ID const& ledgerID)
-//    {
-//        std::vector<NodeID> res;
-//        std::lock_guard lock{mutex_};
-//        byLedger(
-//                lock,
-//                ledgerID,
-//                [&](std::size_t numValidations) { res.reserve(numValidations); },
-//                [&](NodeID const& nid, Validation const& v) {
-//                    if (v.full())//TODO
-//                        res.emplace_back(nid);
-//                });
-//        return res;
-//    }
-
     /** Returns fees reported by trusted full validators in the given ledger
 
         @param ledgerID The identifier of ledger of interest
