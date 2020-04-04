@@ -226,7 +226,7 @@ install (
     src/ripple/protocol/STPathSet.h
     src/ripple/protocol/STTx.h
     src/ripple/protocol/STValidation.h
-    src/ripple/protocol/STVector256.h
+    src/ripple/protocol/STVectorBigInt.h
     src/ripple/protocol/SecretKey.h
     src/ripple/protocol/Seed.h
     src/ripple/protocol/Serializer.h

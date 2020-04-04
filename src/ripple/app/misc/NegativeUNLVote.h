@@ -78,7 +78,7 @@ private:
     NodeID const myId_;
     RCLValidations & validations_;
     beast::Journal j_;
-    //std::mutex mutex_; //TODO needed?
+    std::mutex mutex_;
     hash_map<NodeID, LedgerIndex> newValidators_;
 
     void

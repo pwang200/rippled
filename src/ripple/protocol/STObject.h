@@ -28,7 +28,7 @@
 #include <ripple/protocol/HashPrefix.h>
 #include <ripple/protocol/STAmount.h>
 #include <ripple/protocol/STPathSet.h>
-#include <ripple/protocol/STVector256.h>
+#include <ripple/protocol/STVectorBigInt.h>
 #include <ripple/protocol/SOTemplate.h>
 #include <ripple/protocol/impl/STVar.h>
 #include <boost/iterator/transform_iterator.hpp>

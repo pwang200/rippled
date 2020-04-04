@@ -17,21 +17,20 @@
 */
 //==============================================================================
 
-#ifndef RIPPLE_PROTOCOL_STVECTOR256_H_INCLUDED
-#define RIPPLE_PROTOCOL_STVECTOR256_H_INCLUDED
+#ifndef RIPPLE_PROTOCOL_STVECTORBIGINT_H_INCLUDED
+#define RIPPLE_PROTOCOL_STVECTORBIGINT_H_INCLUDED
 
 #include <ripple/protocol/STBitString.h>
 #include <ripple/protocol/STInteger.h>
 #include <ripple/protocol/STBase.h>
 
 namespace ripple {
-
-template <std::size_t Bits>
-class STVectorHugeInt
+template <std::size_t Bits, typename T>
+class STVectorBigInt
     : public STBase
 {
 public:
-    static_assert(Bits == 256 || Bits == 160);
+    //static_assert(Bits == 256 || Bits == 160);
 
     using int_type = base_uint<Bits>;
     using value_type = std::vector<int_type> const&;
@@ -41,21 +40,21 @@ public:
     using iterator = typename std::vector<int_type>::iterator;
     using const_iterator = typename std::vector<int_type>::const_iterator;
 
-    STVectorHugeInt () = default;
+    STVectorBigInt () = default;
 
-    explicit STVectorHugeInt (SField const& n)
+    explicit STVectorBigInt (SField const& n)
         : STBase (n)
     { }
 
-    explicit STVectorHugeInt (std::vector<int_type> const& vector)
+    explicit STVectorBigInt (std::vector<int_type> const& vector)
         : mValue (vector)
     { }
 
-    STVectorHugeInt (SField const& n, std::vector<int_type> const& vector)
+    STVectorBigInt (SField const& n, std::vector<int_type> const& vector)
         : STBase (n), mValue (vector)
     { }
 
-    STVectorHugeInt (SerialIter& sit, SField const& name);
+    STVectorBigInt (SerialIter& sit, SField const& name);
 
     STBase*
     copy (std::size_t n, void* buf) const override
@@ -74,8 +73,10 @@ public:
     {
         if(Bits == 256)
             return STI_VECTOR256;
-        else
+        else if(Bits == 160)
             return STI_VECTOR160;
+        else
+            return STI_UNKNOWN;
     }
 
     void
@@ -93,14 +94,14 @@ public:
         return mValue.empty ();
     }
 
-    STVectorHugeInt&
+    STVectorBigInt&
     operator= (std::vector<int_type> const& v)
     {
         mValue = v;
         return *this;
     }
 
-    STVectorHugeInt&
+    STVectorBigInt&
     operator= (std::vector<int_type>&& v)
     {
         mValue = std::move(v);
@@ -108,7 +109,7 @@ public:
     }
 
     void
-    setValue (const STVectorHugeInt& v)
+    setValue (const STVectorBigInt& v)
     {
         mValue = v.mValue;
     }

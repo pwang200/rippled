@@ -48,10 +48,11 @@ template <std::size_t>
 class STBitString;
 template <class>
 class STInteger;
-template <std::size_t>
-class STVectorHugeInt;
-using STVector160 = STVectorHugeInt<160>;
-using STVector256 = STVectorHugeInt<256>;
+template <std::size_t Bits, typename =
+        typename std::enable_if<Bits == 256 || Bits == 160, void>::type>
+class STVectorBigInt;
+using STVector160 = STVectorBigInt<160>;
+using STVector256 = STVectorBigInt<256>;
 
 enum SerializedTypeID
 {

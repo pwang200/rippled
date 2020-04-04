@@ -20,12 +20,12 @@
 #include <ripple/basics/Log.h>
 #include <ripple/basics/StringUtilities.h>
 #include <ripple/protocol/jss.h>
-#include <ripple/protocol/STVector256.h>
+#include <ripple/protocol/STVectorBigInt.h>
 
 namespace ripple {
 
-template <std::size_t Bits>
-STVectorHugeInt<Bits>::STVectorHugeInt(SerialIter& sit, SField const& name)
+template <std::size_t Bits, typename T>
+STVectorBigInt<Bits, T>::STVectorBigInt(SerialIter& sit, SField const& name)
     : STBase(name)
 {
     Blob data = sit.getVL ();
@@ -42,26 +42,26 @@ STVectorHugeInt<Bits>::STVectorHugeInt(SerialIter& sit, SField const& name)
         uStart  = uEnd;
     }
 }
-template <std::size_t Bits>
+template <std::size_t Bits, typename T>
 void
-STVectorHugeInt<Bits>::add (Serializer& s) const
+STVectorBigInt<Bits, T>::add (Serializer& s) const
 {
     assert (fName->isBinary ());
     assert (fName->fieldType == STI_VECTOR256 || fName->fieldType == STI_VECTOR160);
     s.addVL (mValue.begin(), mValue.end(), mValue.size () * (Bits / 8));
 }
 
-template <std::size_t Bits>
+template <std::size_t Bits, typename T>
 bool
-STVectorHugeInt<Bits>::isEquivalent (const STBase& t) const
+STVectorBigInt<Bits, T>::isEquivalent (const STBase& t) const
 {
-    const STVectorHugeInt<Bits>* v = dynamic_cast<const STVectorHugeInt<Bits>*> (&t);
+    const STVectorBigInt<Bits>* v = dynamic_cast<const STVectorBigInt<Bits>*> (&t);
     return v && (mValue == v->value());
 }
 
-template <std::size_t Bits>
+template <std::size_t Bits, typename T>
 Json::Value
-STVectorHugeInt<Bits>::getJson (JsonOptions) const
+STVectorBigInt<Bits, T>::getJson (JsonOptions) const
 {
     Json::Value ret (Json::arrayValue);
 

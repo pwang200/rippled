@@ -27,7 +27,7 @@
 #include <ripple/protocol/STInteger.h>
 #include <ripple/protocol/STObject.h>
 #include <ripple/protocol/STPathSet.h>
-#include <ripple/protocol/STVector256.h>
+#include <ripple/protocol/STVectorBigInt.h>
 #include <ripple/protocol/impl/STVar.h>
 
 namespace ripple {

@@ -259,6 +259,7 @@ void
 NegativeUNLVote::newValidators (LedgerIndex seq,
         hash_set<NodeID> const& nowTrusted)
 {
+    std::lock_guard lock(mutex_);
     for(auto & n : nowTrusted)
     {
         if(newValidators_.find(n) == newValidators_.end())
@@ -271,6 +272,7 @@ NegativeUNLVote::newValidators (LedgerIndex seq,
 void
 NegativeUNLVote::purgeNewValidators(LedgerIndex seq)
 {
+    std::lock_guard lock(mutex_);
     auto i = newValidators_.begin();
     while(i != newValidators_.end())
     {
@@ -286,29 +288,5 @@ NegativeUNLVote::purgeNewValidators(LedgerIndex seq)
 
 } // ripple
 
-    //TODO rewrite after unit test
-    /*
-     * Figure out the negative UNL Tx candidates
-     *
-     * Prepare:
-     * 1. create an empty validation agreement score table,
-     *    one row per validator in the UNL
-     * 2. for FLAG_LEDGER number of ledgers, starting at the prevLedger:
-     *    -- get the NodeIDs of validators agreed with us
-     *    -- increase their score by one
-     *
-     * The candidate to remove from the negative UNL:
-     * -- on the negative UNL (including the to-be-added one) and
-     *    has the highest score, the score must >= high-water mark
-     * -- if not found, then find one on the negative UNL but not
-     *    on the UNL. If multiple are found, choose the one with
-     *    the smallest numerical value of NodeID xor prevLedger_hash
-     * -- if still not found, then no negative UNL Tx for removing
-     *
-     * The candidate to add to the negative UNL:
-     * -- not on the negative UNL (including the to-be-added one) and
-     *    has the lowest score that < low-water mark
-     * -- if still not found, then no negative UNL Tx for adding
-     */
 
 
