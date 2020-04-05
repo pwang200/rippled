@@ -1175,7 +1175,7 @@ private:
                 trustedKeys->expires() &&
                 trustedKeys->expires().get() == prep1.expiration);
         }
-}
+    }
 
     void
     testNegativeUNL ()
@@ -1242,8 +1242,8 @@ private:
                     if(validators)
                     {
                         uint nUnlSize = us * np / 100;
-                        hash_set<NodeID> unl = validators->getUNL();
-                        hash_set<NodeID> nUnl;
+                        auto unl = validators->getUNL();
+                        hash_set<PublicKey> nUnl;
                         auto it = unl.begin();
                         for(uint i = 0; i < nUnlSize; ++i)
                         {
@@ -1267,14 +1267,14 @@ private:
             if (validators)
             {
                 hash_set<NodeID> activeValidators;
-                hash_set<NodeID> unl = validators->getUNL();
+                auto unl = validators->getUNL();
                 BEAST_EXPECT(unl.size() == 60);
                 {
                     //-- set == get,
                     //-- check quorum, with nUNL size: 0, 30, 18, 12
                     auto nUnlChange = [&](uint nUnlSize, uint quorum) -> bool
                     {
-                        hash_set<NodeID> nUnl;
+                        hash_set<PublicKey> nUnl;
                         auto it = unl.begin();
                         for (uint i = 0; i < nUnlSize; ++i)
                         {
@@ -1305,9 +1305,14 @@ private:
                     //nUNL overlap: |nUNL - UNL| = 5, with nUNL size: 18
                     auto nUnl = validators->getNegativeUNL();
                     BEAST_EXPECT(nUnl.size() == 12);
+                    std::size_t ss = 33;
+                    std::vector<uint8_t> data(ss, 0);
+                    data[0] = 0xED;
                     for (int i = 0; i < 6; ++i)
                     {
-                        nUnl.emplace(0xdeadbeef0000 + i);
+                        Slice s(data.data(), ss);
+                        data[1]++;
+                        nUnl.emplace(s);
                     }
                     validators->setNegativeUNL(nUnl);
                     validators->updateTrusted(activeValidators);
@@ -1325,16 +1330,16 @@ private:
             if(validators)
             {
                 hash_set<NodeID> activeValidators;
-                hash_set<NodeID> unl = validators->getUNL();
+                hash_set<PublicKey> unl = validators->getUNL();
                 auto it = unl.begin();
                 for (uint i = 0; i < 50; ++i)
                 {
-                    activeValidators.insert(*it);
+                    activeValidators.insert(calcNodeID(*it));
                     ++it;
                 }
                 validators->updateTrusted(activeValidators);
                 BEAST_EXPECT(validators->quorum() == 48);
-                hash_set<NodeID> nUnl;
+                hash_set<PublicKey> nUnl;
                 it = unl.begin();
                 for (uint i = 0; i < 20; ++i)
                 {

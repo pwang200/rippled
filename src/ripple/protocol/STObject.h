@@ -28,7 +28,7 @@
 #include <ripple/protocol/HashPrefix.h>
 #include <ripple/protocol/STAmount.h>
 #include <ripple/protocol/STPathSet.h>
-#include <ripple/protocol/STVectorBigInt.h>
+#include <ripple/protocol/STVector256.h>
 #include <ripple/protocol/SOTemplate.h>
 #include <ripple/protocol/impl/STVar.h>
 #include <boost/iterator/transform_iterator.hpp>
@@ -427,7 +427,6 @@ public:
     Blob getFieldVL (SField const& field) const;
     STAmount const& getFieldAmount (SField const& field) const;
     STPathSet const& getFieldPathSet (SField const& field) const;
-    const STVector160& getFieldV160 (SField const& field) const;
     const STVector256& getFieldV256 (SField const& field) const;
     const STArray& getFieldArray (SField const& field) const;
 
@@ -481,7 +480,6 @@ public:
     void setFieldU32 (SField const& field, std::uint32_t);
     void setFieldU64 (SField const& field, std::uint64_t);
     void setFieldH128 (SField const& field, uint128 const&);
-    void setFieldH160 (SField const& field, uint160 const&);
     void setFieldH256 (SField const& field, uint256 const& );
     void setFieldVL (SField const& field, Blob const&);
     void setFieldVL (SField const& field, Slice const&);
@@ -490,7 +488,6 @@ public:
 
     void setFieldAmount (SField const& field, STAmount const&);
     void setFieldPathSet (SField const& field, STPathSet const&);
-    void setFieldV160 (SField const& field, STVector160 const& v);
     void setFieldV256 (SField const& field, STVector256 const& v);
     void setFieldArray (SField const& field, STArray const& v);
 

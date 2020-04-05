@@ -142,11 +142,11 @@ TxFormats::TxFormats ()
         },
         commonFields);
 
-    add (jss::SetNegativeUNL, ttNEGATIVE_UNL,
-        {
-            { sfNegativeUNLTxAdd,    soeREQUIRED },
-            { sfLedgerSequence,      soeREQUIRED },
-            { sfNegativeUNLTxNodeID, soeREQUIRED },
+    add (jss::UNLModify, ttUNL_MODIDY,
+         {
+            {sfUNLModifyDisabling, soeREQUIRED },
+            {sfLedgerSequence,     soeREQUIRED },
+            {sfUNLModifyValidator, soeREQUIRED },
         },
         commonFields);
 

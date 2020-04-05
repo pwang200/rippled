@@ -17,44 +17,36 @@
 */
 //==============================================================================
 
-#ifndef RIPPLE_PROTOCOL_STVECTORBIGINT_H_INCLUDED
-#define RIPPLE_PROTOCOL_STVECTORBIGINT_H_INCLUDED
+#ifndef RIPPLE_PROTOCOL_STVECTOR256_H_INCLUDED
+#define RIPPLE_PROTOCOL_STVECTOR256_H_INCLUDED
 
 #include <ripple/protocol/STBitString.h>
 #include <ripple/protocol/STInteger.h>
 #include <ripple/protocol/STBase.h>
 
 namespace ripple {
-template <std::size_t Bits, typename T>
-class STVectorBigInt
+
+class STVector256
     : public STBase
 {
 public:
-    //static_assert(Bits == 256 || Bits == 160);
+    using value_type = std::vector<uint256> const&;
 
-    using int_type = base_uint<Bits>;
-    using value_type = std::vector<int_type> const&;
-    using ref = typename std::vector<int_type>::reference;
-    using const_ref = typename std::vector<int_type>::const_reference;
-    using size_type = typename std::vector<int_type>::size_type;
-    using iterator = typename std::vector<int_type>::iterator;
-    using const_iterator = typename std::vector<int_type>::const_iterator;
+    STVector256 () = default;
 
-    STVectorBigInt () = default;
-
-    explicit STVectorBigInt (SField const& n)
+    explicit STVector256 (SField const& n)
         : STBase (n)
     { }
 
-    explicit STVectorBigInt (std::vector<int_type> const& vector)
+    explicit STVector256 (std::vector<uint256> const& vector)
         : mValue (vector)
     { }
 
-    STVectorBigInt (SField const& n, std::vector<int_type> const& vector)
+    STVector256 (SField const& n, std::vector<uint256> const& vector)
         : STBase (n), mValue (vector)
     { }
 
-    STVectorBigInt (SerialIter& sit, SField const& name);
+    STVector256 (SerialIter& sit, SField const& name);
 
     STBase*
     copy (std::size_t n, void* buf) const override
@@ -71,12 +63,7 @@ public:
     SerializedTypeID
     getSType () const override
     {
-        if(Bits == 256)
-            return STI_VECTOR256;
-        else if(Bits == 160)
-            return STI_VECTOR160;
-        else
-            return STI_UNKNOWN;
+        return STI_VECTOR256;
     }
 
     void
@@ -94,29 +81,29 @@ public:
         return mValue.empty ();
     }
 
-    STVectorBigInt&
-    operator= (std::vector<int_type> const& v)
+    STVector256&
+    operator= (std::vector<uint256> const& v)
     {
         mValue = v;
         return *this;
     }
 
-    STVectorBigInt&
-    operator= (std::vector<int_type>&& v)
+    STVector256&
+    operator= (std::vector<uint256>&& v)
     {
         mValue = std::move(v);
         return *this;
     }
 
     void
-    setValue (const STVectorBigInt& v)
+    setValue (const STVector256& v)
     {
         mValue = v.mValue;
     }
 
     /** Retrieve a copy of the vector we contain */
     explicit
-    operator std::vector<int_type> () const
+    operator std::vector<uint256> () const
     {
         return mValue;
     }
@@ -139,68 +126,68 @@ public:
         return mValue.empty ();
     }
 
-    ref
-    operator[] (size_type n)
+    std::vector<uint256>::reference
+    operator[] (std::vector<uint256>::size_type n)
     {
         return mValue[n];
     }
 
-    const_ref
-    operator[] (size_type n) const
+    std::vector<uint256>::const_reference
+    operator[] (std::vector<uint256>::size_type n) const
     {
         return mValue[n];
     }
 
-    std::vector<int_type> const&
+    std::vector<uint256> const&
     value() const
     {
         return mValue;
     }
 
-    iterator
-    insert(const_iterator pos, int_type const& value)
+    std::vector<uint256>::iterator
+    insert(std::vector<uint256>::const_iterator pos, uint256 const& value)
     {
         return mValue.insert(pos, value);
     }
 
-    iterator
-    insert(const_iterator pos, int_type&& value)
+    std::vector<uint256>::iterator
+    insert(std::vector<uint256>::const_iterator pos, uint256&& value)
     {
         return mValue.insert(pos, std::move(value));
     }
 
     void
-    push_back (int_type const& v)
+    push_back (uint256 const& v)
     {
         mValue.push_back (v);
     }
 
-    iterator
+    std::vector<uint256>::iterator
     begin()
     {
         return mValue.begin ();
     }
 
-    const_iterator
+    std::vector<uint256>::const_iterator
     begin() const
     {
         return mValue.begin ();
     }
 
-    iterator
+    std::vector<uint256>::iterator
     end()
     {
         return mValue.end ();
     }
 
-    const_iterator
+    std::vector<uint256>::const_iterator
     end() const
     {
         return mValue.end ();
     }
 
-    iterator
-    erase (iterator position)
+    std::vector<uint256>::iterator
+    erase (std::vector<uint256>::iterator position)
     {
         return mValue.erase (position);
     }
@@ -212,7 +199,7 @@ public:
     }
 
 private:
-    std::vector<int_type> mValue;
+    std::vector<uint256> mValue;
 };
 
 } // ripple

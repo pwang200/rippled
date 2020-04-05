@@ -326,7 +326,7 @@ RCLConsensus::Adaptor::onClose(
                             prevLedger->info().parentHash);
 
             filterValidationsWithnUnl(validations,
-                    app_.validators().getNegativeUNL());
+                                      app_.validators().getNegativeUNLNodeIDs());
 
             if (validations.size() >= app_.validators().quorum())
             {

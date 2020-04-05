@@ -63,7 +63,7 @@ private:
 
     TER applyFee ();
 
-    TER applyNegativeUNL ();
+    TER applyUNLModify ();
 };
 
 }

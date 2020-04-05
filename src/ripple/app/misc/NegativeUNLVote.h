@@ -21,9 +21,6 @@
 #define RIPPLE_APP_MISC_NEGATIVEUNLVOTE_H_INCLUDED
 
 #include <ripple/beast/utility/Journal.h>
-//namespace beast {
-//    class Journal;
-//}
 
 namespace ripple {
 
@@ -42,7 +39,7 @@ class NegativeUNLVote_test;
 class NegativeUNLVote final
 {
 public:
-//TODO consider put in a struct
+
     static constexpr size_t nUnlLowWaterMark = FLAG_LEDGER * 0.5;
     static constexpr size_t nUnlHighWaterMark = FLAG_LEDGER * 0.8;
     static constexpr size_t nUnlMinLocalValsToVote = FLAG_LEDGER * 0.95;
@@ -67,7 +64,7 @@ public:
 */
     void
     doVoting (LedgerConstPtr & prevLedger,
-              hash_set<NodeID> const & unl,
+              hash_set<PublicKey> const & unl,
               std::shared_ptr<SHAMap> const& initialSet);
 
     void
@@ -83,8 +80,8 @@ private:
 
     void
     addTx(LedgerIndex seq,
-          NodeID const &nid,
-          bool adding,
+          PublicKey const &v,
+          bool disabling,
           std::shared_ptr<SHAMap> const& initialSet);
     NodeID
     pickOneCandidate(uint256 randomPadData,
@@ -100,7 +97,7 @@ private:
             hash_set<NodeID> const& unl,
             hash_set<NodeID> const& nextNUnl,
             hash_map<NodeID, unsigned int> const& scoreTable,
-            std::vector<NodeID> & addCandidates,
+            std::vector<NodeID> & toDisableCandidates,
             std::vector<NodeID> & removeCandidates);
 
     void

@@ -52,12 +52,6 @@ RCLValidatedLedger::RCLValidatedLedger(
     {
         assert(hashIndex->getFieldU32(sfLastLedgerSequence) == (seq() - 1));
         ancestors_ = hashIndex->getFieldV256(sfHashes).value();
-        JLOG(j_.debug()) << __func__ << " ledger->seq() " << ledger->seq()
-                    << " ancestors_.size " << ancestors_.size();
-//        for(auto & a : ancestors_)
-//        {
-//            JLOG(j_.debug()) << __func__ << " ancestors_ " << a;
-//        }
     }
     else
         JLOG(j_.warn()) << "Ledger " << ledgerSeq_ << ":" << ledgerID_

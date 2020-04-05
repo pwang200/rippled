@@ -34,62 +34,86 @@ NegativeUNLVote::NegativeUNLVote(NodeID const& myId,
 
 void
 NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
-          hash_set<NodeID> const & unl,
+          hash_set<PublicKey> const & keys,
           std::shared_ptr<SHAMap> const& initialSet)
 {
     auto const seq = prevLedger->info().seq + 1;
     hash_map<NodeID, unsigned int> scoreTable;
-    if(buildScoreTable(prevLedger, unl, scoreTable))
+    hash_map<NodeID, PublicKey> nidToKeyMap;
+    hash_set<NodeID> unlNodeIDs;
+    for(auto const &k : keys)
     {
-        hash_set<NodeID> nextNegativeUNL = prevLedger->negativeUNL();
-        auto negativeUNLToAdd = prevLedger->negativeUNLToAdd();
-        auto negativeUNLToRemove = prevLedger->negativeUNLToRemove();
-        if (negativeUNLToAdd)
-            nextNegativeUNL.insert(*negativeUNLToAdd);
-        if (negativeUNLToRemove)
-            nextNegativeUNL.erase(*negativeUNLToRemove);
+        auto nid = calcNodeID(k);
+        nidToKeyMap.emplace(nid, k);
+        unlNodeIDs.emplace(nid);
+    }
+
+    if(buildScoreTable(prevLedger, unlNodeIDs, scoreTable))
+    {
+        //build next nUnl
+        auto nUnlKeys = prevLedger->negativeUNL();
+        auto nUnlToDisable = prevLedger->negativeUNLToDisable();
+        auto nUnlToReEnable = prevLedger->negativeUNLToReEnable();
+        if (nUnlToDisable)
+            nUnlKeys.insert(*nUnlToDisable);
+        if (nUnlToReEnable)
+            nUnlKeys.erase(*nUnlToReEnable);
+
+        hash_set<NodeID> nUnlNodeIDs;
+        for(auto & k : nUnlKeys)
+        {
+            auto nid = calcNodeID(k);
+            nUnlNodeIDs.insert(nid);
+            if(nidToKeyMap.find(nid) == nidToKeyMap.end())
+            {
+                nidToKeyMap.emplace(nid, k);
+            }
+        }
 
         purgeNewValidators(seq);
 
-        std::vector<NodeID> addCandidates;
-        std::vector<NodeID> removeCandidates;
-        findAllCandidates(unl, nextNegativeUNL, scoreTable,
-            addCandidates,removeCandidates);
+        std::vector<NodeID> toDisableCandidates;
+        std::vector<NodeID> toReEnableCandidates;
+        findAllCandidates(unlNodeIDs, nUnlNodeIDs, scoreTable,
+                          toDisableCandidates, toReEnableCandidates);
 
-        if (!addCandidates.empty())
+        if (!toDisableCandidates.empty())
         {
-            JLOG(j_.debug()) << "N-UNL: addCandidates.size "//TODO remove log line
-                             << addCandidates.size();
-            addTx(seq, pickOneCandidate(prevLedger->info().hash, addCandidates), true, initialSet);
+            JLOG(j_.debug()) << "N-UNL: toDisableCandidates.size "//TODO remove log line
+                             << toDisableCandidates.size();
+            auto n = pickOneCandidate(prevLedger->info().hash, toDisableCandidates);
+            assert(nidToKeyMap.find(n) != nidToKeyMap.end());
+            addTx(seq, nidToKeyMap[n], true, initialSet);
         }
 
-        if (!removeCandidates.empty())
+        if (!toReEnableCandidates.empty())
         {
-            JLOG(j_.debug()) << "N-UNL: removeCandidates in UNL, size "//TODO remove log line
-                             << removeCandidates.size();
-            addTx(seq, pickOneCandidate(prevLedger->info().hash, removeCandidates), false, initialSet);
+            JLOG(j_.debug()) << "N-UNL: toReEnableCandidates in UNL, size "//TODO remove log line
+                             << toReEnableCandidates.size();
+            auto n = pickOneCandidate(prevLedger->info().hash, toReEnableCandidates);
+            assert(nidToKeyMap.find(n) != nidToKeyMap.end());
+            addTx(seq, nidToKeyMap[n], false, initialSet);
         }
     }
 }
 
 void
 NegativeUNLVote::addTx(LedgerIndex seq,
-        NodeID const &nid,
-        bool adding,
+        PublicKey const &vp,
+        bool disabling,
         std::shared_ptr<SHAMap> const& initialSet)
 {
-//    JLOG(j_.trace()) << "N-UNL: ledger " << seq;
-    STTx nunlTx(ttNEGATIVE_UNL,
-            [&](auto &obj)
+    STTx nUnlTx(ttUNL_MODIDY,
+                [&](auto &obj)
             {
-                obj.setFieldU8(sfNegativeUNLTxAdd, adding ? 1 : 0);
+                obj.setFieldU8(sfUNLModifyDisabling, disabling ? 1 : 0);
                 obj.setFieldU32(sfLedgerSequence, seq);
-                obj.setFieldH160(sfNegativeUNLTxNodeID, nid);
+                obj.setFieldVL(sfUNLModifyValidator, vp.slice());
             });
 
-    uint256 txID = nunlTx.getTransactionID();
+    uint256 txID = nUnlTx.getTransactionID();
     Serializer s;
-    nunlTx.add(s);
+    nUnlTx.add(s);
     auto tItem = std::make_shared<SHAMapItem>(txID, s.peekData());
     if (!initialSet->addGiveItem(tItem, true, false))
     {
@@ -162,7 +186,7 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
                 validations_.getTrustedForLedger(ledgerAncestors[idx--]))
         {
             if(scoreTable.find(v->getNodeID()) != scoreTable.end())
-                    ++scoreTable[v->getNodeID()];
+                ++scoreTable[v->getNodeID()];
         }
     }
 
@@ -185,8 +209,8 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
     }
     else
     {
-        //cannot happen unless validations_.getTrustedForLedger returns
-        //multiple validations from the same validator.
+        // cannot happen because validations_.getTrustedForLedger does not
+        // return multiple validations of the same ledger from a validator.
         JLOG(j_.error()) << "N-UNL: ledger " << seq
                               << ". I issued " << myValidationCount
                               << " validations in last " << FLAG_LEDGER
@@ -199,8 +223,8 @@ void
 NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
         hash_set<NodeID> const& nextNUnl,
         hash_map<NodeID, unsigned int> const& scoreTable,
-        std::vector<NodeID> & addCandidates,
-        std::vector<NodeID> & removeCandidates)
+        std::vector<NodeID> & toDisableCandidates,
+        std::vector<NodeID> & toReEnableCandidates)
 {
     auto maxNegativeListed = (std::size_t) std::ceil(unl.size() * nUnlMaxListed);
     std::size_t negativeListed = 0;
@@ -230,26 +254,26 @@ NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
             newValidators_.find(it->first) == newValidators_.end())
         {
             JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
-                             << " addCandidates.push_back " << it->first;
-            addCandidates.push_back(it->first);
+                             << " toDisableCandidates.push_back " << it->first;
+            toDisableCandidates.push_back(it->first);
         }
 
         if (it->second > nUnlHighWaterMark &&
             nextNUnl.find(it->first) != nextNUnl.end())
         {
             JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
-                             << " removeCandidates.push_back " << it->first;
-            removeCandidates.push_back(it->first);
+                             << " toReEnableCandidates.push_back " << it->first;
+            toReEnableCandidates.push_back(it->first);
         }
     }
 
-    if (removeCandidates.empty())
+    if (toReEnableCandidates.empty())
     {
         for (auto &n : nextNUnl)
         {
             if (unl.find(n) == unl.end())
             {
-                removeCandidates.push_back(n);
+                toReEnableCandidates.push_back(n);
             }
         }
     }
@@ -287,6 +311,3 @@ NegativeUNLVote::purgeNewValidators(LedgerIndex seq)
 }
 
 } // ripple
-
-
-

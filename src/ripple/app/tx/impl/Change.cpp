@@ -79,7 +79,7 @@ Change::preclaim(PreclaimContext const &ctx)
 
     if (ctx.tx.getTxnType() != ttAMENDMENT
         && ctx.tx.getTxnType() != ttFEE
-        && ctx.tx.getTxnType() != ttNEGATIVE_UNL)
+        && ctx.tx.getTxnType() != ttUNL_MODIDY)
         return temUNKNOWN;
 
     return tesSUCCESS;
@@ -91,7 +91,7 @@ Change::doApply()
 {
     assert( ctx_.tx.getTxnType() == ttAMENDMENT ||
             ctx_.tx.getTxnType() == ttFEE ||
-            ctx_.tx.getTxnType() == ttNEGATIVE_UNL);
+            ctx_.tx.getTxnType() == ttUNL_MODIDY);
 
     if (ctx_.tx.getTxnType () == ttAMENDMENT)
         return applyAmendment ();
@@ -99,8 +99,7 @@ Change::doApply()
         return applyFee ();
     else
     {
-        assert(ctx_.tx.getTxnType() == ttNEGATIVE_UNL);
-        return applyNegativeUNL();
+        return applyUNLModify();
     }
 }
 
@@ -239,52 +238,70 @@ Change::applyFee()
 }
 
 TER
-Change::applyNegativeUNL()
+Change::applyUNLModify()
 {
     if(view().seq() % FLAG_LEDGER != 0)
     {
-        JLOG(j_.warn()) << "N-UNL: applyNegativeUNL, not a flag ledger seq="
+        JLOG(j_.warn()) << "N-UNL: applyUNLModify, not a flag ledger seq="
                         << view().seq();
         return tefFAILURE;
     }
+
+    bool disabling = ctx_.tx.getFieldU8(sfUNLModifyDisabling);
+    auto seq = ctx_.tx.getFieldU32(sfLedgerSequence);
+    if(seq != view().seq())
+    {
+        JLOG(j_.warn()) << "N-UNL: applyUNLModify, wrong ledger seq=" << seq;
+        return tefFAILURE;
+    }
+
+    Blob validator = ctx_.tx.getFieldVL(sfUNLModifyValidator);
+    if (!publicKeyType (makeSlice(validator)))
+    {
+        JLOG(j_.warn()) << "N-UNL: applyUNLModify, bad validator key";
+        return tefFAILURE;
+    }
+    JLOG(j_.info()) << "N-UNL: applyUNLModify, disabling=" << disabling
+                     << " seq=" << seq
+                     << " validator data:" << strHex(validator);
 
     auto const k = keylet::negativeUNL();
     SLE::pointer nUnlObject = view().peek(k);
     if (!nUnlObject)
     {
-        JLOG(j_.trace()) << "N-UNL: applyNegativeUNL new nUnlObject";//TODO remove
+        JLOG(j_.trace()) << "N-UNL: applyUNLModify new nUnlObject";//TODO remove
         nUnlObject = std::make_shared<SLE>(k);
         view().insert(nUnlObject);
     }
 
-    auto txNodeId = ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID);
     bool found = false;
     if(nUnlObject->isFieldPresent(sfNegativeUNL))
     {
-        auto const & nUnl = nUnlObject->getFieldV160(sfNegativeUNL);
-        found = std::find(nUnl.begin(), nUnl.end(), txNodeId) != nUnl.end();
+        auto const & nUnl = nUnlObject->getFieldArray(sfNegativeUNL);
+        for(auto it = nUnl.begin(); it != nUnl.end(); ++it)
+        {
+            if(it->getFieldVL(sfPublicKey) == validator)
+                found = true;
+        }
+        //found = std::find(nUnl.begin(), nUnl.end(), validator) != nUnl.end();
     }
 
-    if (ctx_.tx.getFieldU8(sfNegativeUNLTxAdd))
+    if (disabling)
     {
-        // one add Tx
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToAdd))
+        // one toDisable Tx
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
         {
-            JLOG(j_.warn()) << "N-UNL: applyNegativeUNL, already has ToAdd "
-                        << nUnlObject->getFieldH160(sfNegativeUNLToAdd)
-                        << " trying to add "
-                        << txNodeId;
+            JLOG(j_.warn()) << "N-UNL: applyUNLModify, already has ToDisable";
             return tefFAILURE;
         }
 
-        // cannot be the same as toRemove
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToRemove))
+        // cannot be the same as toReEnable
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToReEnable))
         {
-            if(nUnlObject->getFieldH160(sfNegativeUNLToRemove) == txNodeId)
+            if(nUnlObject->getFieldVL(sfNegativeUNLToReEnable) == validator)
             {
                 JLOG(j_.warn())
-                    << "N-UNL: applyNegativeUNL, ToAdd is same as ToRemove "
-                    << txNodeId;
+                    << "N-UNL: applyUNLModify, ToDisable is same as ToReEnable";
                 return tefFAILURE;
             }
         }
@@ -293,34 +310,27 @@ Change::applyNegativeUNL()
         if(found)
         {
             JLOG(j_.warn())
-                    << "N-UNL: applyNegativeUNL, ToAdd is already in nUNL "
-                    << txNodeId;
-                return tefFAILURE;
+                << "N-UNL: applyUNLModify, ToDisable is already in nUNL";
+            return tefFAILURE;
         }
 
-        nUnlObject->setFieldH160(sfNegativeUNLToAdd, txNodeId);
-        JLOG(j_.info()) << "N-UNL: applyNegativeUNL Tx add "
-                         << txNodeId;
+        nUnlObject->setFieldVL(sfNegativeUNLToDisable, validator);
     }
     else
     {
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToRemove))
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToReEnable))
         {
-            JLOG(j_.warn()) << "N-UNL: applyNegativeUNL, already has ToRemove "
-                            << nUnlObject->getFieldH160(sfNegativeUNLToRemove)
-                            << " trying to remove "
-                            << txNodeId;
+            JLOG(j_.warn()) << "N-UNL: applyUNLModify, already has ToReEnable";
             return tefFAILURE;
         }
 
         // cannot be the same as toAdd
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToAdd))
+        if(nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
         {
-            if(nUnlObject->getFieldH160(sfNegativeUNLToAdd) == txNodeId)
+            if(nUnlObject->getFieldVL(sfNegativeUNLToDisable) == validator)
             {
                 JLOG(j_.warn())
-                    << "N-UNL: applyNegativeUNL, ToRemove is same as ToAdd "
-                    << txNodeId;
+                    << "N-UNL: applyUNLModify, ToReEnable is same as ToDisable";
                 return tefFAILURE;
             }
         }
@@ -329,19 +339,14 @@ Change::applyNegativeUNL()
         if(! found)
         {
             JLOG(j_.warn())
-                    << "N-UNL: applyNegativeUNL, ToRemove is not in nUNL "
-                    << txNodeId;
-                return tefFAILURE;
+                << "N-UNL: applyUNLModify, ToReEnable is not in nUNL";
+            return tefFAILURE;
         }
 
-        nUnlObject->setFieldH160(sfNegativeUNLToRemove,
-                ctx_.tx.getFieldH160(sfNegativeUNLTxNodeID));
-        JLOG(j_.info()) << "N-UNL: applyNegativeUNL Tx remove "
-                         << txNodeId;
+        nUnlObject->setFieldVL(sfNegativeUNLToReEnable, validator);
     }
     view().update(nUnlObject);
-
-    JLOG(j_.trace()) << "N-UNL: applyNegativeUNL Tx done.";//TODO remove
+    JLOG(j_.trace()) << "N-UNL: applyUNLModify Tx done.";//TODO remove
     return tesSUCCESS;
 }
 

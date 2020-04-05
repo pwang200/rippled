@@ -55,8 +55,8 @@ SF_U8 const sfMethod            (access, STI_UINT8, 2, "Method");
 SF_U8 const sfTransactionResult (access, STI_UINT8, 3, "TransactionResult");
 
 // 8-bit integers (uncommon)
-SF_U8 const sfTickSize          (access, STI_UINT8, 16, "TickSize");
-SF_U8 const sfNegativeUNLTxAdd  (access, STI_UINT8, 17, "NegativeUNLAdd");
+SF_U8 const sfTickSize           (access, STI_UINT8, 16, "TickSize");
+SF_U8 const sfUNLModifyDisabling (access, STI_UINT8, 17, "UNLModifyDisabling");
 
 // 16-bit integers
 SF_U16 const sfLedgerEntryType (access, STI_UINT16, 1, "LedgerEntryType", SField::sMD_Never);
@@ -128,10 +128,6 @@ SF_U160 const sfTakerPaysCurrency (access, STI_HASH160, 1, "TakerPaysCurrency");
 SF_U160 const sfTakerPaysIssuer   (access, STI_HASH160, 2, "TakerPaysIssuer");
 SF_U160 const sfTakerGetsCurrency (access, STI_HASH160, 3, "TakerGetsCurrency");
 SF_U160 const sfTakerGetsIssuer   (access, STI_HASH160, 4, "TakerGetsIssuer");
-// NodeID
-SF_U160 const sfNegativeUNLTxNodeID        (access, STI_HASH160, 5, "NegativeUNLTxNodeID");
-SF_U160 const sfNegativeUNLToAdd           (access, STI_HASH160, 6, "NegativeUNLToAdd");
-SF_U160 const sfNegativeUNLToRemove        (access, STI_HASH160, 7, "NegativeUNLToRemove");
 
 // 256-bit (common)
 SF_U256 const sfLedgerHash      (access, STI_HASH256, 1, "LedgerHash");
@@ -192,6 +188,9 @@ SF_Blob const sfMemoFormat      (access, STI_VL, 14, "MemoFormat");
 SF_Blob const sfFulfillment     (access, STI_VL, 16, "Fulfillment");
 SF_Blob const sfCondition       (access, STI_VL, 17, "Condition");
 SF_Blob const sfMasterSignature (access, STI_VL, 18, "MasterSignature", SField::sMD_Default, SField::notSigning);
+SF_Blob const sfUNLModifyValidator       (access, STI_VL, 19, "UNLModifyValidator");
+SF_Blob const sfNegativeUNLToDisable     (access, STI_VL, 20, "NegativeUNLToDisable");
+SF_Blob const sfNegativeUNLToReEnable    (access, STI_VL, 21, "NegativeUNLToReEnable");
 
 // account
 SF_Account const sfAccount     (access, STI_ACCOUNT, 1, "Account");
@@ -205,9 +204,6 @@ SF_Account const sfRegularKey  (access, STI_ACCOUNT, 8, "RegularKey");
 
 // path set
 SField const sfPaths (access, STI_PATHSET, 1, "Paths");
-
-// vector of 160-bit
-SF_Vec160 const sfNegativeUNL  (access, STI_VECTOR160, 1, "NegativeUNL");
 
 // vector of 256-bit
 SF_Vec256 const sfIndexes    (access, STI_VECTOR256, 1, "Indexes", SField::sMD_Never);
@@ -231,6 +227,7 @@ SField const sfSignerEntry         (access, STI_OBJECT, 11, "SignerEntry");
 SField const sfSigner              (access, STI_OBJECT, 16, "Signer");
 //                                                                                 17 has not been used yet...
 SField const sfMajority            (access, STI_OBJECT, 18, "Majority");
+SField const sfNegativeUNLEntry    (access, STI_OBJECT, 19, "NegativeUNLEntry");
 
 // array of objects
 // ARRAY/1 is reserved for end of array
@@ -245,6 +242,7 @@ SField const sfMemos           (access, STI_ARRAY, 9, "Memos");
 
 // array of objects (uncommon)
 SField const sfMajorities      (access, STI_ARRAY, 16, "Majorities");
+SField const sfNegativeUNL     (access, STI_ARRAY, 17, "NegativeUNL");
 
 SField::SField(private_access_tag_t,
     SerializedTypeID tid, int fv, const char* fn, int meta,

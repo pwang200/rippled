@@ -20,48 +20,45 @@
 #include <ripple/basics/Log.h>
 #include <ripple/basics/StringUtilities.h>
 #include <ripple/protocol/jss.h>
-#include <ripple/protocol/STVectorBigInt.h>
+#include <ripple/protocol/STVector256.h>
 
 namespace ripple {
 
-template <std::size_t Bits, typename T>
-STVectorBigInt<Bits, T>::STVectorBigInt(SerialIter& sit, SField const& name)
+STVector256::STVector256(SerialIter& sit, SField const& name)
     : STBase(name)
 {
     Blob data = sit.getVL ();
-    auto const count = data.size () / (Bits / 8);
+    auto const count = data.size () / (256 / 8);
     mValue.reserve (count);
     Blob::iterator begin = data.begin ();
     unsigned int uStart  = 0;
     for (unsigned int i = 0; i != count; i++)
     {
-        unsigned int uEnd = uStart + (Bits / 8);
+        unsigned int uEnd = uStart + (256 / 8);
         // This next line could be optimized to construct a default
         // uint256 in the vector and then copy into it
-        mValue.push_back (int_type (Blob (begin + uStart, begin + uEnd)));
+        mValue.push_back (uint256 (Blob (begin + uStart, begin + uEnd)));
         uStart  = uEnd;
     }
 }
-template <std::size_t Bits, typename T>
+
 void
-STVectorBigInt<Bits, T>::add (Serializer& s) const
+STVector256::add (Serializer& s) const
 {
     assert (fName->isBinary ());
-    assert (fName->fieldType == STI_VECTOR256 || fName->fieldType == STI_VECTOR160);
-    s.addVL (mValue.begin(), mValue.end(), mValue.size () * (Bits / 8));
+    assert (fName->fieldType == STI_VECTOR256);
+    s.addVL (mValue.begin(), mValue.end(), mValue.size () * (256 / 8));
 }
 
-template <std::size_t Bits, typename T>
 bool
-STVectorBigInt<Bits, T>::isEquivalent (const STBase& t) const
+STVector256::isEquivalent (const STBase& t) const
 {
-    const STVectorBigInt<Bits>* v = dynamic_cast<const STVectorBigInt<Bits>*> (&t);
-    return v && (mValue == v->value());
+    const STVector256* v = dynamic_cast<const STVector256*> (&t);
+    return v && (mValue == v->mValue);
 }
 
-template <std::size_t Bits, typename T>
 Json::Value
-STVectorBigInt<Bits, T>::getJson (JsonOptions) const
+STVector256::getJson (JsonOptions) const
 {
     Json::Value ret (Json::arrayValue);
 

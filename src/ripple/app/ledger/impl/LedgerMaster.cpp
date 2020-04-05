@@ -326,7 +326,7 @@ LedgerMaster::setValidLedger(
     if (! standalone_)
     {
         auto vals = app_.getValidations().getTrustedForLedger(l->info().hash);
-        filterValidationsWithnUnl(vals, app_.validators().getNegativeUNL());
+        filterValidationsWithnUnl(vals, app_.validators().getNegativeUNLNodeIDs());
         times.reserve(vals.size());
         for(auto const& val: vals)
             times.push_back(val->getSignTime());
@@ -949,7 +949,7 @@ LedgerMaster::checkAccept (uint256 const& hash, std::uint32_t seq)
 
         auto validations = app_.getValidations().getTrustedForLedger(hash);
         filterValidationsWithnUnl(validations,
-                    app_.validators().getNegativeUNL());
+                                  app_.validators().getNegativeUNLNodeIDs());
         valCount = validations.size();
         if (valCount >= app_.validators ().quorum ())
         {
@@ -1018,7 +1018,7 @@ LedgerMaster::checkAccept (
     auto validations = app_.getValidations().getTrustedForLedger(
                     ledger->info().hash);
     filterValidationsWithnUnl(validations,
-                              app_.validators().getNegativeUNL());
+                              app_.validators().getNegativeUNLNodeIDs());
     auto const tvc = validations.size();
     if (tvc < minVal) // nothing we can do
     {
@@ -1107,7 +1107,7 @@ LedgerMaster::consensusBuilt(
     // maybe we saved up validations for some other ledger that can be
 
     auto val = app_.getValidations().currentTrusted();
-    filterValidationsWithnUnl(val, app_.validators().getNegativeUNL());
+    filterValidationsWithnUnl(val, app_.validators().getNegativeUNLNodeIDs());
 
     // Track validation counts with sequence numbers
     class valSeq

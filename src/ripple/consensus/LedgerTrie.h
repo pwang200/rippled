@@ -690,9 +690,9 @@ public:
 
         while (curr && !done)
         {
-            std::cout << std::endl << __func__ << " XXXX " <<
-                      "curr " << curr->getJson()
-                      << std::endl;
+//            std::cout << std::endl << __func__ << " XXXX " <<
+//                      "curr " << curr->getJson()
+//                      << std::endl;
             // Within a single span, the preferred by branch strategy is simply
             // to continue along the span as long as the branch support of
             // the next ledger exceeds the uncommitted support for that ledger.

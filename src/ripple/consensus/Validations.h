@@ -356,9 +356,9 @@ private:
     {
         for (auto it = acquiring_.begin(); it != acquiring_.end();)
         {
-            std::cout << std::endl << __func__ << " XXXX " <<
-                      it->first.first << " " << it->first.second
-                      << std::endl;
+//            std::cout << std::endl << __func__ << " XXXX " <<
+//                      it->first.first << " " << it->first.second
+//                      << std::endl;
             if (boost::optional<Ledger> ledger =
                     adaptor_.acquire(it->first.second))
             {
@@ -454,11 +454,12 @@ private:
     withTrie(std::lock_guard<Mutex> const& lock, F&& f)
     {
         // Call current to flush any stale validations
-        current(lock, [](auto) {}, [](auto & id, auto) {
-            std::cout << std::endl << __func__ << " XXXX " <<
-                      "withTrie nodeId " << id
-                      << std::endl;
-        });
+        current(lock, [](auto) {}, [](auto, auto) {});
+//        current(lock, [](auto) {}, [](auto & id, auto) {
+//            std::cout << std::endl << __func__ << " XXXX " <<
+//                      "withTrie nodeId " << id
+//                      << std::endl;
+//        });
         checkAcquired(lock);
         return f(trie_);
     }
@@ -714,9 +715,9 @@ public:
         // No trusted validations to determine branch
         if (!preferred)
         {
-            std::cout << std::endl << __func__ << " XXXX " <<
-                    "!preferred"
-                      << std::endl;
+//            std::cout << std::endl << __func__ << " XXXX " <<
+//                    "!preferred"
+//                      << std::endl;
 
             // fall back to majority over acquiring ledgers
             auto it = std::max_element(
@@ -749,9 +750,9 @@ public:
         // a descendant of our working ledger or it is on a different chain
         if (preferred->seq > curr.seq())
         {
-            std::cout << std::endl << __func__ << " XXXX " <<
-                      "ahead "<< preferred->seq << " " << preferred->id
-                      << std::endl;
+//            std::cout << std::endl << __func__ << " XXXX " <<
+//                      "ahead "<< preferred->seq << " " << preferred->id
+//                      << std::endl;
 
             return std::make_pair(preferred->seq, preferred->id);
         }
@@ -776,13 +777,13 @@ public:
     ID
     getPreferred(Ledger const& curr, Seq minValidSeq)
     {
-        std::cout << std::endl << __func__ << " XXXX " <<
-                  "minValidSeq " << minValidSeq << std::endl;
+//        std::cout << std::endl << __func__ << " XXXX " <<
+//                  "minValidSeq " << minValidSeq << std::endl;
         boost::optional<std::pair<Seq, ID>> preferred = getPreferred(curr);
         if (preferred && preferred->first >= minValidSeq)
         {
-            std::cout << std::endl << __func__ << " XXXX " <<
-                  "prefer " << preferred->second << std::endl;
+//            std::cout << std::endl << __func__ << " XXXX " <<
+//                  "prefer " << preferred->second << std::endl;
             return preferred->second;
         }
         return curr.id();

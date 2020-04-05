@@ -511,24 +511,25 @@ public:
         return {quorum_, trustedSigningKeys_};
     }
 
-    hash_set<NodeID> getUNL()
+    hash_set<PublicKey> getUNL()
     {
-        hash_set<NodeID> res;
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
-        res.reserve(trustedKeys_.size());
-        for(auto const & k : trustedKeys_)
-        {
-            res.insert(calcNodeID(k));
-        }
-        return res;
+        return trustedKeys_;
     }
 
-    hash_set<NodeID> getNegativeUNL()
+    hash_set<NodeID> getNegativeUNLNodeIDs()
+    {
+        std::unique_lock<std::shared_timed_mutex> lock{mutex_};
+        return getNUNLNodeIDs();
+    }
+
+    hash_set<PublicKey> getNegativeUNL()
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
         return negativeList_;
     }
-    void setNegativeUNL(hash_set<NodeID> const& nUnl)
+
+    void setNegativeUNL(hash_set<PublicKey> const& nUnl)
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
         negativeList_ = nUnl;
@@ -546,7 +547,7 @@ private:
     CacheValidatorFile(PublicKey const& pubKey,
         PublisherList const& publisher);
 
-    hash_set<NodeID> negativeList_;
+    hash_set<PublicKey> negativeList_;
 
     /** Check response for trusted valid published list
 
@@ -586,6 +587,17 @@ private:
     std::size_t
     calculateQuorum (
         std::size_t trusted_total, std::size_t trusted_reliable, std::size_t seen_reliable);
+
+    hash_set<NodeID> getNUNLNodeIDs()
+    {
+        hash_set<NodeID> res;
+        res.reserve(negativeList_.size());
+        for(auto const & k : negativeList_)
+        {
+            res.insert(calcNodeID(k));
+        }
+        return res;
+    }
 };
 } // ripple
 

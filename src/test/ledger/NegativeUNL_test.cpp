@@ -32,8 +32,9 @@ class NegativeUNL_test : public beast::unit_test::suite
     void
     testNegativeUNL()
     {
+        testcase ("Create UNLModify Tx and apply to ledgers");
         jtx::Env env(*this);
-        //env.app().logs().threshold(beast::severities::kAll);
+        env.app().logs().threshold(beast::severities::kAll);
         Config config;
         auto l = std::make_shared<Ledger>(
                 create_genesis, config,
@@ -43,35 +44,39 @@ class NegativeUNL_test : public beast::unit_test::suite
                 *l,
                 env.app().timeKeeper().closeTime());
 
-        NodeID n1(0xA1);
-        NodeID n2(0xA2);
-        NodeID badfood(0xBADDF00D);
-
         bool adding;
-        NodeID txNodeId;
+        auto keyPair_1 = randomKeyPair(KeyType::ed25519);
+        auto pk1 = keyPair_1.first;
+        auto keyPair_2 = randomKeyPair(KeyType::ed25519);
+        auto pk2 = keyPair_2.first;
+        auto keyPair_3 = randomKeyPair(KeyType::ed25519);
+        auto pk3 = keyPair_3.first;
+
+        PublicKey txKey;
         auto fill = [&](auto &obj)
         {
-            obj.setFieldU8(sfNegativeUNLTxAdd, adding ? 1 : 0);
+            obj.setFieldU8(sfUNLModifyDisabling, adding ? 1 : 0);
             obj.setFieldU32(sfLedgerSequence, l->seq());
-            obj.setFieldH160(sfNegativeUNLTxNodeID, txNodeId);
-            std::cout << txNodeId << std::endl;
+            std::cout << "fill: seq="<< l->seq() << std::endl;
+            obj.setFieldVL(sfUNLModifyValidator, txKey);
+            std::cout << txKey << std::endl;
         };
-
-        adding = true;
-        txNodeId = n1;
-        STTx txAdd(ttNEGATIVE_UNL, fill);
-        txNodeId = n2;
-        STTx txAdd_2(ttNEGATIVE_UNL, fill);
-        txNodeId = badfood;
-        STTx txAdd_bad(ttNEGATIVE_UNL, fill);
-
-        adding = false;
-        txNodeId = n1;
-        STTx txRemove(ttNEGATIVE_UNL, fill);
-        txNodeId = n2;
-        STTx txRemove_2(ttNEGATIVE_UNL, fill);
-        txNodeId = badfood;
-        STTx txRemove_bad(ttNEGATIVE_UNL, fill);
+//
+//        adding = true;
+//        txKey = pk1;
+//        STTx txAdd(ttUNL_MODIDY, fill);
+//        txKey = pk2;
+//        STTx txAdd_2(ttUNL_MODIDY, fill);
+//        txKey = pkBad;
+//        STTx txAdd_bad(ttUNL_MODIDY, fill);
+//
+//        adding = false;
+//        txKey = pk1;
+//        STTx txRemove(ttUNL_MODIDY, fill);
+//        txKey = pk2;
+//        STTx txRemove_2(ttUNL_MODIDY, fill);
+//        txKey = pkBad;
+//        STTx txRemove_bad(ttUNL_MODIDY, fill);
 
         auto applyAndTestResult = [&](OpenView& view, STTx const& tx, bool pass) -> bool
         {
@@ -91,19 +96,19 @@ class NegativeUNL_test : public beast::unit_test::suite
                            << " expect " << size
                            << " actual " << l->negativeUNL().size();
             }
-            bool sameToAdd = (l->negativeUNLToAdd() != boost::none) == hasToAdd;
+            bool sameToAdd = (l->negativeUNLToDisable() != boost::none) == hasToAdd;
             if(!sameToAdd)
             {
                 JLOG (env.journal.debug()) << "negativeUNL has ToAdd,"
                            << " expect " << hasToAdd
-                           << " actual " << (l->negativeUNLToAdd() != boost::none);
+                           << " actual " << (l->negativeUNLToDisable() != boost::none);
             }
-            bool sameToRemove = (l->negativeUNLToRemove() != boost::none) == hasToRemove;
+            bool sameToRemove = (l->negativeUNLToReEnable() != boost::none) == hasToRemove;
             if(!sameToRemove)
             {
                 JLOG (env.journal.debug()) << "negativeUNL has ToRemove,"
                            << " expect " << hasToRemove
-                           << " actual " << (l->negativeUNLToRemove() != boost::none);
+                           << " actual " << (l->negativeUNLToReEnable() != boost::none);
             }
 
             return sameSize && sameToAdd && sameToRemove;
@@ -126,6 +131,7 @@ class NegativeUNL_test : public beast::unit_test::suite
          * -- nUNL empty
          * -- has ToAdd with right nodeId
          * -- no ToRemove
+         * ++ an extra test: first Add Tx in ledger TxSet
          *
          * (3) ledgers before the next flag ledger
          * -- nUNL empty
@@ -208,9 +214,16 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(1) the ledger after genesis, not a flag ledger
+            adding = true;
+            txKey = pk1;
+            STTx txAdd(ttUNL_MODIDY, fill);
+            adding = false;
+            txKey = pk2;
+            STTx txRemove_2(ttUNL_MODIDY, fill);
+
             OpenView accum(&*l);
             BEAST_EXPECT(applyAndTestResult(accum, txAdd, false));
-            BEAST_EXPECT(applyAndTestResult(accum, txRemove, false));
+            BEAST_EXPECT(applyAndTestResult(accum, txRemove_2, false));
             accum.apply(*l);
             BEAST_EXPECT(nUnlSizeTest(0, false, false));
         }
@@ -226,15 +239,37 @@ class NegativeUNL_test : public beast::unit_test::suite
                 l = next;
             }
             //flag ledger now
+            adding = true;
+            txKey = pk1;
+            STTx txAdd(ttUNL_MODIDY, fill);
+            txKey = pk2;
+            STTx txAdd_2(ttUNL_MODIDY, fill);
+            adding = false;
+            txKey = pk3;
+            STTx txRemove_3(ttUNL_MODIDY, fill);
+
+            l->info().txHash;
             OpenView accum(&*l);
             BEAST_EXPECT(applyAndTestResult(accum, txAdd, true));
             BEAST_EXPECT(applyAndTestResult(accum, txAdd_2, false));
-            BEAST_EXPECT(applyAndTestResult(accum, txRemove, false));
+            BEAST_EXPECT(applyAndTestResult(accum, txRemove_3, false));
             accum.apply(*l);
             auto good_size = nUnlSizeTest(0, true, false);
             BEAST_EXPECT(good_size);
             if (good_size)
-                BEAST_EXPECT(l->negativeUNLToAdd() == n1);
+            {
+                BEAST_EXPECT(l->negativeUNLToDisable() == pk1);
+                //++ first Add Tx in ledger TxSet
+                uint256 txID = txAdd.getTransactionID();
+                BEAST_EXPECT(l->txExists(txID));
+            }
+//            {
+//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
+//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
+//                l->setImmutable(config);
+//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
+//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
+//            }
         }
 
         {
@@ -244,33 +279,60 @@ class NegativeUNL_test : public beast::unit_test::suite
                 auto good_size = nUnlSizeTest(0, true, false);
                 BEAST_EXPECT(good_size);
                 if (good_size)
-                    BEAST_EXPECT(l->negativeUNLToAdd() == n1);
+                    BEAST_EXPECT(l->negativeUNLToDisable() == pk1);
                 auto next = std::make_shared<Ledger>(
                         *l,
                         env.app().timeKeeper().closeTime());
                 l = next;
+//                if(i < FLAG_LEDGER - 1)
+//                {
+//                    std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
+//                    std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
+//                    l->setImmutable(config);
+//                    std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
+//                    std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
+//                }
             }
 
             //(4) next flag ledger
+            adding = true;
+            txKey = pk1;
+            STTx txAdd(ttUNL_MODIDY, fill);
+            txKey = pk2;
+            STTx txAdd_2(ttUNL_MODIDY, fill);
+            adding = false;
+            txKey = pk1;
+            STTx txRemove(ttUNL_MODIDY, fill);
+            txKey = pk2;
+            STTx txRemove_2(ttUNL_MODIDY, fill);
+            txKey = pk3;
+            STTx txRemove_3(ttUNL_MODIDY, fill);
             auto good_size = nUnlSizeTest(1, false, false);
             BEAST_EXPECT(good_size);
             if(good_size)
-                BEAST_EXPECT(*(l->negativeUNL().begin()) == n1);
+                BEAST_EXPECT(*(l->negativeUNL().begin()) == pk1);
             OpenView accum(&*l);
             BEAST_EXPECT(applyAndTestResult(accum, txAdd, false));
             BEAST_EXPECT(applyAndTestResult(accum, txAdd_2, true));
             BEAST_EXPECT(applyAndTestResult(accum, txRemove_2, false));
-            BEAST_EXPECT(applyAndTestResult(accum, txRemove_bad, false));
+            BEAST_EXPECT(applyAndTestResult(accum, txRemove_3, false));
             BEAST_EXPECT(applyAndTestResult(accum, txRemove, true));
             accum.apply(*l);
             good_size = nUnlSizeTest(1, true, true);
             BEAST_EXPECT(good_size);
             if(good_size)
             {
-                BEAST_EXPECT(l->negativeUNL().find(n1) != l->negativeUNL().end());
-                BEAST_EXPECT(l->negativeUNLToAdd() == n2);
-                BEAST_EXPECT(l->negativeUNLToRemove() == n1);
+                BEAST_EXPECT(l->negativeUNL().find(pk1) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNLToDisable() == pk2);
+                BEAST_EXPECT(l->negativeUNLToReEnable() == pk1);
             }
+//            {
+//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
+//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
+//                l->setImmutable(config);
+//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
+//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
+//            }
         }
 
         {
@@ -281,9 +343,9 @@ class NegativeUNL_test : public beast::unit_test::suite
                 BEAST_EXPECT(good_size);
                 if(good_size)
                 {
-                    BEAST_EXPECT(l->negativeUNL().find(n1) != l->negativeUNL().end());
-                    BEAST_EXPECT(l->negativeUNLToAdd() == n2);
-                    BEAST_EXPECT(l->negativeUNLToRemove() == n1);
+                    BEAST_EXPECT(l->negativeUNL().find(pk1) != l->negativeUNL().end());
+                    BEAST_EXPECT(l->negativeUNLToDisable() == pk2);
+                    BEAST_EXPECT(l->negativeUNLToReEnable() == pk1);
                 }
                 auto next = std::make_shared<Ledger>(
                         *l,
@@ -292,11 +354,14 @@ class NegativeUNL_test : public beast::unit_test::suite
             }
 
             //(6) next flag ledger
+            adding = true;
+            txKey = pk1;
+            STTx txAdd(ttUNL_MODIDY, fill);
             auto good_size = nUnlSizeTest(1, false, false);
             BEAST_EXPECT(good_size);
             if(good_size)
             {
-                BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
             }
             OpenView accum(&*l);
             BEAST_EXPECT(applyAndTestResult(accum, txAdd, true));
@@ -305,8 +370,8 @@ class NegativeUNL_test : public beast::unit_test::suite
             BEAST_EXPECT(good_size);
             if(good_size)
             {
-                BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
-                BEAST_EXPECT(l->negativeUNLToAdd() == n1);
+                BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNLToDisable() == pk1);
             }
         }
 
@@ -318,8 +383,8 @@ class NegativeUNL_test : public beast::unit_test::suite
                 BEAST_EXPECT(good_size);
                 if(good_size)
                 {
-                    BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
-                    BEAST_EXPECT(l->negativeUNLToAdd() == n1);
+                    BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
+                    BEAST_EXPECT(l->negativeUNLToDisable() == pk1);
                 }
                 auto next = std::make_shared<Ledger>(
                         *l,
@@ -328,12 +393,21 @@ class NegativeUNL_test : public beast::unit_test::suite
             }
 
             //(8) next flag ledger
+            adding = true;
+            txKey = pk1;
+            STTx txAdd(ttUNL_MODIDY, fill);
+            adding = false;
+            txKey = pk1;
+            STTx txRemove(ttUNL_MODIDY, fill);
+            txKey = pk2;
+            STTx txRemove_2(ttUNL_MODIDY, fill);
+
             auto good_size = nUnlSizeTest(2, false, false);
             BEAST_EXPECT(good_size);
             if(good_size)
             {
-                BEAST_EXPECT(l->negativeUNL().find(n1) != l->negativeUNL().end());
-                BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNL().find(pk1) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
             }
             OpenView accum(&*l);
             BEAST_EXPECT(applyAndTestResult(accum, txRemove, true));
@@ -344,9 +418,9 @@ class NegativeUNL_test : public beast::unit_test::suite
             BEAST_EXPECT(good_size);
             if(good_size)
             {
-                BEAST_EXPECT(l->negativeUNL().find(n1) != l->negativeUNL().end());
-                BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
-                BEAST_EXPECT(l->negativeUNLToRemove() == n1);
+                BEAST_EXPECT(l->negativeUNL().find(pk1) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNLToReEnable() == pk1);
             }
         }
 
@@ -358,9 +432,9 @@ class NegativeUNL_test : public beast::unit_test::suite
                 BEAST_EXPECT(good_size);
                 if(good_size)
                 {
-                    BEAST_EXPECT(l->negativeUNL().find(n1) != l->negativeUNL().end());
-                    BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
-                    BEAST_EXPECT(l->negativeUNLToRemove() == n1);
+                    BEAST_EXPECT(l->negativeUNL().find(pk1) != l->negativeUNL().end());
+                    BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
+                    BEAST_EXPECT(l->negativeUNLToReEnable() == pk1);
                 }
                 auto next = std::make_shared<Ledger>(
                         *l,
@@ -369,11 +443,14 @@ class NegativeUNL_test : public beast::unit_test::suite
             }
 
             //(10) next flag ledger
+            adding = false;
+            txKey = pk2;
+            STTx txRemove_2(ttUNL_MODIDY, fill);
             auto good_size = nUnlSizeTest(1, false, false);
             BEAST_EXPECT(good_size);
             if(good_size)
             {
-                BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
             }
             OpenView accum(&*l);
             BEAST_EXPECT(applyAndTestResult(accum, txRemove_2, true));
@@ -382,8 +459,8 @@ class NegativeUNL_test : public beast::unit_test::suite
             BEAST_EXPECT(good_size);
             if(good_size)
             {
-                BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
-                BEAST_EXPECT(l->negativeUNLToRemove() == n2);
+                BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
+                BEAST_EXPECT(l->negativeUNLToReEnable() == pk2);
             }
         }
 
@@ -395,8 +472,8 @@ class NegativeUNL_test : public beast::unit_test::suite
                 BEAST_EXPECT(good_size);
                 if(good_size)
                 {
-                    BEAST_EXPECT(l->negativeUNL().find(n2) != l->negativeUNL().end());
-                    BEAST_EXPECT(l->negativeUNLToRemove() == n2);
+                    BEAST_EXPECT(l->negativeUNL().find(pk2) != l->negativeUNL().end());
+                    BEAST_EXPECT(l->negativeUNLToReEnable() == pk2);
                 }
                 auto next = std::make_shared<Ledger>(
                         *l,

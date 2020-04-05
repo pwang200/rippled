@@ -67,7 +67,7 @@ invoke_preflight (PreflightContext const& ctx)
     case ttACCOUNT_DELETE:       return DeleteAccount     ::preflight(ctx);
     case ttAMENDMENT:
     case ttFEE:
-    case ttNEGATIVE_UNL:         return Change            ::preflight(ctx);
+    case ttUNL_MODIDY:            return Change            ::preflight(ctx);
     default:
         assert(false);
         return temUNKNOWN;
@@ -138,7 +138,7 @@ invoke_preclaim (PreclaimContext const& ctx)
     case ttACCOUNT_DELETE:       return invoke_preclaim<DeleteAccount>(ctx);
     case ttAMENDMENT:
     case ttFEE:
-    case ttNEGATIVE_UNL:         return invoke_preclaim<Change>(ctx);
+    case ttUNL_MODIDY:            return invoke_preclaim<Change>(ctx);
     default:
         assert(false);
         return temUNKNOWN;
@@ -175,7 +175,7 @@ invoke_calculateBaseFee(
     case ttACCOUNT_DELETE:       return DeleteAccount::calculateBaseFee(view, tx);
     case ttAMENDMENT:
     case ttFEE:
-    case ttNEGATIVE_UNL:         return Change::calculateBaseFee(view, tx);
+    case ttUNL_MODIDY:            return Change::calculateBaseFee(view, tx);
     default:
         assert(false);
         return FeeUnit64{0};
@@ -223,7 +223,7 @@ invoke_calculateConsequences(STTx const& tx)
     case ttACCOUNT_DELETE:       return invoke_calculateConsequences<DeleteAccount>(tx);
     case ttAMENDMENT:
     case ttFEE:
-    case ttNEGATIVE_UNL:
+    case ttUNL_MODIDY:
         [[fallthrough]];
     default:
         assert(false);
@@ -260,7 +260,7 @@ invoke_apply (ApplyContext& ctx)
     case ttACCOUNT_DELETE:       { DeleteAccount      p(ctx); return p(); }
     case ttAMENDMENT:
     case ttFEE:
-    case ttNEGATIVE_UNL:         { Change             p(ctx); return p(); }
+    case ttUNL_MODIDY:            { Change             p(ctx); return p(); }
     default:
         assert(false);
         return { temUNKNOWN, false };

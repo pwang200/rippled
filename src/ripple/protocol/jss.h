@@ -83,7 +83,7 @@ JSS ( PaymentChannelFund );         // transaction type.
 JSS ( RippleState );                // ledger type.
 JSS ( SLE_hit_rate );               // out: GetCounts.
 JSS ( SetFee );                     // transaction type.
-JSS ( SetNegativeUNL );             // transaction type.
+JSS ( UNLModify );                  // transaction type.
 JSS ( SettleDelay );                // in: TransactionSign
 JSS ( SendMax );                    // in: TransactionSign
 JSS ( Sequence );                   // in/out: TransactionSign; field.

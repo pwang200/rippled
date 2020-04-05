@@ -319,43 +319,9 @@ public:
     void invariants() const;
     void unshare() const;
 
-    hash_set<NodeID> negativeUNL() const
-    {
-        hash_set<NodeID> nUnl;
-        if (auto sle = read(keylet::negativeUNL()))
-        {
-            auto const& oldNUnl = sle->getFieldV160(sfNegativeUNL);
-            for (auto const& n : oldNUnl)
-            {
-                NodeID nid(n);
-                nUnl.insert(nid);
-            }
-        }
-        return nUnl;
-    }
-
-    boost::optional<NodeID> negativeUNLToAdd() const
-    {
-        if (auto sle = read(keylet::negativeUNL()))
-        {
-            if(sle->isFieldPresent (sfNegativeUNLToAdd))
-            {
-                return NodeID(sle->getFieldH160(sfNegativeUNLToAdd));
-            }
-        }
-        return boost::none;
-    }
-    boost::optional<NodeID> negativeUNLToRemove() const
-    {
-        if (auto sle = read(keylet::negativeUNL()))
-        {
-            if(sle->isFieldPresent (sfNegativeUNLToRemove))
-            {
-                return NodeID(sle->getFieldH160(sfNegativeUNLToRemove));
-            }
-        }
-        return boost::none;
-    }
+    hash_set<PublicKey> negativeUNL() const;
+    boost::optional<PublicKey> negativeUNLToDisable() const;
+    boost::optional<PublicKey> negativeUNLToReEnable() const;
 
 private:
     class sles_iter_impl;
