@@ -730,7 +730,7 @@ ValidatorList::getJson() const
 
     // Publisher lists
     Json::Value& jPublisherLists =
-        (res[jss::publisher_lists] = Json::arrayValue);
+            (res[jss::publisher_lists] = Json::arrayValue);
     for (auto const& p : publisherLists_)
     {
         if(local == p.first)
@@ -773,6 +773,14 @@ ValidatorList::getJson() const
                     toBase58(TokenType::NodePublic, manifest.signingKey);
             }
         });
+
+    // Negative UNL
+    Json::Value& jNegativeUNL =
+            (res[jss::NegativeUNL] = Json::arrayValue);
+    for (auto const& k : negativeList_)
+    {
+        jNegativeUNL.append(toBase58(TokenType::NodePublic, k));
+    }
 
     return res;
 }

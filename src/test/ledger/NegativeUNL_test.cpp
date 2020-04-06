@@ -23,6 +23,7 @@
 #include <ripple/beast/unit_test.h>
 #include <ripple/app/tx/apply.h>
 #include <test/jtx.h>
+#include <ripple/app/ledger/LedgerToJson.h>
 
 namespace ripple {
 namespace test {
@@ -35,16 +36,6 @@ class NegativeUNL_test : public beast::unit_test::suite
         testcase ("Create UNLModify Tx and apply to ledgers");
         jtx::Env env(*this);
         env.app().logs().threshold(beast::severities::kAll);
-        Config config;
-        auto l = std::make_shared<Ledger>(
-                create_genesis, config,
-                std::vector<uint256>{}, env.app().family());
-
-        l = std::make_shared<Ledger>(
-                *l,
-                env.app().timeKeeper().closeTime());
-
-        bool adding;
         auto keyPair_1 = randomKeyPair(KeyType::ed25519);
         auto pk1 = keyPair_1.first;
         auto keyPair_2 = randomKeyPair(KeyType::ed25519);
@@ -52,6 +43,12 @@ class NegativeUNL_test : public beast::unit_test::suite
         auto keyPair_3 = randomKeyPair(KeyType::ed25519);
         auto pk3 = keyPair_3.first;
 
+        Config config;
+        auto l = std::make_shared<Ledger>(
+                create_genesis, config,
+                std::vector<uint256>{}, env.app().family());
+
+        bool adding;
         PublicKey txKey;
         auto fill = [&](auto &obj)
         {
@@ -61,22 +58,6 @@ class NegativeUNL_test : public beast::unit_test::suite
             obj.setFieldVL(sfUNLModifyValidator, txKey);
             std::cout << txKey << std::endl;
         };
-//
-//        adding = true;
-//        txKey = pk1;
-//        STTx txAdd(ttUNL_MODIDY, fill);
-//        txKey = pk2;
-//        STTx txAdd_2(ttUNL_MODIDY, fill);
-//        txKey = pkBad;
-//        STTx txAdd_bad(ttUNL_MODIDY, fill);
-//
-//        adding = false;
-//        txKey = pk1;
-//        STTx txRemove(ttUNL_MODIDY, fill);
-//        txKey = pk2;
-//        STTx txRemove_2(ttUNL_MODIDY, fill);
-//        txKey = pkBad;
-//        STTx txRemove_bad(ttUNL_MODIDY, fill);
 
         auto applyAndTestResult = [&](OpenView& view, STTx const& tx, bool pass) -> bool
         {
@@ -214,6 +195,9 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(1) the ledger after genesis, not a flag ledger
+            l = std::make_shared<Ledger>(
+                    *l,
+                    env.app().timeKeeper().closeTime());
             adding = true;
             txKey = pk1;
             STTx txAdd(ttUNL_MODIDY, fill);
@@ -248,7 +232,6 @@ class NegativeUNL_test : public beast::unit_test::suite
             txKey = pk3;
             STTx txRemove_3(ttUNL_MODIDY, fill);
 
-            l->info().txHash;
             OpenView accum(&*l);
             BEAST_EXPECT(applyAndTestResult(accum, txAdd, true));
             BEAST_EXPECT(applyAndTestResult(accum, txAdd_2, false));
@@ -263,13 +246,6 @@ class NegativeUNL_test : public beast::unit_test::suite
                 uint256 txID = txAdd.getTransactionID();
                 BEAST_EXPECT(l->txExists(txID));
             }
-//            {
-//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
-//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
-//                l->setImmutable(config);
-//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
-//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
-//            }
         }
 
         {
@@ -284,14 +260,6 @@ class NegativeUNL_test : public beast::unit_test::suite
                         *l,
                         env.app().timeKeeper().closeTime());
                 l = next;
-//                if(i < FLAG_LEDGER - 1)
-//                {
-//                    std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
-//                    std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
-//                    l->setImmutable(config);
-//                    std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
-//                    std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
-//                }
             }
 
             //(4) next flag ledger
@@ -326,13 +294,19 @@ class NegativeUNL_test : public beast::unit_test::suite
                 BEAST_EXPECT(l->negativeUNLToDisable() == pk2);
                 BEAST_EXPECT(l->negativeUNLToReEnable() == pk1);
             }
-//            {
-//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
-//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
-//                l->setImmutable(config);
-//                std::cout << "XXXX seq="<< l->seq() << " hash " << l->info().hash << std::endl;
-//                std::cout << "XXXX seq="<< l->seq() << " tx hash " << l->info().txHash << std::endl;
-//            }
+        }
+
+        {
+            //        l->setImmutable(config);
+            //        int op = 0;
+            //        op |= LedgerFill::dumpState;
+            //        op |= LedgerFill::full;
+            //        op |= LedgerFill::expand;
+            //        op |= LedgerFill::dumpQueue;
+            //        op |= LedgerFill::dumpTxrp;
+            //        LedgerFill lfill (*l, op, {}, ltNEGATIVE_UNL);
+            //        Json::Value lJson = getJson(lfill);
+            //        std::cout << "LedgerToJson" << lJson << std::endl;
         }
 
         {
