@@ -615,7 +615,7 @@ private:
     {
         hash_set<NodeID> res;
         res.reserve(nUnl_.size());
-        for(auto const & k : nUnl_)
+        for (auto const& k : nUnl_)
         {
             res.insert(calcNodeID(k));
         }

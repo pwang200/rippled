@@ -22,6 +22,7 @@
 #include <ripple/app/misc/NetworkOPs.h>
 #include <ripple/app/tx/impl/Change.h>
 #include <ripple/basics/Log.h>
+#include <ripple/protocol/Feature.h>
 #include <ripple/protocol/Indexes.h>
 #include <ripple/protocol/TxFlags.h>
 
@@ -62,6 +63,13 @@ Change::preflight(PreflightContext const& ctx)
         return temBAD_SEQUENCE;
     }
 
+    if (ctx.tx.getTxnType() == ttUNL_MODIDY &&
+        !ctx.rules.enabled(featureNegativeUNL))
+    {
+        JLOG(ctx.j.warn()) << "Change: NegativeUNL not enabled";
+        return temDISABLED;
+    }
+
     return tesSUCCESS;
 }
 
@@ -76,8 +84,7 @@ Change::preclaim(PreclaimContext const& ctx)
         return temINVALID;
     }
 
-    if (ctx.tx.getTxnType() != ttAMENDMENT &&
-        ctx.tx.getTxnType() != ttFEE &&
+    if (ctx.tx.getTxnType() != ttAMENDMENT && ctx.tx.getTxnType() != ttFEE &&
         ctx.tx.getTxnType() != ttUNL_MODIDY)
         return temUNKNOWN;
 
@@ -87,13 +94,13 @@ Change::preclaim(PreclaimContext const& ctx)
 TER
 Change::doApply()
 {
-    assert(ctx_.tx.getTxnType() == ttAMENDMENT ||
-           ctx_.tx.getTxnType() == ttFEE ||
-           ctx_.tx.getTxnType() == ttUNL_MODIDY);
+    assert(
+        ctx_.tx.getTxnType() == ttAMENDMENT || ctx_.tx.getTxnType() == ttFEE ||
+        ctx_.tx.getTxnType() == ttUNL_MODIDY);
 
     if (ctx_.tx.getTxnType() == ttAMENDMENT)
         return applyAmendment();
-    else if (ctx_.tx.getTxnType() == ttFEE )
+    else if (ctx_.tx.getTxnType() == ttFEE)
         return applyFee();
     else
         return applyUNLModify();

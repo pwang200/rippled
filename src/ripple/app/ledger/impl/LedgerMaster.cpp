@@ -1011,8 +1011,8 @@ LedgerMaster::checkAccept(std::shared_ptr<Ledger const> const& ledger)
         return;
 
     auto const minVal = getNeededValidations();
-    auto validations = app_.getValidations().getTrustedForLedger(
-                       ledger->info().hash);
+    auto validations =
+        app_.getValidations().getTrustedForLedger(ledger->info().hash);
     filterValsWithnUnl(validations, app_.validators().getnUnlNodeIDs());
     auto const tvc = validations.size();
     if (tvc < minVal)  // nothing we can do

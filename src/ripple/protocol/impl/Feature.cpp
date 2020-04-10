@@ -130,6 +130,7 @@ detail::supportedAmendments()
         "fixQualityUpperBound",
         "RequireFullyCanonicalSig",
         "fix1781",
+        "NegativeUNL",
     };
     return supported;
 }
@@ -187,6 +188,7 @@ uint256 const fixQualityUpperBound =
 uint256 const featureRequireFullyCanonicalSig =
     *getRegisteredFeature("RequireFullyCanonicalSig");
 uint256 const fix1781 = *getRegisteredFeature("fix1781");
+uint256 const featureNegativeUNL = *getRegisteredFeature("NegativeUNL");
 
 // The following amendments have been active for at least two years.
 // Their pre-amendment code has been removed.

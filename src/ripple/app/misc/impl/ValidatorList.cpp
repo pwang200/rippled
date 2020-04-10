@@ -747,7 +747,7 @@ ValidatorList::getJson() const
     });
 
     // Negative UNL
-    if(!nUnl_.empty())
+    if (!nUnl_.empty())
     {
         Json::Value& jNegativeUNL = (res[jss::NegativeUNL] = Json::arrayValue);
         for (auto const& k : nUnl_)
@@ -872,8 +872,7 @@ ValidatorList::calculateQuorum(
     // ni - pi > (ni - pi + pj)/2 + ni − .8*ni + .2*ni
     // pi + pj < .2*ni
     auto quorum = static_cast<std::size_t>(std::max(
-            std::ceil(effectiveUnlSize * 0.8f),
-            std::ceil(unlSize * 0.6f)));
+        std::ceil(effectiveUnlSize * 0.8f), std::ceil(unlSize * 0.6f)));
 
     // Use lower quorum specified via command line if the normal quorum appears
     // unreachable based on the number of recently received validations.
@@ -940,20 +939,20 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
     auto numUNL = trustedMasterKeys_.size();
     auto numEffectiveUNL = numUNL;
     auto numSeen = seenValidators.size();
-    if(!nUnl_.empty())
+    if (!nUnl_.empty())
     {
-        for (auto const & k : trustedMasterKeys_)
+        for (auto const& k : trustedMasterKeys_)
         {
             if (nUnl_.find(k) != nUnl_.end())
                 --numEffectiveUNL;
         }
 
         hash_set<NodeID> nUnl;
-        for(auto const & k : nUnl_)
+        for (auto const& k : nUnl_)
             nUnl.insert(calcNodeID(k));
-        for (auto const & nid : seenValidators)
+        for (auto const& nid : seenValidators)
         {
-            if ( nUnl.find(nid) != nUnl.end())
+            if (nUnl.find(nid) != nUnl.end())
                 --numSeen;
         }
     }

@@ -152,7 +152,7 @@ TxFormats::TxFormats()
         },
         commonFields);
 
-    add (jss::UNLModify,
+    add(jss::UNLModify,
         ttUNL_MODIDY,
         {
             {sfUNLModifyDisabling, soeREQUIRED},

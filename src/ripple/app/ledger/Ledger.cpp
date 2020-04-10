@@ -40,6 +40,7 @@
 #include <ripple/core/SociDB.h>
 #include <ripple/json/to_string.h>
 #include <ripple/nodestore/Database.h>
+#include <ripple/protocol/Feature.h>
 #include <ripple/protocol/HashPrefix.h>
 #include <ripple/protocol/Indexes.h>
 #include <ripple/protocol/PublicKey.h>
@@ -283,7 +284,10 @@ Ledger::Ledger(Ledger const& prevLedger, NetClock::time_point closeTime)
             prevLedger.info_.closeTime + info_.closeTimeResolution;
     }
 
-    updateNegativeUNL();
+    if (prevLedger.rules().enabled(featureNegativeUNL))
+    {
+        updateNegativeUNL();
+    }
 }
 
 Ledger::Ledger(LedgerInfo const& info, Config const& config, Family& family)
