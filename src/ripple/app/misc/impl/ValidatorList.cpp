@@ -942,17 +942,11 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
         }
     }
 
-    hash_set<NodeID> effectiveUNL;
     for (auto const& val : keyListings_)
     {
-        if (! validatorManifests_.revoked(val.first) )
-        {
-            auto nid = calcNodeID(val.first);
-            if ( trustedMasterKeys_.emplace(val.first).second)
-                trustChanges.added.insert(nid);
-            if ( negativeList_.find(nid) == negativeList_.end() )
-                effectiveUNL.insert(nid);
-        }
+        if (!validatorManifests_.revoked(val.first) &&
+            trustedMasterKeys_.emplace(val.first).second)
+            trustChanges.added.insert(calcNodeID(val.first));
     }
 
     // If there were any changes, we need to update the ephemeral signing keys:
@@ -968,16 +962,27 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
         << trustedMasterKeys_.size() << "  of " << keyListings_.size()
         << " listed validators eligible for inclusion in the trusted set";
 
+    auto numUNL = trustedMasterKeys_.size();
+    auto numEffectiveUNL = numUNL;
     auto numSeen = seenValidators.size();
     if(!negativeList_.empty())
     {
-        for (auto & nid : seenValidators)
+        for (auto const & k : trustedMasterKeys_)
         {
-            if ( negativeList_.find(nid) != negativeList_.end())
+            if ( negativeList_.find(k) != negativeList_.end())
+                --numEffectiveUNL;
+        }
+
+        hash_set<NodeID> nUnl;
+        for(auto const & k : negativeList_)
+            nUnl.insert(calcNodeID(k));
+        for (auto const & nid : seenValidators)
+        {
+            if ( nUnl.find(nid) != nUnl.end())
                 --numSeen;
         }
     }
-    quorum_ = calculateQuorum (trustedMasterKeys_.size(), effectiveUNL.size(), numSeen);
+    quorum_ = calculateQuorum (numUNL, numEffectiveUNL, numSeen);
 
     JLOG(j_.debug())
         << "Using quorum of " << quorum_ << " for new set of "

@@ -511,10 +511,10 @@ public:
         return {quorum_, trustedSigningKeys_};
     }
 
-    hash_set<PublicKey> getUNL()
+    hash_set<PublicKey> getTrustedMasterKeys()
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
-        return trustedKeys_;
+        return trustedMasterKeys_;
     }
 
     hash_set<NodeID> getNegativeUNLNodeIDs()

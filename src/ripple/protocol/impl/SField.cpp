@@ -190,8 +190,8 @@ SF_Blob const sfFulfillment     (access, STI_VL, 16, "Fulfillment");
 SF_Blob const sfCondition       (access, STI_VL, 17, "Condition");
 SF_Blob const sfMasterSignature (access, STI_VL, 18, "MasterSignature", SField::sMD_Default, SField::notSigning);
 SF_Blob const sfUNLModifyValidator       (access, STI_VL, 19, "UNLModifyValidator");
-SF_Blob const sfNegativeUNLToDisable     (access, STI_VL, 20, "NegativeUNLToDisable");
-SF_Blob const sfNegativeUNLToReEnable    (access, STI_VL, 21, "NegativeUNLToReEnable");
+SF_Blob const sfNegativeUNLToDisable     (access, STI_VL, 20, "ValidatorToDisable");
+SF_Blob const sfNegativeUNLToReEnable    (access, STI_VL, 21, "ValidatorToReEnable");
 
 // account
 SF_Account const sfAccount     (access, STI_ACCOUNT, 1, "Account");

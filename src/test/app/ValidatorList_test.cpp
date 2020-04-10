@@ -1242,7 +1242,7 @@ private:
                     if(validators)
                     {
                         uint nUnlSize = us * np / 100;
-                        auto unl = validators->getUNL();
+                        auto unl = validators->getTrustedMasterKeys();
                         hash_set<PublicKey> nUnl;
                         auto it = unl.begin();
                         for(uint i = 0; i < nUnlSize; ++i)
@@ -1267,7 +1267,7 @@ private:
             if (validators)
             {
                 hash_set<NodeID> activeValidators;
-                auto unl = validators->getUNL();
+                auto unl = validators->getTrustedMasterKeys();
                 BEAST_EXPECT(unl.size() == 60);
                 {
                     //-- set == get,
@@ -1330,7 +1330,7 @@ private:
             if(validators)
             {
                 hash_set<NodeID> activeValidators;
-                hash_set<PublicKey> unl = validators->getUNL();
+                hash_set<PublicKey> unl = validators->getTrustedMasterKeys();
                 auto it = unl.begin();
                 for (uint i = 0; i < 50; ++i)
                 {

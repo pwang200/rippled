@@ -338,8 +338,8 @@ RCLConsensus::Adaptor::onClose(
         else if ((seq % FLAG_LEDGER) == 0)
         {
             nUNLVote_.doVoting(prevLedger,
-                    app_.validators().getUNL(),
-                    initialSet);
+                               app_.validators().getTrustedMasterKeys(),
+                               initialSet);
         }
     }
 
