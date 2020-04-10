@@ -335,7 +335,8 @@ RCLConsensus::Adaptor::onClose(
                         prevLedger, validations, initialSet);
             }
         }
-        else if ((seq % FLAG_LEDGER) == 0)
+        else if ((seq % FLAG_LEDGER) == 0 && 
+                 prevLedger->rules().enabled(featureNegativeUNL))
         {
             nUNLVote_.doVoting(prevLedger,
                                app_.validators().getTrustedMasterKeys(),
@@ -991,7 +992,8 @@ RCLConsensus::startRound(
     hash_set<NodeID> const& nowTrusted)
 {
     std::lock_guard _{mutex_};
-    adaptor_.newValidators(prevLgr.seq(), nowTrusted);
+    if(prevLgr.ledger_->rules().enabled(featureNegativeUNL))
+        adaptor_.newValidators(prevLgr.seq(), nowTrusted);
     consensus_.startRound(
         now, prevLgrId, prevLgr, nowUntrusted, adaptor_.preStartRound(prevLgr));
 }

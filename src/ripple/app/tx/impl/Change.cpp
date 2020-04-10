@@ -22,6 +22,7 @@
 #include <ripple/app/misc/AmendmentTable.h>
 #include <ripple/app/misc/NetworkOPs.h>
 #include <ripple/basics/Log.h>
+#include <ripple/protocol/Feature.h>
 #include <ripple/protocol/Indexes.h>
 #include <ripple/protocol/TxFlags.h>
 
@@ -61,6 +62,13 @@ Change::preflight (PreflightContext const& ctx)
     {
         JLOG(ctx.j.warn()) << "Change: Bad sequence";
         return temBAD_SEQUENCE;
+    }
+
+    if (ctx.tx.getTxnType() == ttUNL_MODIDY &&
+        ! ctx.rules.enabled(featureNegativeUNL))
+    {
+        JLOG(ctx.j.warn()) << "Change: NegativeUNL not enabled";
+        return temDISABLED;
     }
 
     return tesSUCCESS;

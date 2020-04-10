@@ -40,6 +40,7 @@
 #include <ripple/json/to_string.h>
 #include <ripple/nodestore/Database.h>
 #include <ripple/protocol/digest.h>
+#include <ripple/protocol/Feature.h>
 #include <ripple/protocol/Indexes.h>
 #include <ripple/protocol/jss.h>
 #include <ripple/protocol/PublicKey.h>
@@ -292,7 +293,10 @@ Ledger::Ledger (Ledger const& prevLedger,
             prevLedger.info_.closeTime + info_.closeTimeResolution;
     }
 
-    updateNegativeUNL();
+    if(prevLedger.rules().enabled(featureNegativeUNL))
+    {
+        updateNegativeUNL();
+    }
 }
 
 Ledger::Ledger (

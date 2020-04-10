@@ -131,6 +131,7 @@ detail::supportedAmendments ()
         "fixQualityUpperBound",
         "RequireFullyCanonicalSig",
         "fix1781",
+        "NegativeUNL",
     };
     return supported;
 }
@@ -191,5 +192,5 @@ uint256 const featureDeletableAccounts = *getRegisteredFeature("DeletableAccount
 uint256 const fixQualityUpperBound = *getRegisteredFeature("fixQualityUpperBound");
 uint256 const featureRequireFullyCanonicalSig = *getRegisteredFeature("RequireFullyCanonicalSig");
 uint256 const fix1781 = *getRegisteredFeature("fix1781");
-
+uint256 const featureNegativeUNL = *getRegisteredFeature("NegativeUNL");
 } // ripple

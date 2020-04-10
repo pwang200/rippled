@@ -112,6 +112,7 @@ class FeatureCollections
         "fixQualityUpperBound",
         "RequireFullyCanonicalSig",
         "fix1781", // XRPEndpointSteps should be included in the circular payment check
+        "NegativeUNL",
     };
 
     std::vector<uint256> features;
@@ -401,7 +402,7 @@ extern uint256 const featureDeletableAccounts;
 extern uint256 const fixQualityUpperBound;
 extern uint256 const featureRequireFullyCanonicalSig;
 extern uint256 const fix1781;
-
+extern uint256 const featureNegativeUNL;
 } // ripple
 
 #endif

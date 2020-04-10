@@ -134,6 +134,12 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         /*
          * test cases:
+         * (0) insert amendment tests in later cases
+         * -- with NegativeUNL amendment disabled,
+         *    cannot apply UNLModify Tx
+         *    cannot update ledger's NegativeUNL section
+         * -- with NegativeUNL amendment enabled,
+         *    can apply Tx and update ledger
          *
          * (1) the ledger after genesis
          * -- cannot apply Add Tx
