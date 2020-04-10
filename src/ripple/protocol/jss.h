@@ -64,7 +64,6 @@ JSS ( EscrowCreate );               // transaction type.
 JSS ( EscrowFinish );               // transaction type.
 JSS ( Fee );                        // in/out: TransactionSign; field.
 JSS ( FeeSettings );                // ledger type.
-JSS ( NegativeUNL );                // ledger type.
 JSS ( Flags );                      // in/out: TransactionSign; field.
 JSS ( Invalid );                    //
 JSS ( LastLedgerSequence );         // in: TransactionSign; field
@@ -579,6 +578,7 @@ JSS ( warning );                    // rpc:
 JSS ( warnings );                   // out: server_info, server_state
 JSS ( workers );
 JSS ( write_load );                 // out: GetCounts
+JSS ( NegativeUNL );                // out: ValidatorList; ledger type
 
 #undef JSS
 

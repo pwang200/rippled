@@ -132,18 +132,22 @@ public:
             auto const jrr = env.rpc("validator_list_sites")[jss::result];
             BEAST_EXPECT(jrr[jss::validator_sites].size() == 0);
         }
-        // Negative UNL updated
+        // Negative UNL empty
         {
             auto const jrr = env.rpc("validators")[jss::result];
-            BEAST_EXPECT(jrr[jss::NegativeUNL].size() == 0);
+            BEAST_EXPECT(jrr[jss::NegativeUNL].isNull());
+        }
+        // Negative UNL update
+        {
             hash_set<PublicKey> disabledKeys;
             auto k1 = randomKeyPair(KeyType::ed25519).first;
             auto k2 = randomKeyPair(KeyType::ed25519).first;
             disabledKeys.insert(k1);
             disabledKeys.insert(k2);
             env.app().validators().setNegativeUNL(disabledKeys);
-            auto const jrrUpdated = env.rpc("validators")[jss::result];
-            auto & jrrnUnl = jrrUpdated[jss::NegativeUNL];
+
+            auto const jrr = env.rpc("validators")[jss::result];
+            auto & jrrnUnl = jrr[jss::NegativeUNL];
             auto jrrnUnlSize = jrrnUnl.size();
             BEAST_EXPECT(jrrnUnlSize == 2);
             for(uint x = 0; x < jrrnUnlSize; ++x)
@@ -154,10 +158,11 @@ public:
                 if(parsedKey)
                     BEAST_EXPECT(disabledKeys.find(*parsedKey) != disabledKeys.end());
             }
+
             disabledKeys.clear();
             env.app().validators().setNegativeUNL(disabledKeys);
-            auto const jrrUpdated2 = env.rpc("validators")[jss::result];
-            BEAST_EXPECT(jrrUpdated2[jss::NegativeUNL].size() == 0);
+            auto const jrrUpdated = env.rpc("validators")[jss::result];
+            BEAST_EXPECT(jrrUpdated[jss::NegativeUNL].isNull());
         }
     }
 

@@ -794,7 +794,7 @@ chooseLedgerEntryType(Json::Value const& params)
     if (params.isMember(jss::type))
     {
         static
-            std::array<std::pair<char const *, LedgerEntryType>, 13> const types
+            std::array<std::pair<char const *, LedgerEntryType>, 14> const types
         { {
             { jss::account,         ltACCOUNT_ROOT },
             { jss::amendments,      ltAMENDMENTS },
@@ -808,7 +808,8 @@ chooseLedgerEntryType(Json::Value const& params)
             { jss::payment_channel, ltPAYCHAN },
             { jss::signer_list,     ltSIGNER_LIST },
             { jss::state,           ltRIPPLE_STATE },
-            { jss::ticket,          ltTICKET }
+            { jss::ticket,          ltTICKET },
+            { jss::NegativeUNL,     ltNEGATIVE_UNL }
             } };
 
         auto const& p = params[jss::type];

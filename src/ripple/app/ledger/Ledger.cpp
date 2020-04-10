@@ -650,7 +650,7 @@ Ledger::negativeUNL() const
             auto s = makeSlice(d);
             if (!publicKeyType (s))
             {
-                std::cout << "Ledger::negativeUNL() bad public key data" << std::endl;
+                std::cout << "Ledger::negativeUNL() bad public key data" << std::endl;//TODO delete
                 continue;
             }
             nUnl.emplace(s);
@@ -740,7 +740,7 @@ Ledger::updateNegativeUNL()
                     newNUnl.emplace_back(sfNegativeUNLEntry);
                     newNUnl.back().setFieldVL(sfPublicKey,
                             sle->getFieldVL(sfNegativeUNLToDisable));
-//                    std::cout << "N-UNL: FLAG_LEDGER now. added " << pk;
+                    newNUnl.back().setFieldU32(sfNegativeUNLLgrSeq, seq());
                 }
 
                 if(!newNUnl.empty())
@@ -753,41 +753,6 @@ Ledger::updateNegativeUNL()
                         sle->delField(sfNegativeUNLToDisable);
                     std::cout << "N-UNL: FLAG_LEDGER now. replace" << std::endl;
                     rawReplace(sle);
-
-//                    {
-//                        std::cout    << std::endl  << std::endl ;
-//                        if (auto sle = peek(keylet::negativeUNL()))
-//                        {
-//                            bool hasToDisable = sle->isFieldPresent(sfNegativeUNLToDisable);
-//                            bool hasToReEnable = sle->isFieldPresent(sfNegativeUNLToReEnable);
-//                            if (hasToDisable || hasToReEnable)
-//                            {
-//                                {//just prints
-//                                    std::cout << "N-UNL: FLAG_LEDGER now. update" << std::endl;
-//                                    if (hasToDisable)
-//                                    {
-//                                        std::cout << "N-UNL: FLAG_LEDGER now. ToDisable "
-//                                                  << strHex(sle->getFieldVL(sfNegativeUNLToDisable))
-//                                                  << std::endl;
-//                                    }
-//                                    if (hasToReEnable)
-//                                    {
-//                                        std::cout << "N-UNL: FLAG_LEDGER now. ToReEnable "
-//                                                  << strHex(sle->getFieldVL(sfNegativeUNLToReEnable))
-//                                                  << std::endl;
-//                                    }
-//                                    auto const &oldNUnl = sle->getFieldArray(sfNegativeUNL);
-//                                    for (auto const &n : oldNUnl)
-//                                    {
-//                                        std::cout << "N-UNL: FLAG_LEDGER now. oldNUnl has "
-//                                                  << n
-//                                                  << std::endl;
-//                                    }
-//                                }
-//                            }
-//                        }
-//                        std::cout    << std::endl  << std::endl ;
-//                    }
                 }
                 else
                 {

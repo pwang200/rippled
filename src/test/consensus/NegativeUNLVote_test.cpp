@@ -30,6 +30,12 @@
 namespace ripple {
 namespace test {
 
+bool
+nUnlSizeTest(jtx::Env &env, std::shared_ptr<Ledger> l,
+                  size_t size, bool hasToAdd, bool hasToRemove);
+bool
+applyAndTestResult (jtx::Env &env, OpenView& view, STTx const& tx, bool pass);
+
 class NegativeUNLVote_test : public beast::unit_test::suite
 {
     unsigned int countTx(std::shared_ptr<SHAMap> const& txSet)
@@ -52,36 +58,6 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         return std::make_shared<STValidation>(ledger->info().hash, ledger->seq(),
                 consensusHash, env.app().timeKeeper().now(), keyPair.first,
                 keyPair.second, n, true, fees, amendments);
-    };
-
-    bool nUnlSizeTest(jtx::Env &env, std::shared_ptr<Ledger> l,
-                      size_t size, bool hasToAdd, bool hasToRemove)
-    {
-        bool sameSize = l->negativeUNL().size() == size;
-        if (!sameSize)
-        {
-            JLOG (env.journal.warn()) << "negativeUNL size,"
-                                      << " expect " << size
-                                      << " actual " << l->negativeUNL().size();
-        }
-
-        bool sameToAdd = (l->negativeUNLToDisable() != boost::none) == hasToAdd;
-        if(!sameToAdd)
-        {
-            JLOG (env.journal.warn()) << "negativeUNL has ToAdd,"
-                                      << " expect " << hasToAdd
-                                      << " actual " << (l->negativeUNLToDisable() != boost::none);
-        }
-
-        bool sameToRemove = (l->negativeUNLToReEnable() != boost::none) == hasToRemove;
-        if(!sameToRemove)
-        {
-            JLOG (env.journal.warn()) << "negativeUNL has ToRemove,"
-                                      << " expect " << hasToRemove
-                                      << " actual " << (l->negativeUNLToReEnable() != boost::none);
-        }
-
-        return sameSize && sameToAdd && sameToRemove;
     };
 
     void createNodeIDs(int numNodes,
@@ -116,7 +92,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             bool hasToRemove,
             int numLedgers = 0)
     {
-        Config config;
+        Config const& config = env.app().config();
         static uint256 fake_amemdment;
         auto l = std::make_shared<Ledger>(
                 create_genesis, config,
@@ -131,18 +107,9 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             obj.setFieldVL(sfUNLModifyValidator, nodes[nidx]);
         };
 
-        auto applyAndTestResult = [&](OpenView& view, STTx const& tx, bool pass) -> bool
-        {
-            auto res = apply(env.app(), view, tx, ApplyFlags::tapNONE, env.journal);
-            if(pass)
-                return res.first == tesSUCCESS;
-            else
-                return res.first == tefFAILURE;
-        };
-
         if(! numLedgers)
             numLedgers = FLAG_LEDGER * (nUNLSize + 1);
-        //std::cout << "ledger seq=" << l->seq() << std::endl;
+
         while(l->seq() <= numLedgers)
         {
             auto next = std::make_shared<Ledger>(
@@ -157,7 +124,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                 if( l->negativeUNL().size() < nUNLSize )
                 {
                     STTx tx(ttUNL_MODIDY, fill);
-                    if(!applyAndTestResult(accum, tx, true))
+                    if(!applyAndTestResult(env, accum, tx, true))
                         break;
                     ++nidx;
                 }
@@ -166,7 +133,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                     if(hasToAdd)
                     {
                         STTx tx(ttUNL_MODIDY, fill);
-                        if(!applyAndTestResult(accum, tx, true))
+                        if(!applyAndTestResult(env, accum, tx, true))
                             break;
                         ++nidx;
                     }
@@ -175,7 +142,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         adding = false;
                         nidx = 0;
                         STTx tx(ttUNL_MODIDY, fill);
-                        if(!applyAndTestResult(accum, tx, true))
+                        if(!applyAndTestResult(env, accum, tx, true))
                             break;
                     }
                 }
@@ -183,7 +150,6 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             }
             l->updateSkipList ();
         }
-        //std::cout << "ledger seq=" << l->seq() << std::endl;
         return nUnlSizeTest(env, l, nUNLSize, hasToAdd, hasToRemove);
     }
 
@@ -966,7 +932,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //== all good score, nUnl empty
             //-- txSet.size = 0
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
             std::vector<NodeID> nodeIDs;
@@ -999,7 +965,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //all good score, nUnl not empty (use hasToAdd)
             //-- txSet.size = 1
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
 
@@ -1033,7 +999,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //== 2 nodes offline, nUnl empty (use hasToRemove)
             //-- txSet.size = 1
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
 
@@ -1069,7 +1035,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //2 nodes offline, in nUnl
             //-- txSet.size = 0
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
 
@@ -1107,7 +1073,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //2 nodes offline, not in nUnl, but maxListed
             //-- txSet.size = 0
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
 
@@ -1141,7 +1107,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //== 2 nodes offline including me, not in nUnl
             //-- txSet.size = 0
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
             std::vector<NodeID> nodeIDs;
@@ -1176,7 +1142,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //2 nodes offline, not in nUnl, but I'm not a validator
             //-- txSet.size = 0
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
             std::vector<NodeID> nodeIDs;
@@ -1211,7 +1177,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //== 2 in nUnl, but not in unl, no other remove candidates
             //-- txSet.size = 1
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
             std::vector<NodeID> nodeIDs;
@@ -1248,7 +1214,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //== 2 new validators have bad scores
             //-- txSet.size = 0
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
             std::vector<NodeID> nodeIDs;
@@ -1289,7 +1255,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         {
             //== 2 expired new validators have bad scores
             //-- txSet.size = 1
-            jtx::Env env(*this);
+            jtx::Env env(*this, jtx::supported_amendments());
             //env.app().logs().threshold(beast::severities::kAll);
             RCLValidations &validations = env.app().getValidations();
             std::vector<NodeID> nodeIDs;
@@ -1334,7 +1300,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
     testFilterValidations()
     {
         testcase ("Filter Validations");
-        jtx::Env env(*this);
+        jtx::Env env(*this, jtx::supported_amendments());
         //env.app().logs().threshold(beast::severities::kAll);
         RCLValidations &validations = env.app().getValidations();
         std::vector<NodeID> nodeIDs;
