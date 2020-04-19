@@ -163,7 +163,10 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
     auto const hashIndex = prevLedger->read(keylet::skip());
     if (!hashIndex)
         return false;
-    auto const seq = prevLedger->info().seq + 1; // TODO delete
+
+    auto const seq = prevLedger->info().seq + 1;
+    validations_.setSeqToKeep(seq);
+
     auto ledgerAncestors = hashIndex->getFieldV256(sfHashes).value();
     auto numAncestors = ledgerAncestors.size();
     if(numAncestors < FLAG_LEDGER)
