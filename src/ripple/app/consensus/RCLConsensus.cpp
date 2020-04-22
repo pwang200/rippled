@@ -86,7 +86,7 @@ RCLConsensus::Adaptor::Adaptor(
         , nodeID_{validatorKeys.nodeID}
         , valPublic_{validatorKeys.publicKey}
         , valSecret_{validatorKeys.secretKey}
-        , nUNLVote_(nodeID_, app.getValidations(), j_)
+        , nUnlVote_(nodeID_, app.getValidations(), j_)
 {
 }
 
@@ -260,9 +260,6 @@ RCLConsensus::Adaptor::getPrevLedger(
     ConsensusMode mode)
 {
     RCLValidations& vals = app_.getValidations();
-
-    JLOG(j_.debug())<< "RCLConsensus::Adaptor::getPrevLedger " << ledgerID;
-    JLOG(j_.debug())<< "RCLConsensus::Adaptor::getPrevLedger " << ledger.getJson();
     uint256 netLgr = vals.getPreferred(
         RCLValidatedLedger{ledger.ledger_, vals.adaptor().journal()},
         ledgerMaster_.getValidLedgerIndex());
@@ -322,22 +319,20 @@ RCLConsensus::Adaptor::onClose(
         {
             // previous ledger was flag ledger, add pseudo-transactions
             auto validations =
-                    app_.getValidations().getTrustedForLedger(
-                            prevLedger->info().parentHash);
+                app_.getValidations().getTrustedForLedger(
+                    prevLedger->info().parentHash);
 
-            filterValidationsWithnUnl(validations,
-                                      app_.validators().getNegativeUNLNodeIDs());
-
+            filterValsWithnUnl(validations, app_.validators().getnUnlNodeIDs());
             if (validations.size() >= app_.validators().quorum())
             {
                 feeVote_->doVoting(prevLedger, validations, initialSet);
                 app_.getAmendmentTable().doVoting(
-                        prevLedger, validations, initialSet);
+                    prevLedger, validations, initialSet);
             }
         }
         else if ((seq % FLAG_LEDGER) == 0)
         {
-            nUNLVote_.doVoting(prevLedger,
+            nUnlVote_.doVoting(prevLedger,
                                app_.validators().getTrustedMasterKeys(),
                                initialSet);
         }
@@ -976,10 +971,11 @@ RCLConsensus::Adaptor::updateOperatingMode(std::size_t const positions) const
 }
 
 void
-RCLConsensus::Adaptor::newValidators (LedgerIndex seq, hash_set<NodeID> const& nowTrusted)
+RCLConsensus::Adaptor::newValidators (LedgerIndex seq,
+                                     hash_set<NodeID> const& nowTrusted)
 {
     if(!nowTrusted.empty())
-        nUNLVote_.newValidators(seq, nowTrusted);
+        nUnlVote_.newValidators(seq, nowTrusted);
 }
 
 void
@@ -991,7 +987,7 @@ RCLConsensus::startRound(
     hash_set<NodeID> const& nowTrusted)
 {
     std::lock_guard _{mutex_};
-    adaptor_.newValidators(prevLgr.seq(), nowTrusted);
+    adaptor_.newValidators(prevLgr.seq() + 1, nowTrusted);
     consensus_.startRound(
         now, prevLgrId, prevLgr, nowUntrusted, adaptor_.preStartRound(prevLgr));
 }

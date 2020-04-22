@@ -82,7 +82,7 @@ class RCLConsensus
         std::atomic<ConsensusMode> mode_{ConsensusMode::observing};
 
         RCLCensorshipDetector<TxID, LedgerIndex> censorshipDetector_;
-        NegativeUNLVote nUNLVote_;
+        NegativeUNLVote nUnlVote_;
 
     public:
         using Ledger_t = RCLCxLedger;

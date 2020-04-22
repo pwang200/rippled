@@ -638,7 +638,7 @@ Ledger::peek (Keylet const& k) const
 }
 
 hash_set<PublicKey>
-Ledger::negativeUNL() const
+Ledger::nUnl() const
 {
     hash_set<PublicKey> nUnl;
     if (auto sle = read(keylet::negativeUNL()))
@@ -650,7 +650,6 @@ Ledger::negativeUNL() const
             auto s = makeSlice(d);
             if (!publicKeyType (s))
             {
-                std::cout << "Ledger::negativeUNL() bad public key data" << std::endl;//TODO delete
                 continue;
             }
             nUnl.emplace(s);
@@ -660,7 +659,7 @@ Ledger::negativeUNL() const
 }
 
 boost::optional<PublicKey>
-Ledger::negativeUNLToDisable() const
+Ledger::nUnlToDisable() const
 {
     if (auto sle = read(keylet::negativeUNL()))
     {
@@ -676,7 +675,7 @@ Ledger::negativeUNLToDisable() const
 }
 
 boost::optional<PublicKey>
-Ledger::negativeUNLToReEnable() const
+Ledger::nUnlToReEnable() const
 {
     if (auto sle = read(keylet::negativeUNL()))
     {
@@ -695,36 +694,12 @@ Ledger::updateNegativeUNL()
 {
     if(info_.seq % FLAG_LEDGER == 0)
     {
-        std::cout <<std::endl<< "N-UNL: FLAG_LEDGER now." << info_.seq << std::endl;
         if (auto sle = peek(keylet::negativeUNL()))
         {
             bool hasToDisable = sle->isFieldPresent(sfNegativeUNLToDisable);
             bool hasToReEnable = sle->isFieldPresent(sfNegativeUNLToReEnable);
             if (hasToDisable || hasToReEnable)
             {
-                {//just prints
-                    std::cout << "N-UNL: FLAG_LEDGER now. update" << std::endl;
-                    if (hasToDisable)
-                    {
-                        std::cout << "N-UNL: FLAG_LEDGER now. ToDisable "
-                                  << strHex(sle->getFieldVL(sfNegativeUNLToDisable))
-                                  << std::endl;
-                    }
-                    if (hasToReEnable)
-                    {
-                        std::cout << "N-UNL: FLAG_LEDGER now. ToReEnable "
-                                  << strHex(sle->getFieldVL(sfNegativeUNLToReEnable))
-                                  << std::endl;
-                    }
-                    auto const &oldNUnl = sle->getFieldArray(sfNegativeUNL);
-                    for (auto const &n : oldNUnl)
-                    {
-                        std::cout << "N-UNL: FLAG_LEDGER now. oldNUnl has "
-                                  << n
-                                  << std::endl;
-                    }
-                }
-
                 auto const& oldNUnl = sle->getFieldArray(sfNegativeUNL);
                 STArray newNUnl;
                 for(auto v : oldNUnl)
@@ -735,6 +710,7 @@ Ledger::updateNegativeUNL()
                         continue;
                     newNUnl.push_back(v);
                 }
+
                 if (hasToDisable)
                 {
                     newNUnl.emplace_back(sfNegativeUNLEntry);
@@ -745,27 +721,23 @@ Ledger::updateNegativeUNL()
 
                 if(!newNUnl.empty())
                 {
-                    std::cout << "N-UNL: FLAG_LEDGER now. not empty" << std::endl;
                     sle->setFieldArray(sfNegativeUNL, newNUnl);
                     if (hasToReEnable)
                         sle->delField(sfNegativeUNLToReEnable);
                     if (hasToDisable)
                         sle->delField(sfNegativeUNLToDisable);
-                    std::cout << "N-UNL: FLAG_LEDGER now. replace" << std::endl;
                     rawReplace(sle);
                 }
                 else
                 {
-                    std::cout << "N-UNL: FLAG_LEDGER now. empty" << std::endl;
                     rawErase(sle);
                 }
-                std::cout << "N-UNL: FLAG_LEDGER now. Negative UNL update done" << std::endl;
             }
         }
     }
 }
 
-    //------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 bool Ledger::walkLedger (beast::Journal j) const
 {
     std::vector <SHAMapMissingNode> missingNodes1;

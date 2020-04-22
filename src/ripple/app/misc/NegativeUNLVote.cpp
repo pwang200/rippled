@@ -20,7 +20,6 @@
 #include <ripple/app/consensus/RCLValidations.h>
 #include <ripple/app/ledger/Ledger.h>
 #include <ripple/app/misc/NegativeUNLVote.h>
-//#include <ripple/beast/utility/Journal.h>
 
 namespace ripple {
 
@@ -51,9 +50,9 @@ NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
     if(buildScoreTable(prevLedger, unlNodeIDs, scoreTable))
     {
         //build next nUnl
-        auto nUnlKeys = prevLedger->negativeUNL();
-        auto nUnlToDisable = prevLedger->negativeUNLToDisable();
-        auto nUnlToReEnable = prevLedger->negativeUNLToReEnable();
+        auto nUnlKeys = prevLedger->nUnl();
+        auto nUnlToDisable = prevLedger->nUnlToDisable();
+        auto nUnlToReEnable = prevLedger->nUnlToReEnable();
         if (nUnlToDisable)
             nUnlKeys.insert(*nUnlToDisable);
         if (nUnlToReEnable)

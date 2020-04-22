@@ -1052,9 +1052,6 @@ template <class Adaptor>
 void
 Consensus<Adaptor>::checkLedger()
 {
-    JLOG(j_.debug()) << __func__ << " prevLedgerID_ " << prevLedgerID_;
-    JLOG(j_.debug()) << __func__ << " previousLedger_ " << Json::Compact{previousLedger_.getJson()};
-
     auto netLgr =
         adaptor_.getPrevLedger(prevLedgerID_, previousLedger_, mode_.get());
 

@@ -144,7 +144,7 @@ public:
             auto k2 = randomKeyPair(KeyType::ed25519).first;
             disabledKeys.insert(k1);
             disabledKeys.insert(k2);
-            env.app().validators().setNegativeUNL(disabledKeys);
+            env.app().validators().setnUnl(disabledKeys);
 
             auto const jrr = env.rpc("validators")[jss::result];
             auto & jrrnUnl = jrr[jss::NegativeUNL];
@@ -160,7 +160,7 @@ public:
             }
 
             disabledKeys.clear();
-            env.app().validators().setNegativeUNL(disabledKeys);
+            env.app().validators().setnUnl(disabledKeys);
             auto const jrrUpdated = env.rpc("validators")[jss::result];
             BEAST_EXPECT(jrrUpdated[jss::NegativeUNL].isNull());
         }

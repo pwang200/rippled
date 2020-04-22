@@ -851,7 +851,7 @@ ValidatorList::getAvailable(boost::beast::string_view const& pubKey)
 
 std::size_t
 ValidatorList::calculateQuorum (
-    std::size_t trusted_total, std::size_t trusted_reliable, std::size_t seen_reliable)
+    std::size_t unlSize, std::size_t effectiveUnlSize, std::size_t seenSize)
 {
     // Do not use achievable quorum until lists from all configured
     // publishers are available
@@ -892,12 +892,12 @@ ValidatorList::calculateQuorum (
     // ni - pi > (ni - pi + pj)/2 + ni − .8*ni + .2*ni
     // pi + pj < .2*ni
     auto quorum = static_cast<std::size_t>(std::max(
-            std::ceil(trusted_reliable * 0.8f),
-            std::ceil(trusted_total * 0.6f)));
+            std::ceil(effectiveUnlSize * 0.8f),
+            std::ceil(unlSize * 0.6f)));
 
     // Use lower quorum specified via command line if the normal quorum appears
     // unreachable based on the number of recently received validations.
-    if (minimumQuorum_ && *minimumQuorum_ < quorum && seen_reliable < quorum)
+    if (minimumQuorum_ && *minimumQuorum_ < quorum && seenSize < quorum)
     {
         quorum = *minimumQuorum_;
 
@@ -906,9 +906,6 @@ ValidatorList::calculateQuorum (
             << quorum
             << " as specified in the command line";
     }
-    JLOG (j_.debug()) << "N-UNL: calculateQuorum, quorum=" << quorum
-                << " trusted_reliable=" << trusted_reliable
-                << " trusted_total=" << trusted_total;
     return quorum;
 }
 

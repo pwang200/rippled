@@ -517,19 +517,22 @@ public:
         return trustedMasterKeys_;
     }
 
-    hash_set<NodeID> getNegativeUNLNodeIDs()
+    hash_set<NodeID>
+    getnUnlNodeIDs()
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
-        return getNUNLNodeIDs();
+        return nUnlNodeIDs();
     }
 
-    hash_set<PublicKey> getNegativeUNL()
+    hash_set<PublicKey>
+    getnUnl()
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
         return negativeList_;
     }
 
-    void setNegativeUNL(hash_set<PublicKey> const& nUnl)
+    void
+    setnUnl(hash_set<PublicKey> const& nUnl)
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
         negativeList_ = nUnl;
@@ -586,9 +589,10 @@ private:
         recently received validations */
     std::size_t
     calculateQuorum (
-        std::size_t trusted_total, std::size_t trusted_reliable, std::size_t seen_reliable);
+        std::size_t unlSize, std::size_t effectiveUnlSize, std::size_t seenSize);
 
-    hash_set<NodeID> getNUNLNodeIDs()
+    hash_set<NodeID>
+    nUnlNodeIDs()
     {
         hash_set<NodeID> res;
         res.reserve(negativeList_.size());

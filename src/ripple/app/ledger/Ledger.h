@@ -319,9 +319,9 @@ public:
     void invariants() const;
     void unshare() const;
 
-    hash_set<PublicKey> negativeUNL() const;
-    boost::optional<PublicKey> negativeUNLToDisable() const;
-    boost::optional<PublicKey> negativeUNLToReEnable() const;
+    hash_set<PublicKey> nUnl() const;
+    boost::optional<PublicKey> nUnlToDisable() const;
+    boost::optional<PublicKey> nUnlToReEnable() const;
 
 private:
     class sles_iter_impl;

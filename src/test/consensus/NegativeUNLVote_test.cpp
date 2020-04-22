@@ -121,14 +121,14 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             if(l->seq() % FLAG_LEDGER == 0)
             {
                 OpenView accum(&*l);
-                if( l->negativeUNL().size() < nUNLSize )
+                if(l->nUnl().size() < nUNLSize )
                 {
                     STTx tx(ttUNL_MODIDY, fill);
                     if(!applyAndTestResult(env, accum, tx, true))
                         break;
                     ++nidx;
                 }
-                else if (l->negativeUNL().size() == nUNLSize)
+                else if (l->nUnl().size() == nUNLSize)
                 {
                     if(hasToAdd)
                     {
@@ -1050,8 +1050,8 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             BEAST_EXPECT(goodHistory);
             if(goodHistory)
             {
-                NodeID n1 = calcNodeID(*history.back()->negativeUNL().begin());
-                NodeID n2 = calcNodeID(*history.back()->negativeUNLToDisable());
+                NodeID n1 = calcNodeID(*history.back()->nUnl().begin());
+                NodeID n2 = calcNodeID(*history.back()->nUnlToDisable());
                 for(auto & l : history)
                 {
                     for (auto &n : nodeIDs)
@@ -1323,13 +1323,13 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                 }
             }
             auto l = history.back();
-            auto nUnlKeys = l->negativeUNL();
+            auto nUnlKeys = l->nUnl();
             auto vals = validations.getTrustedForLedger(l->info().hash);
             BEAST_EXPECT(vals.size() == 30);
             hash_set<NodeID> nUnl;
             for(auto & k : nUnlKeys)
                 nUnl.insert(calcNodeID(k));
-            filterValidationsWithnUnl(vals, nUnl);
+            filterValsWithnUnl(vals, nUnl);
             BEAST_EXPECT(vals.size() == 30-3);
         }
     }

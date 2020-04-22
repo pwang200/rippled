@@ -227,13 +227,13 @@ handleNewValidation(Application& app,
 }
 
 void
-filterValidationsWithnUnl(
+filterValsWithnUnl(
         std::vector<std::shared_ptr<STValidation>> & validations,
         hash_set<NodeID> const & nUnl)
 {
     if(nUnl.empty())
         return;
-    int i = 0;
+    size_t i = 0;
     while(i < validations.size())
     {
         if(nUnl.find(validations[i]->getNodeID()) != nUnl.end())

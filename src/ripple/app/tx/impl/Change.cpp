@@ -98,9 +98,7 @@ Change::doApply()
     else if (ctx_.tx.getTxnType() == ttFEE )
         return applyFee ();
     else
-    {
         return applyUNLModify();
-    }
 }
 
 void
@@ -242,7 +240,7 @@ Change::applyUNLModify()
 {
     if(view().seq() % FLAG_LEDGER != 0)
     {
-        JLOG(j_.warn()) << "N-UNL: applyUNLModify, not a flag ledger seq="
+        JLOG(j_.warn()) << "N-UNL: applyUNLModify, not a flag ledger, seq="
                         << view().seq();
         return tefFAILURE;
     }
@@ -261,6 +259,7 @@ Change::applyUNLModify()
         JLOG(j_.warn()) << "N-UNL: applyUNLModify, bad validator key";
         return tefFAILURE;
     }
+
     JLOG(j_.info()) << "N-UNL: applyUNLModify, disabling=" << disabling
                      << " seq=" << seq
                      << " validator data:" << strHex(validator);
@@ -269,7 +268,6 @@ Change::applyUNLModify()
     SLE::pointer nUnlObject = view().peek(k);
     if (!nUnlObject)
     {
-        JLOG(j_.trace()) << "N-UNL: applyUNLModify new nUnlObject";//TODO remove
         nUnlObject = std::make_shared<SLE>(k);
         view().insert(nUnlObject);
     }
@@ -283,7 +281,6 @@ Change::applyUNLModify()
             if(it->getFieldVL(sfPublicKey) == validator)
                 found = true;
         }
-        //found = std::find(nUnl.begin(), nUnl.end(), validator) != nUnl.end();
     }
 
     if (disabling)
@@ -306,7 +303,7 @@ Change::applyUNLModify()
             }
         }
 
-        // cannot be already in nUNL
+        // cannot be in nUNL already
         if(found)
         {
             JLOG(j_.warn())
@@ -335,7 +332,7 @@ Change::applyUNLModify()
             }
         }
 
-        // must be already in nUNL
+        // must be in nUNL
         if(! found)
         {
             JLOG(j_.warn())
@@ -345,8 +342,8 @@ Change::applyUNLModify()
 
         nUnlObject->setFieldVL(sfNegativeUNLToReEnable, validator);
     }
+
     view().update(nUnlObject);
-    JLOG(j_.trace()) << "N-UNL: applyUNLModify Tx done.";//TODO remove
     return tesSUCCESS;
 }
 

@@ -247,7 +247,7 @@ handleNewValidation(
     std::string const& source);
 
 void
-filterValidationsWithnUnl(
+filterValsWithnUnl(
     std::vector<std::shared_ptr<STValidation>> & validations,
     hash_set<NodeID> const & nUnl);
 

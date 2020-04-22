@@ -25,7 +25,6 @@
 #include <cstdint>
 #include <map>
 #include <utility>
-#include "UintTypes.h"
 
 namespace ripple {
 
@@ -48,11 +47,6 @@ template <std::size_t>
 class STBitString;
 template <class>
 class STInteger;
-//template <std::size_t Bits, typename =
-//        typename std::enable_if<Bits == 256 || Bits == 160, void>::type>
-//class STVectorBigInt;
-//using STVector256 = STVectorBigInt<256>;
-
 class STVector256;
 
 enum SerializedTypeID
