@@ -86,7 +86,7 @@ RCLConsensus::Adaptor::Adaptor(
         , nodeID_{validatorKeys.nodeID}
         , valPublic_{validatorKeys.publicKey}
         , valSecret_{validatorKeys.secretKey}
-        , nUnlVote_(nodeID_, app.getValidations(), j_)
+        , nUnlVote_(nodeID_, j_)
 {
 }
 
@@ -334,6 +334,7 @@ RCLConsensus::Adaptor::onClose(
         {
             nUnlVote_.doVoting(prevLedger,
                                app_.validators().getTrustedMasterKeys(),
+                               app_.getValidations(),
                                initialSet);
         }
     }

@@ -160,8 +160,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         jtx::Env env(*this);
         //env.app().logs().threshold(beast::severities::kAll);
         NodeID myId(0xA0);
-        RCLValidations & validations = env.app().getValidations();
-        NegativeUNLVote vote(myId, validations, env.journal);
+        NegativeUNLVote vote(myId, env.journal);
 
         //one add, one remove
         auto txSet = std::make_shared<SHAMap>(
@@ -185,8 +184,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         jtx::Env env(*this);
         //env.app().logs().threshold(beast::severities::kAll);
         NodeID myId(0xA0);
-        RCLValidations & validations = env.app().getValidations();
-        NegativeUNLVote vote(myId, validations, env.journal);
+        NegativeUNLVote vote(myId, env.journal);
 
         uint256 pad_0(0);
         uint256 pad_f = ~pad_0;
@@ -232,9 +230,9 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             if (goodHistory)
             {
                 NodeID myId = nodeIDs[3];
-                NegativeUNLVote vote(myId, validations, env.journal);
+                NegativeUNLVote vote(myId, env.journal);
                 hash_map<NodeID, unsigned int> scoreTable;
-                BEAST_EXPECT(!vote.buildScoreTable(history[0], UNLNodeIDs, scoreTable));
+                BEAST_EXPECT(!vote.buildScoreTable(history[0], UNLNodeIDs, validations, scoreTable));
             }
         }
 
@@ -255,9 +253,9 @@ class NegativeUNLVote_test : public beast::unit_test::suite
             if (goodHistory)
             {
                 NodeID myId = nodeIDs[3];
-                NegativeUNLVote vote(myId, validations, env.journal);
+                NegativeUNLVote vote(myId, env.journal);
                 hash_map<NodeID, unsigned int> scoreTable;
-                BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, scoreTable));
+                BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, validations, scoreTable));
             }
         }
 
@@ -289,9 +287,9 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(nodeIDs[i], v);
                     }
                 }
-                NegativeUNLVote vote(myId, validations, env.journal);
+                NegativeUNLVote vote(myId, env.journal);
                 hash_map<NodeID, unsigned int> scoreTable;
-                BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, scoreTable));
+                BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, validations, scoreTable));
             }
         }
 
@@ -323,9 +321,9 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                             validations.add(nodeIDs[i], v);
                         }
                     }
-                    NegativeUNLVote vote(myId, validations, env.journal);
+                    NegativeUNLVote vote(myId, env.journal);
                     hash_map<NodeID, unsigned int> scoreTable;
-                    BEAST_EXPECT(vote.buildScoreTable(history.back(), UNLNodeIDs, scoreTable));
+                    BEAST_EXPECT(vote.buildScoreTable(history.back(), UNLNodeIDs, validations, scoreTable));
                     for(auto & s : scoreTable)
                     {
                         BEAST_EXPECT(s.second == FLAG_LEDGER);
@@ -347,11 +345,11 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         RCLValidation v(createSTVal(env, l, myId));
                         validations.add(myId, v);
                     }
-                    NegativeUNLVote vote(myId, validations, env.journal);
+                    NegativeUNLVote vote(myId, env.journal);
                     hash_map<NodeID, unsigned int> scoreTable;
-                    BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, scoreTable));
+                    BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, validations, scoreTable));
                     scoreTable.clear();
-                    BEAST_EXPECT(vote.buildScoreTable(firstRound, UNLNodeIDs, scoreTable));
+                    BEAST_EXPECT(vote.buildScoreTable(firstRound, UNLNodeIDs, validations, scoreTable));
                     for(auto & s : scoreTable)
                     {
                         BEAST_EXPECT(s.second == FLAG_LEDGER);
@@ -386,9 +384,9 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(nodeIDs[i], v);
                     }
                 }
-                NegativeUNLVote vote(myId, validations, env.journal);
+                NegativeUNLVote vote(myId, env.journal);
                 hash_map<NodeID, unsigned int> scoreTable;
-                BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, scoreTable));
+                BEAST_EXPECT(!vote.buildScoreTable(history.back(), UNLNodeIDs, validations, scoreTable));
             }
         }
     }
@@ -457,9 +455,9 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                             add_v(2);
                         }
                     }
-                    NegativeUNLVote vote(myId, validations, env.journal);
+                    NegativeUNLVote vote(myId, env.journal);
                     hash_map<NodeID, uint> scoreTable;
-                    BEAST_EXPECT(vote.buildScoreTable(history.back(), UNLNodeIDs, scoreTable));
+                    BEAST_EXPECT(vote.buildScoreTable(history.back(), UNLNodeIDs, validations, scoreTable));
                     uint i = 0; //looping unl
                     auto checkScores = [&](uint score, uint k) -> bool
                     {
@@ -510,9 +508,8 @@ class NegativeUNLVote_test : public beast::unit_test::suite
 
         jtx::Env env(*this);
         //env.app().logs().threshold(beast::severities::kAll);
-        RCLValidations & validations = env.app().getValidations();
         NodeID myId(0xA0);
-        NegativeUNLVote vote(myId, validations, env.journal);
+        NegativeUNLVote vote(myId, env.journal);
 
         std::array<uint, 3> unlSizes({34, 35, 80});
         std::array<uint, 3> nUnlPercent({0, 50, 100});
@@ -694,7 +691,6 @@ class NegativeUNLVote_test : public beast::unit_test::suite
 
         jtx::Env env(*this);
         //env.app().logs().threshold(beast::severities::kAll);
-        RCLValidations & validations = env.app().getValidations();
 
         std::vector<NodeID> nodeIDs;
         std::vector<PublicKey> UNLKeys;
@@ -708,7 +704,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         for(auto & n : nodeIDs)
             goodScoreTable[n] = NegativeUNLVote::nUnlHighWaterMark + 1;
         NodeID myId = nodeIDs[0];
-        NegativeUNLVote vote(myId, validations, env.journal);
+        NegativeUNLVote vote(myId, env.journal);
 
         {
             //all good scores
@@ -850,8 +846,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
         jtx::Env env(*this);
         //env.app().logs().threshold(beast::severities::kAll);
         NodeID myId(0xA0);
-        RCLValidations & validations = env.app().getValidations();
-        NegativeUNLVote vote(myId, validations, env.journal);
+        NegativeUNLVote vote(myId, env.journal);
 
         //empty, add
         //not empty, add new, add same
@@ -954,10 +949,10 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs[0], validations, env.journal);
+                NegativeUNLVote vote(nodeIDs[0], env.journal);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 0);
             }
         }
@@ -988,10 +983,10 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs[0], validations, env.journal);
+                NegativeUNLVote vote(nodeIDs[0], env.journal);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 1);
             }
         }
@@ -1024,10 +1019,10 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs.back(), validations, env.journal);
+                NegativeUNLVote vote(nodeIDs.back(), env.journal);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 1);
             }
         }
@@ -1062,10 +1057,10 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs.back(), validations, env.journal);
+                NegativeUNLVote vote(nodeIDs.back(), env.journal);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 0);
             }
         }
@@ -1096,10 +1091,10 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(nodeIDs[i], v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs.back(), validations, env.journal);
+                NegativeUNLVote vote(nodeIDs.back(), env.journal);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 0);
             }
         }
@@ -1131,10 +1126,10 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs[0], validations, env.journal);
+                NegativeUNLVote vote(nodeIDs[0], env.journal);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 0);
             }
         }
@@ -1166,10 +1161,10 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(NodeID(0xdeadbeef), validations, env.journal);
+                NegativeUNLVote vote(NodeID(0xdeadbeef), env.journal);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 0);
             }
         }
@@ -1201,12 +1196,12 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs.back(), validations, env.journal);
+                NegativeUNLVote vote(nodeIDs.back(), env.journal);
                 keySet.erase(UNLKeys[0]);
                 keySet.erase(UNLKeys[1]);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 1);
             }
         }
@@ -1236,7 +1231,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs[0], validations, env.journal);
+                NegativeUNLVote vote(nodeIDs[0], env.journal);
                 auto extra_key_1 = randomKeyPair(KeyType::ed25519).first;
                 auto extra_key_2 = randomKeyPair(KeyType::ed25519).first;
                 keySet.insert(extra_key_1);
@@ -1247,7 +1242,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                 vote.newValidators(history.back()->seq(), nowTrusted);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 0);
             }
         }
@@ -1278,7 +1273,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                         validations.add(n, v);
                     }
                 }
-                NegativeUNLVote vote(nodeIDs[0], validations, env.journal);
+                NegativeUNLVote vote(nodeIDs[0], env.journal);
                 auto extra_key_1 = randomKeyPair(KeyType::ed25519).first;
                 auto extra_key_2 = randomKeyPair(KeyType::ed25519).first;
                 keySet.insert(extra_key_1);
@@ -1290,7 +1285,7 @@ class NegativeUNLVote_test : public beast::unit_test::suite
                 vote.newValidators(FLAG_LEDGER, nowTrusted);
                 auto txSet = std::make_shared<SHAMap>(
                         SHAMapType::TRANSACTION, env.app().family());
-                vote.doVoting(history.back(), keySet, txSet);
+                vote.doVoting(history.back(), keySet, validations, txSet);
                 BEAST_EXPECT(countTx(txSet) == 1);
             }
         }

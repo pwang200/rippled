@@ -641,32 +641,25 @@ hash_set<PublicKey>
 Ledger::nUnl() const
 {
     hash_set<PublicKey> nUnl;
-    try
+    if (auto sle = read(keylet::negativeUNL()))
     {
-        if (auto sle = read(keylet::negativeUNL()))
+        if(sle->isFieldPresent (sfNegativeUNL))
         {
-            if(sle->isFieldPresent (sfNegativeUNL))
+            auto const& nUnlData = sle->getFieldArray(sfNegativeUNL);
+            for (auto const& n : nUnlData)
             {
-                auto const& nUnlData = sle->getFieldArray(sfNegativeUNL);
-                for (auto const& n : nUnlData)
+                if(n.isFieldPresent (sfPublicKey))
                 {
-                    if(n.isFieldPresent (sfPublicKey))
+                    auto d = n.getFieldVL(sfPublicKey);
+                    auto s = makeSlice(d);
+                    if (!publicKeyType(s))
                     {
-                        auto d = n.getFieldVL(sfPublicKey);
-                        auto s = makeSlice(d);
-                        if (!publicKeyType(s))
-                        {
-                            continue;
-                        }
-                        nUnl.emplace(s);
+                        continue;
                     }
+                    nUnl.emplace(s);
                 }
             }
         }
-    }
-    catch (std::exception const&)
-    {
-        LogThrow ("Read nUnl exception");
     }
 
     return nUnl;
@@ -675,22 +668,15 @@ Ledger::nUnl() const
 boost::optional<PublicKey>
 Ledger::nUnlToDisable() const
 {
-    try
+    if (auto sle = read(keylet::negativeUNL()))
     {
-        if (auto sle = read(keylet::negativeUNL()))
+        if(sle->isFieldPresent (sfNegativeUNLToDisable))
         {
-            if(sle->isFieldPresent (sfNegativeUNLToDisable))
-            {
-                auto d = sle->getFieldVL(sfNegativeUNLToDisable);
-                auto s = makeSlice(d);
-                if (publicKeyType (s))
-                    return PublicKey(s);
-            }
+            auto d = sle->getFieldVL(sfNegativeUNLToDisable);
+            auto s = makeSlice(d);
+            if (publicKeyType (s))
+                return PublicKey(s);
         }
-    }
-    catch (std::exception const&)
-    {
-        LogThrow ("Read nUnl exception");
     }
 
     return boost::none;
@@ -699,22 +685,15 @@ Ledger::nUnlToDisable() const
 boost::optional<PublicKey>
 Ledger::nUnlToReEnable() const
 {
-    try
+    if (auto sle = read(keylet::negativeUNL()))
     {
-        if (auto sle = read(keylet::negativeUNL()))
+        if(sle->isFieldPresent (sfNegativeUNLToReEnable))
         {
-            if(sle->isFieldPresent (sfNegativeUNLToReEnable))
-            {
-                auto d = sle->getFieldVL(sfNegativeUNLToReEnable);
-                auto s = makeSlice(d);
-                if (publicKeyType (s))
-                    return PublicKey(s);
-            }
+            auto d = sle->getFieldVL(sfNegativeUNLToReEnable);
+            auto s = makeSlice(d);
+            if (publicKeyType (s))
+                return PublicKey(s);
         }
-    }
-    catch (std::exception const&)
-    {
-        LogThrow ("Read nUnl exception");
     }
 
     return boost::none;
@@ -725,58 +704,50 @@ Ledger::updateNegativeUNL()
 {
     if(info_.seq % FLAG_LEDGER == 0)
     {
-        try
+        if (auto sle = peek(keylet::negativeUNL()))
         {
-            if (auto sle = peek(keylet::negativeUNL()))
+            bool hasToDisable = sle->isFieldPresent(sfNegativeUNLToDisable);
+            bool hasToReEnable = sle->isFieldPresent(sfNegativeUNLToReEnable);
+            if (hasToDisable || hasToReEnable)
             {
-                bool hasToDisable = sle->isFieldPresent(sfNegativeUNLToDisable);
-                bool hasToReEnable =
-                    sle->isFieldPresent(sfNegativeUNLToReEnable);
-                if (hasToDisable || hasToReEnable)
+                STArray newNUnl;
+                if(sle->isFieldPresent(sfNegativeUNL))
                 {
-                    STArray newNUnl;
-                    if(sle->isFieldPresent(sfNegativeUNL))
+                    auto const& oldNUnl = sle->getFieldArray(sfNegativeUNL);
+                    for (auto v : oldNUnl)
                     {
-                        auto const& oldNUnl = sle->getFieldArray(sfNegativeUNL);
-                        for (auto v : oldNUnl)
-                        {
-                            if (hasToReEnable &&
-                                v.isFieldPresent (sfPublicKey) &&
-                                v.getFieldVL(sfPublicKey) ==
-                                sle->getFieldVL(sfNegativeUNLToReEnable))
-                                continue;
-                            newNUnl.push_back(v);
-                        }
-                    }
-
-                    if (hasToDisable)
-                    {
-                        newNUnl.emplace_back(sfNegativeUNLEntry);
-                        newNUnl.back().setFieldVL(
-                            sfPublicKey,
-                            sle->getFieldVL(sfNegativeUNLToDisable));
-                        newNUnl.back().setFieldU32(sfNegativeUNLLgrSeq, seq());
-                    }
-
-                    if (!newNUnl.empty())
-                    {
-                        sle->setFieldArray(sfNegativeUNL, newNUnl);
-                        if (hasToReEnable)
-                            sle->delField(sfNegativeUNLToReEnable);
-                        if (hasToDisable)
-                            sle->delField(sfNegativeUNLToDisable);
-                        rawReplace(sle);
-                    }
-                    else
-                    {
-                        rawErase(sle);
+                        if (hasToReEnable &&
+                            v.isFieldPresent (sfPublicKey) &&
+                            v.getFieldVL(sfPublicKey) ==
+                            sle->getFieldVL(sfNegativeUNLToReEnable))
+                            continue;
+                        newNUnl.push_back(v);
                     }
                 }
+
+                if (hasToDisable)
+                {
+                    newNUnl.emplace_back(sfNegativeUNLEntry);
+                    newNUnl.back().setFieldVL(
+                        sfPublicKey,
+                        sle->getFieldVL(sfNegativeUNLToDisable));
+                    newNUnl.back().setFieldU32(sfNegativeUNLLgrSeq, seq());
+                }
+
+                if (!newNUnl.empty())
+                {
+                    sle->setFieldArray(sfNegativeUNL, newNUnl);
+                    if (hasToReEnable)
+                        sle->delField(sfNegativeUNLToReEnable);
+                    if (hasToDisable)
+                        sle->delField(sfNegativeUNLToDisable);
+                    rawReplace(sle);
+                }
+                else
+                {
+                    rawErase(sle);
+                }
             }
-        }
-        catch (std::exception const&)
-        {
-            LogThrow ("Read nUnl exception");
         }
     }
 }

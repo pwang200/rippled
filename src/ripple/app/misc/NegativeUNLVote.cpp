@@ -24,17 +24,16 @@
 namespace ripple {
 
 NegativeUNLVote::NegativeUNLVote(NodeID const& myId,
-    RCLValidations & validations,
     beast::Journal j)
     : myId_(myId)
-    , validations_(validations)
     , j_(j)
 {}
 
 void
 NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
-          hash_set<PublicKey> const & keys,
-          std::shared_ptr<SHAMap> const& initialSet)
+                           hash_set<PublicKey> const & keys,
+                           RCLValidations & validations,
+                           std::shared_ptr<SHAMap> const& initialSet)
 {
     auto const seq = prevLedger->info().seq + 1;
     hash_map<NodeID, unsigned int> scoreTable;
@@ -47,7 +46,7 @@ NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
         unlNodeIDs.emplace(nid);
     }
 
-    if(buildScoreTable(prevLedger, unlNodeIDs, scoreTable))
+    if(buildScoreTable(prevLedger, unlNodeIDs, validations, scoreTable))
     {
         //build next nUnl
         auto nUnlKeys = prevLedger->nUnl();
@@ -78,8 +77,6 @@ NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
 
         if (!toDisableCandidates.empty())
         {
-            JLOG(j_.debug()) << "N-UNL: toDisableCandidates.size "//TODO remove log line
-                             << toDisableCandidates.size();
             auto n = pickOneCandidate(prevLedger->info().hash, toDisableCandidates);
             assert(nidToKeyMap.find(n) != nidToKeyMap.end());
             addTx(seq, nidToKeyMap[n], true, initialSet);
@@ -87,8 +84,6 @@ NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
 
         if (!toReEnableCandidates.empty())
         {
-            JLOG(j_.debug()) << "N-UNL: toReEnableCandidates in UNL, size "//TODO remove log line
-                             << toReEnableCandidates.size();
             auto n = pickOneCandidate(prevLedger->info().hash, toReEnableCandidates);
             assert(nidToKeyMap.find(n) != nidToKeyMap.end());
             addTx(seq, nidToKeyMap[n], false, initialSet);
@@ -116,13 +111,15 @@ NegativeUNLVote::addTx(LedgerIndex seq,
     auto tItem = std::make_shared<SHAMapItem>(txID, s.peekData());
     if (!initialSet->addGiveItem(tItem, true, false))
     {
-        JLOG(j_.warn()) << "N-UNL: ledger " << seq
+        JLOG(j_.warn()) << "N-UNL: ledger seq=" << seq
                         << " add tx failed";
     }
     else
     {
-        JLOG(j_.debug()) << "N-UNL: ledger " << seq
-                         << " add Tx with txID: " << txID;
+        JLOG(j_.debug()) << "N-UNL: ledger seq=" << seq
+                         << " add Tx with txID: " << txID
+                         << " validator to "
+                         << (disabling? "disable " : "re-enable ") << vp;
     }
 }
 
@@ -136,43 +133,39 @@ NegativeUNLVote::pickOneCandidate(uint256 randomPadData,
     NodeID txNodeID = candidates[0];
     for (int j = 1; j < candidates.size(); ++j)
     {
-        //TODO remove log line
-        JLOG(j_.trace()) << "N-UNL:"// ledger " << seq
-                         << " randomPad " << randomPad
-                         << " txNodeID " << txNodeID
-                         << " candidates[j] " << candidates[j]
-                         << " txNodeID ^ randomPad " << (txNodeID ^ randomPad)
-                         << " candidates[j] ^ randomPad) " << (candidates[j] ^ randomPad);
         if ((candidates[j] ^ randomPad) < (txNodeID ^ randomPad))
         {
             txNodeID = candidates[j];
         }
     }
-    JLOG(j_.debug()) << "N-UNL:"// ledger " << seq
-                          << " picked candidate " << txNodeID;
     return txNodeID;
 }
 
 bool
 NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
-        hash_set<NodeID> const & unl,
-        hash_map<NodeID, unsigned int> & scoreTable)
+                                 hash_set<NodeID> const & unl,
+                                 RCLValidations & validations,
+                                 hash_map<NodeID, unsigned int> & scoreTable)
 {
     assert(scoreTable.empty());
-    auto const hashIndex = prevLedger->read(keylet::skip());
-    if (!hashIndex)
-        return false;
-
     auto const seq = prevLedger->info().seq + 1;
-    validations_.setSeqToKeep(seq);
+    validations.setSeqToKeep(seq);
+
+    auto const hashIndex = prevLedger->read(keylet::skip());
+    if (!hashIndex || !hashIndex->isFieldPresent(sfHashes))
+    {
+        JLOG(j_.debug()) << "N-UNL: ledger " << seq
+                         << " no history.";
+        return false;
+    }
 
     auto ledgerAncestors = hashIndex->getFieldV256(sfHashes).value();
     auto numAncestors = ledgerAncestors.size();
     if(numAncestors < FLAG_LEDGER)
     {
         JLOG(j_.debug()) << "N-UNL: ledger " << seq
-                              << " not enough history. Can trace back only "
-                              << numAncestors << " ledgers.";
+                         << " not enough history. Can trace back only "
+                         << numAncestors << " ledgers.";
         return false;
     }
 
@@ -185,7 +178,7 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
     for(int i = 0; i < FLAG_LEDGER; ++i)
     {
         for (auto const& v :
-                validations_.getTrustedForLedger(ledgerAncestors[idx--]))
+                validations.getTrustedForLedger(ledgerAncestors[idx--]))
         {
             if(scoreTable.find(v->getNodeID()) != scoreTable.end())
                 ++scoreTable[v->getNodeID()];
@@ -198,10 +191,10 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
     if(myValidationCount < nUnlMinLocalValsToVote)
     {
         JLOG(j_.debug()) << "N-UNL: ledger " << seq
-                              << ". I only issued " << myValidationCount
-                              << " validations in last " << FLAG_LEDGER
-                              << " ledgers."
-                              << " My reliability measurement could be wrong.";
+                         << ". I only issued " << myValidationCount
+                         << " validations in last " << FLAG_LEDGER
+                         << " ledgers."
+                         << " My reliability measurement could be wrong.";
         return false;
     }
     else if(myValidationCount >= nUnlMinLocalValsToVote
@@ -214,9 +207,9 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
         // cannot happen because validations_.getTrustedForLedger does not
         // return multiple validations of the same ledger from a validator.
         JLOG(j_.error()) << "N-UNL: ledger " << seq
-                              << ". I issued " << myValidationCount
-                              << " validations in last " << FLAG_LEDGER
-                              << " ledgers. I issued too many.";
+                         << ". I issued " << myValidationCount
+                         << " validations in last " << FLAG_LEDGER
+                         << " ledgers. I issued too many.";
         return false;
     }
 }
@@ -236,18 +229,16 @@ NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
             ++negativeListed;
     }
     bool canAdd = maxNegativeListed > negativeListed;
-    JLOG(j_.trace()) << "N-UNL:"// ledger " << seq //TODO delete
-                          << " my nodeId " << myId_
-                          << " lowWaterMark " << nUnlLowWaterMark
-                          << " highWaterMark " << nUnlHighWaterMark
-                          << " canAdd " << canAdd
-                          << " maxNegativeListed " << maxNegativeListed
-                          << " negativeListed " << negativeListed;
+    JLOG(j_.trace()) << "N-UNL: my nodeId " << myId_
+                     << " lowWaterMark " << nUnlLowWaterMark
+                     << " highWaterMark " << nUnlHighWaterMark
+                     << " canAdd " << canAdd
+                     << " maxNegativeListed " << maxNegativeListed
+                     << " negativeListed " << negativeListed;
 
     for (auto it = scoreTable.cbegin(); it != scoreTable.cend(); ++it)
     {
-        JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
-                         << " node " << it->first
+        JLOG(j_.trace()) << "N-UNL: node " << it->first
                          << " score " << it->second;
 
         if (canAdd &&
@@ -255,16 +246,14 @@ NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
             nextNUnl.find(it->first) == nextNUnl.end() &&
             newValidators_.find(it->first) == newValidators_.end())
         {
-            JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
-                             << " toDisableCandidates.push_back " << it->first;
+            JLOG(j_.trace()) << "N-UNL: toDisable candidate " << it->first;
             toDisableCandidates.push_back(it->first);
         }
 
         if (it->second > nUnlHighWaterMark &&
             nextNUnl.find(it->first) != nextNUnl.end())
         {
-            JLOG(j_.debug()) << "N-UNL:"// ledger " << seq //TODO delete
-                             << " toReEnableCandidates.push_back " << it->first;
+            JLOG(j_.trace()) << "N-UNL: toReEnable candidate " << it->first;
             toReEnableCandidates.push_back(it->first);
         }
     }
@@ -290,6 +279,8 @@ NegativeUNLVote::newValidators (LedgerIndex seq,
     {
         if(newValidators_.find(n) == newValidators_.end())
         {
+            JLOG(j_.trace()) << "N-UNL: add new validator " << n
+                             << " at ledger seq=" << seq;
             newValidators_[n] = seq;
         }
     }

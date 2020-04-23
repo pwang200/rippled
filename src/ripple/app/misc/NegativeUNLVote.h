@@ -46,17 +46,11 @@ public:
     static constexpr size_t newValidatorMeasureSkip = FLAG_LEDGER * 2;
     static constexpr float  nUnlMaxListed = 0.25;
 
+    NegativeUNLVote(NodeID const& myId, beast::Journal j);
     ~NegativeUNLVote() = default;
-    NegativeUNLVote(NodeID const& myId,
-            RCLValidations & validations,
-            beast::Journal j);
-
-    NegativeUNLVote() = delete;
-    NegativeUNLVote(NegativeUNLVote const&) = delete;
-    NegativeUNLVote&
-    operator=(NegativeUNLVote const&) = delete;
 
     using LedgerConstPtr = std::shared_ptr<Ledger const> const;
+
 /** Cast our local vote on the negative UNL candidates.
 
     @param prevLedger
@@ -65,6 +59,7 @@ public:
     void
     doVoting (LedgerConstPtr & prevLedger,
               hash_set<PublicKey> const & unl,
+              RCLValidations & validations,
               std::shared_ptr<SHAMap> const& initialSet);
 
     void
@@ -73,7 +68,6 @@ public:
 
 private:
     NodeID const myId_;
-    RCLValidations & validations_;
     beast::Journal j_;
     std::mutex mutex_;
     hash_map<NodeID, LedgerIndex> newValidators_;
@@ -83,22 +77,23 @@ private:
           PublicKey const &v,
           bool disabling,
           std::shared_ptr<SHAMap> const& initialSet);
+
     NodeID
     pickOneCandidate(uint256 randomPadData,
-            std::vector<NodeID> & candidates);
+                     std::vector<NodeID> & candidates);
+
     bool
     buildScoreTable(LedgerConstPtr & prevLedger,
-            hash_set<NodeID> const & unl,
-            hash_map<NodeID, unsigned int> & scoreTable);
+                    hash_set<NodeID> const & unl,
+                    RCLValidations & validations,
+                    hash_map<NodeID, unsigned int> & scoreTable);
 
     void
-    findAllCandidates(//LedgerIndex seq,
-            //LedgerConstPtr & prevLedger,
-            hash_set<NodeID> const& unl,
-            hash_set<NodeID> const& nextNUnl,
-            hash_map<NodeID, unsigned int> const& scoreTable,
-            std::vector<NodeID> & toDisableCandidates,
-            std::vector<NodeID> & removeCandidates);
+    findAllCandidates(hash_set<NodeID> const& unl,
+                      hash_set<NodeID> const& nextNUnl,
+                      hash_map<NodeID, unsigned int> const& scoreTable,
+                      std::vector<NodeID> & toDisableCandidates,
+                      std::vector<NodeID> & removeCandidates);
 
     void
     purgeNewValidators(LedgerIndex seq);
