@@ -25,14 +25,12 @@
 #include <ripple/basics/chrono.h>
 #include <ripple/beast/container/aged_container_utility.h>
 #include <ripple/beast/container/aged_unordered_map.h>
-#include <ripple/app/ledger/Ledger.h>
 #include <ripple/consensus/LedgerTrie.h>
 #include <ripple/protocol/PublicKey.h>
 #include <boost/optional.hpp>
 #include <mutex>
 #include <utility>
 #include <vector>
-#include <queue>
 
 namespace ripple {
 
@@ -623,7 +621,10 @@ public:
         return ValStatus::current;
     }
 
-    // Set the smallest sequence number of validations to keep from expire
+    /**
+     * Set the smallest sequence number of validations to keep from expire
+     * @param s the sequence number
+     */
     void
     setSeqToKeep(Seq const s)
     {

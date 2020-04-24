@@ -113,7 +113,7 @@ bool createLedgerHistory(LedgerHistory & history,//out
     };
 
     if(! numLedgers)
-        numLedgers = FLAG_LEDGER * (nUNLSize + 1);
+        numLedgers = 256 * (nUNLSize + 1);
 
     while(l->seq() <= numLedgers)
     {
@@ -123,7 +123,7 @@ bool createLedgerHistory(LedgerHistory & history,//out
         l = next;
         history.push_back(l);
 
-        if(l->seq() % FLAG_LEDGER == 0)
+        if(l->seq() % 256 == 0)
         {
             OpenView accum(&*l);
             if(l->nUnl().size() < nUNLSize )
@@ -254,7 +254,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
 
             LedgerHistory history;
             bool goodHistory = createLedgerHistory(
-                history, env, UNLKeys, 0, false, false, FLAG_LEDGER / 2);
+                history, env, UNLKeys, 0, false, false, 256 / 2);
             BEAST_EXPECT(goodHistory);
             if (goodHistory)
             {
@@ -277,7 +277,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
 
             LedgerHistory history;
             bool goodHistory = createLedgerHistory(
-                history, env, UNLKeys, 0, false, false, FLAG_LEDGER + 2);
+                history, env, UNLKeys, 0, false, false, 256 + 2);
             BEAST_EXPECT(goodHistory);
             if (goodHistory)
             {
@@ -313,7 +313,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
             {
                 LedgerHistory history;
                 bool goodHistory = createLedgerHistory(
-                    history, env, UNLKeys, 0, false, false, FLAG_LEDGER + 2);
+                    history, env, UNLKeys, 0, false, false, 256 + 2);
                 BEAST_EXPECT(goodHistory);
                 if (goodHistory)
                 {
@@ -333,7 +333,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
                         history.back(), UNLNodeIDs, validations, scoreTable));
                     for (auto& s : scoreTable)
                     {
-                        BEAST_EXPECT(s.second == FLAG_LEDGER);
+                        BEAST_EXPECT(s.second == 256);
                     }
                     firstRound = history.back();
                 }
@@ -342,7 +342,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
             {
                 LedgerHistory history;
                 bool goodHistory = createLedgerHistory(
-                    history, env, UNLKeys, 0, false, false, FLAG_LEDGER + 2);
+                    history, env, UNLKeys, 0, false, false, 256 + 2);
                 BEAST_EXPECT(goodHistory);
                 if (goodHistory)
                 {
@@ -361,7 +361,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
                         firstRound, UNLNodeIDs, validations, scoreTable));
                     for (auto& s : scoreTable)
                     {
-                        BEAST_EXPECT(s.second == FLAG_LEDGER);
+                        BEAST_EXPECT(s.second == 256);
                     }
                 }
             }
@@ -379,7 +379,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
 
             LedgerHistory history;
             bool goodHistory = createLedgerHistory(
-                history, env, UNLKeys, 0, false, false, FLAG_LEDGER + 2);
+                history, env, UNLKeys, 0, false, false, 256 + 2);
             BEAST_EXPECT(goodHistory);
             if (goodHistory)
             {
@@ -558,7 +558,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
             }
             {
                 //expired the new validators have bad scores, not in nUnl
-                vote.purgeNewValidators(256 + NegativeUNLVote::newValidatorMeasureSkip + 1);
+                vote.purgeNewValidators(256 + NegativeUNLVote::newValidatorDisableSkip + 1);
                 hash_map<NodeID, unsigned int> scoreTable = goodScoreTable;
                 scoreTable[new_1] = 0;
                 scoreTable[new_2] = 0;
@@ -785,23 +785,23 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
             BEAST_EXPECT(vote.newValidators_[n2] == 3);
         }
 
-        vote.newValidators(NegativeUNLVote::newValidatorMeasureSkip,{n1, n2, n3});
+        vote.newValidators(NegativeUNLVote::newValidatorDisableSkip,{n1, n2, n3});
         BEAST_EXPECT(vote.newValidators_.size() == 3);
         if(vote.newValidators_.size() == 3)
         {
             BEAST_EXPECT(vote.newValidators_[n1] == 2);
             BEAST_EXPECT(vote.newValidators_[n2] == 3);
-            BEAST_EXPECT(vote.newValidators_[n3] == NegativeUNLVote::newValidatorMeasureSkip);
+            BEAST_EXPECT(vote.newValidators_[n3] == NegativeUNLVote::newValidatorDisableSkip);
         }
 
-        vote.purgeNewValidators(NegativeUNLVote::newValidatorMeasureSkip+2);
+        vote.purgeNewValidators(NegativeUNLVote::newValidatorDisableSkip +2);
         BEAST_EXPECT(vote.newValidators_.size() == 3);
-        vote.purgeNewValidators(NegativeUNLVote::newValidatorMeasureSkip+3);
+        vote.purgeNewValidators(NegativeUNLVote::newValidatorDisableSkip +3);
         BEAST_EXPECT(vote.newValidators_.size() == 2);
-        vote.purgeNewValidators(NegativeUNLVote::newValidatorMeasureSkip+4);
+        vote.purgeNewValidators(NegativeUNLVote::newValidatorDisableSkip +4);
         BEAST_EXPECT(vote.newValidators_.size() == 1);
         BEAST_EXPECT(vote.newValidators_.begin()->first == n3);
-        BEAST_EXPECT(vote.newValidators_.begin()->second == NegativeUNLVote::newValidatorMeasureSkip);
+        BEAST_EXPECT(vote.newValidators_.begin()->second == NegativeUNLVote::newValidatorDisableSkip);
     }
 
     void run() override
@@ -846,7 +846,7 @@ class NegativeUNLVoteScoreTable_test : public beast::unit_test::suite
 
                 LedgerHistory history;
                 bool goodHistory = createLedgerHistory(
-                    history, env, UNLKeys, 0, false, false, FLAG_LEDGER);
+                    history, env, UNLKeys, 0, false, false, 256);
                 BEAST_EXPECT(goodHistory);
                 if (goodHistory)
                 {
@@ -886,13 +886,13 @@ class NegativeUNLVoteScoreTable_test : public beast::unit_test::suite
                     uint i = 0;  // looping unl
                     auto checkScores = [&](uint score, uint k) -> bool {
                         if (nodeIDs[i] == myId)
-                            return score == FLAG_LEDGER;
+                            return score == 256;
                         if (scorePattern[sp][k] == 0)
                             return score == 0;
                         if (scorePattern[sp][k] == 50)
-                            return score == FLAG_LEDGER / 2;
+                            return score == 256 / 2;
                         if (scorePattern[sp][k] == 100)
-                            return score == FLAG_LEDGER;
+                            return score == 256;
                         else
                             assert(0);
                     };
@@ -1349,7 +1349,7 @@ class NegativeUNLVoteNewValidator_test : public beast::unit_test::suite
             LedgerHistory history;
             bool goodHistory = createLedgerHistory(history, env, UNLKeys,
                                                    0, false, false,
-                                                   NegativeUNLVote::newValidatorMeasureSkip * 2);
+                                                   NegativeUNLVote::newValidatorDisableSkip * 2);
             BEAST_EXPECT(goodHistory);
             if (goodHistory)
             {
@@ -1369,8 +1369,7 @@ class NegativeUNLVoteNewValidator_test : public beast::unit_test::suite
                 hash_set<NodeID> nowTrusted;
                 nowTrusted.insert(calcNodeID(extra_key_1));
                 nowTrusted.insert(calcNodeID(extra_key_2));
-                vote.newValidators(FLAG_LEDGER, nowTrusted);
-                vote.newValidators(FLAG_LEDGER, nowTrusted);
+                vote.newValidators(256, nowTrusted);
                 auto txSet = std::make_shared<SHAMap>(
                     SHAMapType::TRANSACTION, env.app().family());
                 vote.doVoting(history.back(), keySet, validations, txSet);

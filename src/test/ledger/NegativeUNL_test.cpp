@@ -260,7 +260,7 @@ class NegativeUNL_test : public beast::unit_test::suite
         {
             //(2) a flag ledger
             //more ledgers
-            for (auto i = 0; i < FLAG_LEDGER - 2; ++i)
+            for (auto i = 0; i < 256 - 2; ++i)
             {
                 auto next = std::make_shared<Ledger>(
                         *l,
@@ -295,7 +295,7 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(3) ledgers before the next flag ledger
-            for (auto i = 0; i < FLAG_LEDGER; ++i)
+            for (auto i = 0; i < 256; ++i)
             {
                 auto good_size = nUnlSizeTest(env, l, 0, true, false);
                 BEAST_EXPECT(good_size);
@@ -349,7 +349,7 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(5) ledgers before the next flag ledger
-            for (auto i = 0; i < FLAG_LEDGER; ++i)
+            for (auto i = 0; i < 256; ++i)
             {
                 auto good_size = nUnlSizeTest(env, l, 1, true, true);
                 BEAST_EXPECT(good_size);
@@ -392,7 +392,7 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(7) ledgers before the next flag ledger
-            for (auto i = 0; i < FLAG_LEDGER; ++i)
+            for (auto i = 0; i < 256; ++i)
             {
                 auto good_size = nUnlSizeTest(env, l, 1, true, false);
                 BEAST_EXPECT(good_size);
@@ -444,7 +444,7 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(9) ledgers before the next flag ledger
-            for (auto i = 0; i < FLAG_LEDGER; ++i)
+            for (auto i = 0; i < 256; ++i)
             {
                 auto good_size = nUnlSizeTest(env, l, 2, false, true);
                 BEAST_EXPECT(good_size);
@@ -487,7 +487,7 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(11) ledgers before the next flag ledger
-            for (auto i = 0; i < FLAG_LEDGER; ++i)
+            for (auto i = 0; i < 256; ++i)
             {
                 auto good_size = nUnlSizeTest(env, l, 1, false, true);
                 BEAST_EXPECT(good_size);
@@ -509,7 +509,7 @@ class NegativeUNL_test : public beast::unit_test::suite
 
         {
             //(13) ledgers before the next flag ledger
-            for (auto i = 0; i < FLAG_LEDGER; ++i)
+            for (auto i = 0; i < 256; ++i)
             {
                 auto good_size = nUnlSizeTest(env, l, 0, false, false);
                 BEAST_EXPECT(good_size);

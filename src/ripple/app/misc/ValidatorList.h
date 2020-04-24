@@ -511,12 +511,21 @@ public:
         return {quorum_, trustedSigningKeys_};
     }
 
-    hash_set<PublicKey> getTrustedMasterKeys()
+    /**
+     * get the trusted Master public keys
+     * @return the public keys
+     */
+    hash_set<PublicKey>
+    getTrustedMasterKeys()
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
         return trustedMasterKeys_;
     }
 
+    /**
+     * get the NodeIDs of Negative UNL validators
+     * @return the NodeIDs
+     */
     hash_set<NodeID>
     getnUnlNodeIDs()
     {
@@ -524,6 +533,10 @@ public:
         return nUnlNodeIDs();
     }
 
+    /**
+     * get the master public keys of Negative UNL validators
+     * @return the public keys
+     */
     hash_set<PublicKey>
     getnUnl()
     {
@@ -531,6 +544,10 @@ public:
         return negativeList_;
     }
 
+    /**
+     * set the Negative UNL with validators' master public keys
+     * @param nUnl the public keys
+     */
     void
     setnUnl(hash_set<PublicKey> const& nUnl)
     {
@@ -591,6 +608,10 @@ private:
     calculateQuorum (
         std::size_t unlSize, std::size_t effectiveUnlSize, std::size_t seenSize);
 
+    /**
+     * get the NodeIDs of Negative UNL validators
+     * @return the NodeIDs
+     */
     hash_set<NodeID>
     nUnlNodeIDs()
     {

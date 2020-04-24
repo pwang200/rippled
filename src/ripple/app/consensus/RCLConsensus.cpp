@@ -315,7 +315,7 @@ RCLConsensus::Adaptor::onClose(
     if (app_.config().standalone() || (proposing && !wrongLCL))
     {
         auto seq = prevLedger->info().seq + 1;
-        if (((seq - 1) % FLAG_LEDGER) == 0)
+        if (((seq - 1) % 256) == 0)
         {
             // previous ledger was flag ledger, add pseudo-transactions
             auto validations =
@@ -330,7 +330,7 @@ RCLConsensus::Adaptor::onClose(
                     prevLedger, validations, initialSet);
             }
         }
-        else if ((seq % FLAG_LEDGER) == 0)
+        else if ((seq % 256) == 0)
         {
             nUnlVote_.doVoting(prevLedger,
                                app_.validators().getTrustedMasterKeys(),
@@ -774,7 +774,7 @@ RCLConsensus::Adaptor::validate(RCLCxLedger const& ledger,
         fees.loadFee = fee;
 
     // next ledger is flag ledger
-    if (((ledger.seq() + 1) % FLAG_LEDGER) == 0)
+    if (((ledger.seq() + 1) % 256) == 0)
     {
         // Suggest fee changes and new features
         feeVote_->doValidation(ledger.ledger_, fees);

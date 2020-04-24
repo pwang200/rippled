@@ -171,6 +171,12 @@ class RCLConsensus
             return parms_;
         }
 
+        /**
+         * to inform NegativeUNLVote that new validators are added
+         *
+         * @param seq the current LedgerIndex
+         * @param nowTrusted the new validators
+         */
         void
         newValidators(LedgerIndex seq, hash_set<NodeID> const& nowTrusted);
 
@@ -471,6 +477,7 @@ public:
     getJson(bool full) const;
 
     //! @see Consensus::startRound
+    //! Except nowTrusted is for informing NegativeUNLVote of new validators.
     void
     startRound(
         NetClock::time_point const& now,

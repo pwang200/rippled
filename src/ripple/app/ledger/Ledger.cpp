@@ -702,7 +702,7 @@ Ledger::nUnlToReEnable() const
 void
 Ledger::updateNegativeUNL()
 {
-    if(info_.seq % FLAG_LEDGER == 0)
+    if(info_.seq % 256 == 0)
     {
         if (auto sle = peek(keylet::negativeUNL()))
         {

@@ -148,7 +148,7 @@ struct fees_t
 };
 static fees_t const fees {};
 
-/** The ledger negative UNL entry */
+/** The negative UNL */
 struct negativeUNL_t
 {
     explicit negativeUNL_t() = default;

@@ -55,6 +55,7 @@ getLedgerFeeIndex ()
     return sha512Half(std::uint16_t(spaceFee));
 }
 
+// get the index of the node that holds the negative UNL
 uint256
 getLedgerNegativeUNLIndex ()
 {

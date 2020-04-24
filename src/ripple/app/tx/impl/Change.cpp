@@ -238,10 +238,18 @@ Change::applyFee()
 TER
 Change::applyUNLModify()
 {
-    if(view().seq() % FLAG_LEDGER != 0)
+    if(view().seq() % 256 != 0)
     {
         JLOG(j_.warn()) << "N-UNL: applyUNLModify, not a flag ledger, seq="
                         << view().seq();
+        return tefFAILURE;
+    }
+
+    if( !ctx_.tx.isFieldPresent(sfUNLModifyDisabling) ||
+        !ctx_.tx.isFieldPresent(sfLedgerSequence) ||
+        !ctx_.tx.isFieldPresent(sfUNLModifyValidator))
+    {
+        JLOG(j_.warn()) << "N-UNL: applyUNLModify, wrong Tx format.";
         return tefFAILURE;
     }
 

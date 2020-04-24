@@ -36,8 +36,6 @@
 
 namespace ripple {
 
-constexpr unsigned int FLAG_LEDGER = 256;
-
 class Application;
 class Job;
 class TransactionMaster;
@@ -319,8 +317,25 @@ public:
     void invariants() const;
     void unshare() const;
 
+    /**
+     * get Negative UNL validators' master public keys
+     *
+     * @return the public keys
+     */
     hash_set<PublicKey> nUnl() const;
+
+    /**
+     * get the to disabled validator's master public key if any
+     *
+     * @return the public key if any
+     */
     boost::optional<PublicKey> nUnlToDisable() const;
+
+    /**
+     * get the to re-enabled validator's master public key if any
+     *
+     * @return the public key if any
+     */
     boost::optional<PublicKey> nUnlToReEnable() const;
 
 private:
@@ -333,6 +348,9 @@ private:
     std::shared_ptr<SLE>
     peek (Keylet const& k) const;
 
+    /**
+     * update the Neagtive UNL ledger component, only at flag ledgers
+     */
     void
     updateNegativeUNL();
 
