@@ -705,24 +705,19 @@ class Validations_test : public beast::unit_test::suite
         TestHarness harness(h.oracle);
         Node a = harness.makeNode();
 
-        {
-            Ledger ledgerA = h["a"];
-            BEAST_EXPECT(ValStatus::current == harness.add(a.validate(ledgerA)));
-            BEAST_EXPECT(harness.vals().numTrustedForLedger(ledgerA.id()));
-            harness.clock().advance(harness.parms().validationSET_EXPIRES);
-            harness.vals().expire();
-            BEAST_EXPECT(!harness.vals().numTrustedForLedger(ledgerA.id()));
-        }
+        Ledger ledgerA = h["a"];
+        BEAST_EXPECT(ValStatus::current == harness.add(a.validate(ledgerA)));
+        BEAST_EXPECT(harness.vals().numTrustedForLedger(ledgerA.id()));
+        
+        harness.clock().advance(harness.parms().validationSET_EXPIRES);
+        harness.vals().setSeqToKeep(ledgerA.seq());
+        harness.vals().expire();
+        BEAST_EXPECT(harness.vals().numTrustedForLedger(ledgerA.id()));
 
-        {
-            Ledger ledgerB = h["b"];
-            BEAST_EXPECT(ValStatus::current == harness.add(a.validate(ledgerB)));
-            BEAST_EXPECT(harness.vals().numTrustedForLedger(ledgerB.id()));
-            harness.clock().advance(harness.parms().validationSET_EXPIRES);
-            harness.vals().setSeqToKeep(ledgerB.seq());
-            harness.vals().expire();
-            BEAST_EXPECT(harness.vals().numTrustedForLedger(ledgerB.id()));
-        }
+        harness.clock().advance(harness.parms().validationSET_EXPIRES);
+        harness.vals().setSeqToKeep(++ledgerA.seq());
+        harness.vals().expire();
+        BEAST_EXPECT(!harness.vals().numTrustedForLedger(ledgerA.id()));
     }
 
     void

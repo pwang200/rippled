@@ -81,11 +81,19 @@ bool VerifyPubKeyAndSeq (std::shared_ptr<Ledger> l,
     auto sle = l->read(keylet::negativeUNL());
     if (! sle)
         return false;
+    if(! sle->isFieldPresent(sfNegativeUNL))
+        return false;
+
     auto const &nUnlData = sle->getFieldArray(sfNegativeUNL);
     if(nUnlData.size() != nUnlLedgerSeq.size())
         return false;
+
     for (auto const &n : nUnlData)
     {
+        if(! n.isFieldPresent(sfNegativeUNLLgrSeq) ||
+           ! n.isFieldPresent(sfPublicKey))
+            return false;
+
         auto seq = n.getFieldU32(sfNegativeUNLLgrSeq);
         auto d = n.getFieldVL(sfPublicKey);
         auto s = makeSlice(d);
@@ -109,8 +117,6 @@ class NegativeUNL_test : public beast::unit_test::suite
     {
         testcase ("Create UNLModify Tx and apply to ledgers");
         jtx::Env env(*this, jtx::supported_amendments());
-        //env.app().logs().threshold(beast::severities::kAll);
-        Config & config = env.app().config();
 
         auto keyPair_1 = randomKeyPair(KeyType::ed25519);
         auto pk1 = keyPair_1.first;
@@ -120,7 +126,7 @@ class NegativeUNL_test : public beast::unit_test::suite
         auto pk3 = keyPair_3.first;
 
         auto l = std::make_shared<Ledger>(
-                create_genesis, config,
+                create_genesis, env.app().config(),
                 std::vector<uint256>{}, env.app().family());
 
         bool adding;

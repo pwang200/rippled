@@ -117,8 +117,8 @@ NegativeUNLVote::addTx(LedgerIndex seq,
     else
     {
         JLOG(j_.debug()) << "N-UNL: ledger seq=" << seq
-                         << " add Tx with txID: " << txID
-                         << " validator to "
+                         << ", add a ttUNL_MODIDY Tx with txID: " << txID
+                         << ", the validator to "
                          << (disabling? "disable " : "re-enable ") << vp;
     }
 }
@@ -149,7 +149,7 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
 {
     assert(scoreTable.empty());
     auto const seq = prevLedger->info().seq + 1;
-    validations.setSeqToKeep(seq);
+    validations.setSeqToKeep(seq - 1);
 
     auto const hashIndex = prevLedger->read(keylet::skip());
     if (!hashIndex || !hashIndex->isFieldPresent(sfHashes))

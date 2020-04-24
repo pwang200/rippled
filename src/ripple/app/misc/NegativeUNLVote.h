@@ -32,7 +32,8 @@ using RCLValidations = Validations<RCLValidationsAdaptor>;
 class SHAMap;
 namespace test
 {
-class NegativeUNLVote_test;
+class NegativeUNLVoteInternal_test;
+class NegativeUNLVoteScoreTable_test;
 }
 
 /** Manager to process NegativeUNL votes. */
@@ -42,7 +43,7 @@ public:
 
     static constexpr size_t nUnlLowWaterMark = FLAG_LEDGER * 0.5;
     static constexpr size_t nUnlHighWaterMark = FLAG_LEDGER * 0.8;
-    static constexpr size_t nUnlMinLocalValsToVote = FLAG_LEDGER * 0.95;
+    static constexpr size_t nUnlMinLocalValsToVote = FLAG_LEDGER * 0.9;
     static constexpr size_t newValidatorMeasureSkip = FLAG_LEDGER * 2;
     static constexpr float  nUnlMaxListed = 0.25;
 
@@ -98,7 +99,8 @@ private:
     void
     purgeNewValidators(LedgerIndex seq);
 
-    friend class test::NegativeUNLVote_test;
+    friend class test::NegativeUNLVoteInternal_test;
+    friend class test::NegativeUNLVoteScoreTable_test;
 };
 
 } // ripple
