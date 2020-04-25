@@ -246,6 +246,7 @@ Change::applyUNLModify()
     }
 
     if( !ctx_.tx.isFieldPresent(sfUNLModifyDisabling) ||
+        ctx_.tx.getFieldU8(sfUNLModifyDisabling) > 1 ||
         !ctx_.tx.isFieldPresent(sfLedgerSequence) ||
         !ctx_.tx.isFieldPresent(sfUNLModifyValidator))
     {
@@ -286,14 +287,15 @@ Change::applyUNLModify()
         auto const & nUnl = nUnlObject->getFieldArray(sfNegativeUNL);
         for(auto it = nUnl.begin(); it != nUnl.end(); ++it)
         {
-            if(it->getFieldVL(sfPublicKey) == validator)
+            if(it->isFieldPresent(sfPublicKey) &&
+                it->getFieldVL(sfPublicKey) == validator)
                 found = true;
         }
     }
 
     if (disabling)
     {
-        // one toDisable Tx
+        // cannot have more than one toDisable
         if(nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
         {
             JLOG(j_.warn()) << "N-UNL: applyUNLModify, already has ToDisable";
@@ -323,6 +325,7 @@ Change::applyUNLModify()
     }
     else
     {
+        // cannot have more than one toReEnable
         if(nUnlObject->isFieldPresent(sfNegativeUNLToReEnable))
         {
             JLOG(j_.warn()) << "N-UNL: applyUNLModify, already has ToReEnable";

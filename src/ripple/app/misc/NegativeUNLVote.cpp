@@ -31,23 +31,23 @@ NegativeUNLVote::NegativeUNLVote(NodeID const& myId,
 
 void
 NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
-                           hash_set<PublicKey> const & keys,
+                           hash_set<PublicKey> const & unlKeys,
                            RCLValidations & validations,
                            std::shared_ptr<SHAMap> const& initialSet)
 {
     /*
      * Voting steps:
      * -- build a reliability score table of validators
-     * -- process the table and find all candidates to disable or re-enable
+     * -- process the table and find all candidates to disable or to re-enable
      * -- pick one to disable and one to re-enable if any
      * -- if found candidates, add ttUNL_MODIDY Tx
      */
 
     // Build NodeID set for internal use.
-    // Build NodeID to PublicKey map for lookup.
+    // Build NodeID to PublicKey map for lookup before creating ttUNL_MODIDY Tx.
     hash_set<NodeID> unlNodeIDs;
     hash_map<NodeID, PublicKey> nidToKeyMap;
-    for(auto const &k : keys)
+    for(auto const& k : unlKeys)
     {
         auto nid = calcNodeID(k);
         nidToKeyMap.emplace(nid, k);
@@ -67,7 +67,7 @@ NegativeUNLVote::doVoting (LedgerConstPtr & prevLedger,
             nUnlKeys.erase(*nUnlToReEnable);
 
         hash_set<NodeID> nUnlNodeIDs;
-        for(auto & k : nUnlKeys)
+        for(auto const& k : nUnlKeys)
         {
             auto nid = calcNodeID(k);
             nUnlNodeIDs.insert(nid);
@@ -162,11 +162,11 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
     assert(scoreTable.empty());
 
     /*
-     * Find Agreed validation messages received for the last N ledgers,
+     * Find agreed validation messages received for the last 256 ledgers,
      * for every validator, and fill the score table.
      *
      * -- ask the validation container to keep enough validation message
-     *    history.
+     *    history for next time.
      *
      * -- find 256 previous ledger hashes, the same length as a flag ledger
      *    period.
@@ -198,7 +198,7 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
         return false;
     }
 
-    // have enough ledger ancestors
+    // have enough ledger ancestors, build the score table
     for (auto & k : unl)
     {
         scoreTable[k] = 0;
@@ -225,7 +225,7 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
                          << " My reliability measurement could be wrong.";
         return false;
     }
-    else if(myValidationCount >= nUnlMinLocalValsToVote
+    else if(myValidationCount > nUnlMinLocalValsToVote
             && myValidationCount <= 256)
     {
         return true;
@@ -243,40 +243,41 @@ NegativeUNLVote::buildScoreTable(LedgerConstPtr & prevLedger,
 
 void
 NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
-        hash_set<NodeID> const& nextnUnl,
+        hash_set<NodeID> const& nUnl,
         hash_map<NodeID, unsigned int> const& scoreTable,
         std::vector<NodeID> & toDisableCandidates,
         std::vector<NodeID> & toReEnableCandidates)
 {
     /*
      * -- Compute if need to find more validators to disable, by checking if
-     *    canAdd = sizeof nextnUnl < maxNegativeListed.
+     *    canAdd = sizeof nUnl < maxNegativeListed.
      *
-     * -- Find toDisableCandidates: if
+     * -- Find toDisableCandidates: check if
      *    (1) canAdd,
      *    (2) has less than nUnlLowWaterMark validations,
-     *    (3) is not in nextnUnl, and
+     *    (3) is not in nUnl, and
      *    (4) is not a new validator.
      *
-     * -- Find toReEnableCandidates: if
-     *    (1) is in nextnUnl and has more than nUnlHighWaterMark validations
+     * -- Find toReEnableCandidates: check if
+     *    (1) is in nUnl and has more than nUnlHighWaterMark validations
      *    (2) if did not find any by (1), try to find candidates:
-     *        (a) is in nextnUnl and (b) is not in unl.
+     *        (a) is in nUnl and (b) is not in unl.
      */
-    auto maxNegativeListed = (std::size_t) std::ceil(unl.size() * nUnlMaxListed);
+    auto maxNegativeListed =
+        (std::size_t) std::ceil(unl.size() * nUnlMaxListed);
     std::size_t negativeListed = 0;
     for (auto const &n : unl)
     {
-        if (nextnUnl.find(n) != nextnUnl.end())
+        if (nUnl.find(n) != nUnl.end())
             ++negativeListed;
     }
-    bool canAdd = maxNegativeListed > negativeListed;
+    bool canAdd = negativeListed < maxNegativeListed;
     JLOG(j_.trace()) << "N-UNL: my nodeId " << myId_
                      << " lowWaterMark " << nUnlLowWaterMark
                      << " highWaterMark " << nUnlHighWaterMark
                      << " canAdd " << canAdd
-                     << " maxNegativeListed " << maxNegativeListed
-                     << " negativeListed " << negativeListed;
+                     << " negativeListed " << negativeListed
+                     << " maxNegativeListed " << maxNegativeListed;
 
     for (auto it = scoreTable.cbegin(); it != scoreTable.cend(); ++it)
     {
@@ -285,7 +286,7 @@ NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
 
         if (canAdd &&
             it->second < nUnlLowWaterMark &&
-            nextnUnl.find(it->first) == nextnUnl.end() &&
+            nUnl.find(it->first) == nUnl.end() &&
             newValidators_.find(it->first) == newValidators_.end())
         {
             JLOG(j_.trace()) << "N-UNL: toDisable candidate " << it->first;
@@ -293,7 +294,7 @@ NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
         }
 
         if (it->second > nUnlHighWaterMark &&
-            nextnUnl.find(it->first) != nextnUnl.end())
+            nUnl.find(it->first) != nUnl.end())
         {
             JLOG(j_.trace()) << "N-UNL: toReEnable candidate " << it->first;
             toReEnableCandidates.push_back(it->first);
@@ -302,7 +303,7 @@ NegativeUNLVote::findAllCandidates(hash_set<NodeID> const& unl,
 
     if (toReEnableCandidates.empty())
     {
-        for (auto &n : nextnUnl)
+        for (auto &n : nUnl)
         {
             if (unl.find(n) == unl.end())
             {

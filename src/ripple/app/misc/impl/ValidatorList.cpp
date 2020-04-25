@@ -775,11 +775,11 @@ ValidatorList::getJson() const
         });
 
     // Negative UNL
-    if(!negativeList_.empty())
+    if(!nUnl_.empty())
     {
         Json::Value& jNegativeUNL =
                 (res[jss::NegativeUNL] = Json::arrayValue);
-        for (auto const& k : negativeList_)
+        for (auto const& k : nUnl_)
         {
             jNegativeUNL.append(toBase58(TokenType::NodePublic, k));
         }
@@ -906,6 +906,7 @@ ValidatorList::calculateQuorum (
             << quorum
             << " as specified in the command line";
     }
+
     return quorum;
 }
 
@@ -962,16 +963,16 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
     auto numUNL = trustedMasterKeys_.size();
     auto numEffectiveUNL = numUNL;
     auto numSeen = seenValidators.size();
-    if(!negativeList_.empty())
+    if(!nUnl_.empty())
     {
         for (auto const & k : trustedMasterKeys_)
         {
-            if ( negativeList_.find(k) != negativeList_.end())
+            if (nUnl_.find(k) != nUnl_.end())
                 --numEffectiveUNL;
         }
 
         hash_set<NodeID> nUnl;
-        for(auto const & k : negativeList_)
+        for(auto const & k : nUnl_)
             nUnl.insert(calcNodeID(k));
         for (auto const & nid : seenValidators)
         {

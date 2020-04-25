@@ -24,7 +24,6 @@
 #include <ripple/basics/Log.h>
 #include <ripple/ledger/View.h>
 #include <ripple/beast/unit_test.h>
-#include <ripple/app/tx/apply.h>
 #include <test/jtx.h>
 
 namespace ripple {

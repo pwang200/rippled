@@ -144,9 +144,9 @@ TxFormats::TxFormats ()
 
     add (jss::UNLModify, ttUNL_MODIDY,
          {
-            {sfUNLModifyDisabling, soeREQUIRED },
-            {sfLedgerSequence,     soeREQUIRED },
-            {sfUNLModifyValidator, soeREQUIRED },
+            {sfUNLModifyDisabling,   soeREQUIRED },
+            {sfLedgerSequence,       soeREQUIRED },
+            {sfUNLModifyValidator,   soeREQUIRED },
         },
         commonFields);
 

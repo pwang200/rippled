@@ -626,7 +626,7 @@ public:
      * @param s the sequence number
      */
     void
-    setSeqToKeep(Seq const s)
+    setSeqToKeep(Seq const& s)
     {
         std::lock_guard lock{mutex_};
         toKeep_ = s;
@@ -635,7 +635,7 @@ public:
     /** Expire old validation sets
 
         Remove validation sets that were accessed more than
-        validationSET_EXPIRES ago.
+        validationSET_EXPIRES ago and were not asked to keep.
     */
     void
     expire()

@@ -325,14 +325,14 @@ public:
     hash_set<PublicKey> nUnl() const;
 
     /**
-     * get the to disabled validator's master public key if any
+     * get the to be disabled validator's master public key if any
      *
      * @return the public key if any
      */
     boost::optional<PublicKey> nUnlToDisable() const;
 
     /**
-     * get the to re-enabled validator's master public key if any
+     * get the to be re-enabled validator's master public key if any
      *
      * @return the public key if any
      */
@@ -349,7 +349,7 @@ private:
     peek (Keylet const& k) const;
 
     /**
-     * update the Neagtive UNL ledger component, only at flag ledgers
+     * update the Negative UNL ledger component, only at flag ledgers
      */
     void
     updateNegativeUNL();

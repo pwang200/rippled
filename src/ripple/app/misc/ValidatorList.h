@@ -512,7 +512,7 @@ public:
     }
 
     /**
-     * get the trusted Master public keys
+     * get the trusted master public keys
      * @return the public keys
      */
     hash_set<PublicKey>
@@ -541,7 +541,7 @@ public:
     getnUnl()
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
-        return negativeList_;
+        return nUnl_;
     }
 
     /**
@@ -552,7 +552,7 @@ public:
     setnUnl(hash_set<PublicKey> const& nUnl)
     {
         std::unique_lock<std::shared_timed_mutex> lock{mutex_};
-        negativeList_ = nUnl;
+        nUnl_ = nUnl;
     }
 
 private:
@@ -567,7 +567,7 @@ private:
     CacheValidatorFile(PublicKey const& pubKey,
         PublisherList const& publisher);
 
-    hash_set<PublicKey> negativeList_;
+    hash_set<PublicKey> nUnl_;
 
     /** Check response for trusted valid published list
 
@@ -616,8 +616,8 @@ private:
     nUnlNodeIDs()
     {
         hash_set<NodeID> res;
-        res.reserve(negativeList_.size());
-        for(auto const & k : negativeList_)
+        res.reserve(nUnl_.size());
+        for(auto const & k : nUnl_)
         {
             res.insert(calcNodeID(k));
         }

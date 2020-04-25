@@ -1186,7 +1186,7 @@ private:
         ManifestCache manifests;
 
         auto createValidatorList = [&](uint vlSize,
-                                       boost::optional<std::size_t> minimumQuorum = {})
+                boost::optional<std::size_t> minimumQuorum = {})
                 -> std::shared_ptr<ValidatorList>
         {
             auto trustedKeys = std::make_shared<ValidatorList> (

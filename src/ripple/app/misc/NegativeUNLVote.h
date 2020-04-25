@@ -45,8 +45,9 @@ public:
 
     /**
      * A validator is considered unreliable if its validations is less than
-     * nUnlLowWaterMark in the last flag ledger period. An unreliable validator
-     * is a candidate to be disabled by the NegativeUNL protocol.
+     * nUnlLowWaterMark in the last flag ledger period.
+     * An unreliable validator is a candidate to be disabled by the NegativeUNL
+     * protocol.
      */
     static constexpr size_t nUnlLowWaterMark = 128;//256 * 0.5;
     /**
@@ -81,24 +82,24 @@ public:
     using LedgerConstPtr = std::shared_ptr<Ledger const> const;
 
     /**
-     * Cast our local vote on the negative UNL candidates.
+     * Cast our local vote on the NegativeUNL candidates.
      *
      * @param prevLedger the parent ledger
-     * @param unl the trusted master keys
+     * @param unlKeys the trusted master keys
      * @param validations the validation message container
      * @param initialSet the set of transactions
      */
     void
     doVoting (LedgerConstPtr & prevLedger,
-              hash_set<PublicKey> const & unl,
+              hash_set<PublicKey> const & unlKeys,
               RCLValidations & validations,
               std::shared_ptr<SHAMap> const& initialSet);
 
     /**
      * Notify NegativeUNLVote that new validators are added.
-     * So that they don't get voted to nUNL immediately.
+     * So that they don't get voted to the NegativeUNL immediately.
      *
-     * @param seq the LedgerIndex of adding the new validators
+     * @param seq the current LedgerIndex when adding the new validators
      * @param nowTrusted the new validators
      */
     void
@@ -114,14 +115,14 @@ private:
     /**
      * Add a ttUNL_MODIDY Tx to the transaction set.
      *
-     * @param seq the LedgerIndex of adding
-     * @param v the master public key of the validator
+     * @param seq the LedgerIndex when adding the Tx
+     * @param vp the master public key of the validator
      * @param disabling disabling or re-enabling the validator
      * @param initialSet the transaction set
      */
     void
     addTx(LedgerIndex seq,
-          PublicKey const &v,
+          PublicKey const &vp,
           bool disabling,
           std::shared_ptr<SHAMap> const& initialSet);
 
@@ -129,10 +130,10 @@ private:
      * Pick one candidate from a vector of candidates.
      *
      * @param randomPadData the data used for picking a candidate.
-     *        @note Nodes must use the same for picking the same candidate.
-     *        The hash of the parent ledger is a good choice.
+     *        @note Nodes must use the same randomPadData for picking the same
+     *        candidate. The hash of the parent ledger is a good choice.
      * @param candidates the vector of candidates
-     * @return the candidate
+     * @return the picked candidate
      */
     NodeID
     pickOneCandidate(uint256 randomPadData,
@@ -159,14 +160,14 @@ private:
      * candidates.
      *
      * @param unl the trusted master keys
-     * @param nextnUnl the next NegativeUNL
+     * @param nUnl the NegativeUNL
      * @param scoreTable the score table
-     * @param toDisableCandidates the candidates for disabling
-     * @param toReEnableCandidates the candidates for re-enabling
+     * @param toDisableCandidates the candidates to disable
+     * @param toReEnableCandidates the candidates to re-enable
      */
     void
     findAllCandidates(hash_set<NodeID> const& unl,
-                      hash_set<NodeID> const& nextnUnl,
+                      hash_set<NodeID> const& nUnl,
                       hash_map<NodeID, unsigned int> const& scoreTable,
                       std::vector<NodeID> & toDisableCandidates,
                       std::vector<NodeID> & toReEnableCandidates);
