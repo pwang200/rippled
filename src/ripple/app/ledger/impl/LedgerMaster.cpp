@@ -1015,7 +1015,7 @@ LedgerMaster::checkAccept(std::shared_ptr<Ledger const> const& ledger)
                        ledger->info().hash);
     filterValsWithnUnl(validations, app_.validators().getnUnlNodeIDs());
     auto const tvc = validations.size();
-    if (tvc < minVal) // nothing we can do
+    if (tvc < minVal)  // nothing we can do
     {
         JLOG(m_journal.trace())
             << "Only " << tvc << " validations for " << ledger->info().hash;

@@ -231,14 +231,14 @@ Change::applyFee()
 TER
 Change::applyUNLModify()
 {
-    if(view().seq() % 256 != 0)
+    if (view().seq() % 256 != 0)
     {
         JLOG(j_.warn()) << "N-UNL: applyUNLModify, not a flag ledger, seq="
                         << view().seq();
         return tefFAILURE;
     }
 
-    if( !ctx_.tx.isFieldPresent(sfUNLModifyDisabling) ||
+    if (!ctx_.tx.isFieldPresent(sfUNLModifyDisabling) ||
         ctx_.tx.getFieldU8(sfUNLModifyDisabling) > 1 ||
         !ctx_.tx.isFieldPresent(sfLedgerSequence) ||
         !ctx_.tx.isFieldPresent(sfUNLModifyValidator))
@@ -249,22 +249,22 @@ Change::applyUNLModify()
 
     bool disabling = ctx_.tx.getFieldU8(sfUNLModifyDisabling);
     auto seq = ctx_.tx.getFieldU32(sfLedgerSequence);
-    if(seq != view().seq())
+    if (seq != view().seq())
     {
         JLOG(j_.warn()) << "N-UNL: applyUNLModify, wrong ledger seq=" << seq;
         return tefFAILURE;
     }
 
     Blob validator = ctx_.tx.getFieldVL(sfUNLModifyValidator);
-    if (!publicKeyType (makeSlice(validator)))
+    if (!publicKeyType(makeSlice(validator)))
     {
         JLOG(j_.warn()) << "N-UNL: applyUNLModify, bad validator key";
         return tefFAILURE;
     }
 
     JLOG(j_.info()) << "N-UNL: applyUNLModify, disabling=" << disabling
-                     << " seq=" << seq
-                     << " validator data:" << strHex(validator);
+                    << " seq=" << seq
+                    << " validator data:" << strHex(validator);
 
     auto const k = keylet::negativeUNL();
     SLE::pointer nUnlObject = view().peek(k);
@@ -275,12 +275,12 @@ Change::applyUNLModify()
     }
 
     bool found = false;
-    if(nUnlObject->isFieldPresent(sfNegativeUNL))
+    if (nUnlObject->isFieldPresent(sfNegativeUNL))
     {
-        auto const & nUnl = nUnlObject->getFieldArray(sfNegativeUNL);
-        for(auto it = nUnl.begin(); it != nUnl.end(); ++it)
+        auto const& nUnl = nUnlObject->getFieldArray(sfNegativeUNL);
+        for (auto it = nUnl.begin(); it != nUnl.end(); ++it)
         {
-            if(it->isFieldPresent(sfPublicKey) &&
+            if (it->isFieldPresent(sfPublicKey) &&
                 it->getFieldVL(sfPublicKey) == validator)
                 found = true;
         }
@@ -289,16 +289,16 @@ Change::applyUNLModify()
     if (disabling)
     {
         // cannot have more than one toDisable
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
+        if (nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
         {
             JLOG(j_.warn()) << "N-UNL: applyUNLModify, already has ToDisable";
             return tefFAILURE;
         }
 
         // cannot be the same as toReEnable
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToReEnable))
+        if (nUnlObject->isFieldPresent(sfNegativeUNLToReEnable))
         {
-            if(nUnlObject->getFieldVL(sfNegativeUNLToReEnable) == validator)
+            if (nUnlObject->getFieldVL(sfNegativeUNLToReEnable) == validator)
             {
                 JLOG(j_.warn())
                     << "N-UNL: applyUNLModify, ToDisable is same as ToReEnable";
@@ -307,7 +307,7 @@ Change::applyUNLModify()
         }
 
         // cannot be in nUNL already
-        if(found)
+        if (found)
         {
             JLOG(j_.warn())
                 << "N-UNL: applyUNLModify, ToDisable is already in nUNL";
@@ -319,16 +319,16 @@ Change::applyUNLModify()
     else
     {
         // cannot have more than one toReEnable
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToReEnable))
+        if (nUnlObject->isFieldPresent(sfNegativeUNLToReEnable))
         {
             JLOG(j_.warn()) << "N-UNL: applyUNLModify, already has ToReEnable";
             return tefFAILURE;
         }
 
         // cannot be the same as toAdd
-        if(nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
+        if (nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
         {
-            if(nUnlObject->getFieldVL(sfNegativeUNLToDisable) == validator)
+            if (nUnlObject->getFieldVL(sfNegativeUNLToDisable) == validator)
             {
                 JLOG(j_.warn())
                     << "N-UNL: applyUNLModify, ToReEnable is same as ToDisable";
@@ -337,7 +337,7 @@ Change::applyUNLModify()
         }
 
         // must be in nUNL
-        if(! found)
+        if (!found)
         {
             JLOG(j_.warn())
                 << "N-UNL: applyUNLModify, ToReEnable is not in nUNL";

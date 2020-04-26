@@ -225,11 +225,12 @@ LedgerFormats::LedgerFormats()
         },
         commonFields);
 
-    add (jss::NegativeUNL, ltNEGATIVE_UNL,
+    add(jss::NegativeUNL,
+        ltNEGATIVE_UNL,
         {
-            {sfNegativeUNL,           soeOPTIONAL },
-            {sfNegativeUNLToDisable,  soeOPTIONAL },
-            {sfNegativeUNLToReEnable, soeOPTIONAL },
+            {sfNegativeUNL, soeOPTIONAL},
+            {sfNegativeUNLToDisable, soeOPTIONAL},
+            {sfNegativeUNLToReEnable, soeOPTIONAL},
         },
         commonFields);
 }

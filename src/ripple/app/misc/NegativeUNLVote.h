@@ -30,11 +30,10 @@ class Validations;
 class RCLValidationsAdaptor;
 using RCLValidations = Validations<RCLValidationsAdaptor>;
 class SHAMap;
-namespace test
-{
+namespace test {
 class NegativeUNLVoteInternal_test;
 class NegativeUNLVoteScoreTable_test;
-}
+}  // namespace test
 
 /**
  * Manager to create NegativeUNL votes.
@@ -42,33 +41,32 @@ class NegativeUNLVoteScoreTable_test;
 class NegativeUNLVote final
 {
 public:
-
     /**
      * A validator is considered unreliable if its validations is less than
      * nUnlLowWaterMark in the last flag ledger period.
      * An unreliable validator is a candidate to be disabled by the NegativeUNL
      * protocol.
      */
-    static constexpr size_t nUnlLowWaterMark = 128;//256 * 0.5;
+    static constexpr size_t nUnlLowWaterMark = 128;  // 256 * 0.5;
     /**
      * An unreliable validator must have more than nUnlHighWaterMark validations
      * in the last flag ledger period to be re-enabled.
      */
-    static constexpr size_t nUnlHighWaterMark = 204;//~256 * 0.8;
+    static constexpr size_t nUnlHighWaterMark = 204;  //~256 * 0.8;
     /**
      * The minimum number of validations of the local node for it to
      * participate in the voting.
      */
-    static constexpr size_t nUnlMinLocalValsToVote = 230;//~256 * 0.9;
+    static constexpr size_t nUnlMinLocalValsToVote = 230;  //~256 * 0.9;
     /**
      * We don't want to disable new validators immediately after adding them.
      * So we skip voting for disable them for 2 flag ledgers.
      */
-    static constexpr size_t newValidatorDisableSkip = 512;//256 * 2;
+    static constexpr size_t newValidatorDisableSkip = 512;  // 256 * 2;
     /**
      * We only want to put 25% of the UNL on the NegativeUNL.
      */
-    static constexpr float  nUnlMaxListed = 0.25;
+    static constexpr float nUnlMaxListed = 0.25;
 
     /**
      * Constructor
@@ -90,10 +88,11 @@ public:
      * @param initialSet the set of transactions
      */
     void
-    doVoting (LedgerConstPtr & prevLedger,
-              hash_set<PublicKey> const & unlKeys,
-              RCLValidations & validations,
-              std::shared_ptr<SHAMap> const& initialSet);
+    doVoting(
+        LedgerConstPtr& prevLedger,
+        hash_set<PublicKey> const& unlKeys,
+        RCLValidations& validations,
+        std::shared_ptr<SHAMap> const& initialSet);
 
     /**
      * Notify NegativeUNLVote that new validators are added.
@@ -103,8 +102,7 @@ public:
      * @param nowTrusted the new validators
      */
     void
-    newValidators (LedgerIndex seq,
-            hash_set<NodeID> const& nowTrusted);
+    newValidators(LedgerIndex seq, hash_set<NodeID> const& nowTrusted);
 
 private:
     NodeID const myId_;
@@ -121,10 +119,11 @@ private:
      * @param initialSet the transaction set
      */
     void
-    addTx(LedgerIndex seq,
-          PublicKey const &vp,
-          bool disabling,
-          std::shared_ptr<SHAMap> const& initialSet);
+    addTx(
+        LedgerIndex seq,
+        PublicKey const& vp,
+        bool disabling,
+        std::shared_ptr<SHAMap> const& initialSet);
 
     /**
      * Pick one candidate from a vector of candidates.
@@ -136,8 +135,7 @@ private:
      * @return the picked candidate
      */
     NodeID
-    pickOneCandidate(uint256 randomPadData,
-                     std::vector<NodeID> & candidates);
+    pickOneCandidate(uint256 randomPadData, std::vector<NodeID>& candidates);
 
     /**
      * Build a reliability measurement score table of validators' validation
@@ -150,10 +148,11 @@ private:
      * @return if the score table was successfully filled
      */
     bool
-    buildScoreTable(LedgerConstPtr & prevLedger,
-                    hash_set<NodeID> const & unl,
-                    RCLValidations & validations,
-                    hash_map<NodeID, unsigned int> & scoreTable);
+    buildScoreTable(
+        LedgerConstPtr& prevLedger,
+        hash_set<NodeID> const& unl,
+        RCLValidations& validations,
+        hash_map<NodeID, unsigned int>& scoreTable);
 
     /**
      * Process the score table and find all disabling and re-enabling
@@ -166,11 +165,12 @@ private:
      * @param toReEnableCandidates the candidates to re-enable
      */
     void
-    findAllCandidates(hash_set<NodeID> const& unl,
-                      hash_set<NodeID> const& nUnl,
-                      hash_map<NodeID, unsigned int> const& scoreTable,
-                      std::vector<NodeID> & toDisableCandidates,
-                      std::vector<NodeID> & toReEnableCandidates);
+    findAllCandidates(
+        hash_set<NodeID> const& unl,
+        hash_set<NodeID> const& nUnl,
+        hash_map<NodeID, unsigned int> const& scoreTable,
+        std::vector<NodeID>& toDisableCandidates,
+        std::vector<NodeID>& toReEnableCandidates);
 
     /**
      * Purge validators that are not new anymore.
@@ -184,6 +184,6 @@ private:
     friend class test::NegativeUNLVoteScoreTable_test;
 };
 
-} // ripple
+}  // namespace ripple
 
 #endif

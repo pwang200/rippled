@@ -593,12 +593,18 @@ private:
 
     /** Return quorum for trusted validator set
 
-        @param trusted Number of trusted validator keys
+        @param unlSize Number of trusted validator keys
 
-        @param seen Number of trusted validators that have signed
+        @param effectiveUnlSize Number of trusted validator keys that are not in
+        the NegativeUNL
+
+        @param seenSize Number of trusted validators that have signed
         recently received validations */
     std::size_t
-    calculateQuorum (std::size_t unl, std::size_t effectUnl, std::size_t seen);
+    calculateQuorum(
+        std::size_t unlSize,
+        std::size_t effectiveUnlSize,
+        std::size_t seenSize);
 
     /**
      * get the NodeIDs of Negative UNL validators

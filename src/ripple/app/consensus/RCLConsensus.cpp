@@ -316,7 +316,7 @@ RCLConsensus::Adaptor::onClose(
         if (((seq - 1) % 256) == 0)
         {
             // previous ledger was flag ledger, add pseudo-transactions
-            auto const validations = app_.getValidations().getTrustedForLedger(
+            auto validations = app_.getValidations().getTrustedForLedger(
                 prevLedger->info().parentHash);
             filterValsWithnUnl(validations, app_.validators().getnUnlNodeIDs());
             if (validations.size() >= app_.validators().quorum())
@@ -328,10 +328,11 @@ RCLConsensus::Adaptor::onClose(
         }
         else if ((seq % 256) == 0)
         {
-            nUnlVote_.doVoting(prevLedger,
-                               app_.validators().getTrustedMasterKeys(),
-                               app_.getValidations(),
-                               initialSet);
+            nUnlVote_.doVoting(
+                prevLedger,
+                app_.validators().getTrustedMasterKeys(),
+                app_.getValidations(),
+                initialSet);
         }
     }
 
@@ -976,10 +977,11 @@ RCLConsensus::Adaptor::updateOperatingMode(std::size_t const positions) const
 }
 
 void
-RCLConsensus::Adaptor::newValidators (LedgerIndex seq,
-                                     hash_set<NodeID> const& nowTrusted)
+RCLConsensus::Adaptor::newValidators(
+    LedgerIndex seq,
+    hash_set<NodeID> const& nowTrusted)
 {
-    if(!nowTrusted.empty())
+    if (!nowTrusted.empty())
         nUnlVote_.newValidators(seq, nowTrusted);
 }
 

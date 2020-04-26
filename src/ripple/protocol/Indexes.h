@@ -162,9 +162,10 @@ struct negativeUNL_t
 {
     explicit negativeUNL_t() = default;
 
-    Keylet operator()() const;
+    Keylet
+    operator()() const;
 };
-static negativeUNL_t const negativeUNL {};
+static negativeUNL_t const negativeUNL{};
 
 /** The beginning of an order book */
 struct book_t

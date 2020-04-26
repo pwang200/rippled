@@ -86,7 +86,7 @@ enum LedgerEntryType {
 
     ltDEPOSIT_PREAUTH = 'p',
 
-    ltNEGATIVE_UNL      = 'N',
+    ltNEGATIVE_UNL = 'N',
 
     // No longer used or supported. Left here to prevent accidental
     // reassignment of the ledger type.
@@ -117,7 +117,7 @@ enum LedgerNameSpace {
     spaceXRPUChannel = 'x',
     spaceCheck = 'C',
     spaceDepositPreauth = 'p',
-    spaceNegativeUNL    = 'N',
+    spaceNegativeUNL = 'N',
 
     // No longer used or supported. Left here to reserve the space and
     // avoid accidental reuse of the space.

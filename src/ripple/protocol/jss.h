@@ -577,8 +577,8 @@ JSS(vote);                    // in: Feature
 JSS(warning);                 // rpc:
 JSS(warnings);                // out: server_info, server_state
 JSS(workers);
-JSS(write_load);              // out: GetCounts
-JSS ( NegativeUNL );          // out: ValidatorList; ledger type
+JSS(write_load);   // out: GetCounts
+JSS(NegativeUNL);  // out: ValidatorList; ledger type
 #undef JSS
 
 }  // namespace jss

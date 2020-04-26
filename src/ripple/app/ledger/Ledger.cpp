@@ -607,12 +607,12 @@ Ledger::nUnl() const
     hash_set<PublicKey> nUnl;
     if (auto sle = read(keylet::negativeUNL()))
     {
-        if(sle->isFieldPresent (sfNegativeUNL))
+        if (sle->isFieldPresent(sfNegativeUNL))
         {
             auto const& nUnlData = sle->getFieldArray(sfNegativeUNL);
             for (auto const& n : nUnlData)
             {
-                if(n.isFieldPresent (sfPublicKey))
+                if (n.isFieldPresent(sfPublicKey))
                 {
                     auto d = n.getFieldVL(sfPublicKey);
                     auto s = makeSlice(d);
@@ -634,11 +634,11 @@ Ledger::nUnlToDisable() const
 {
     if (auto sle = read(keylet::negativeUNL()))
     {
-        if(sle->isFieldPresent (sfNegativeUNLToDisable))
+        if (sle->isFieldPresent(sfNegativeUNLToDisable))
         {
             auto d = sle->getFieldVL(sfNegativeUNLToDisable);
             auto s = makeSlice(d);
-            if (publicKeyType (s))
+            if (publicKeyType(s))
                 return PublicKey(s);
         }
     }
@@ -651,11 +651,11 @@ Ledger::nUnlToReEnable() const
 {
     if (auto sle = read(keylet::negativeUNL()))
     {
-        if(sle->isFieldPresent (sfNegativeUNLToReEnable))
+        if (sle->isFieldPresent(sfNegativeUNLToReEnable))
         {
             auto d = sle->getFieldVL(sfNegativeUNLToReEnable);
             auto s = makeSlice(d);
-            if (publicKeyType (s))
+            if (publicKeyType(s))
                 return PublicKey(s);
         }
     }
@@ -666,7 +666,7 @@ Ledger::nUnlToReEnable() const
 void
 Ledger::updateNegativeUNL()
 {
-    if(info_.seq % 256 == 0)
+    if (info_.seq % 256 == 0)
     {
         if (auto sle = peek(keylet::negativeUNL()))
         {
@@ -675,15 +675,14 @@ Ledger::updateNegativeUNL()
             if (hasToDisable || hasToReEnable)
             {
                 STArray newNUnl;
-                if(sle->isFieldPresent(sfNegativeUNL))
+                if (sle->isFieldPresent(sfNegativeUNL))
                 {
                     auto const& oldNUnl = sle->getFieldArray(sfNegativeUNL);
                     for (auto v : oldNUnl)
                     {
-                        if (hasToReEnable &&
-                            v.isFieldPresent (sfPublicKey) &&
+                        if (hasToReEnable && v.isFieldPresent(sfPublicKey) &&
                             v.getFieldVL(sfPublicKey) ==
-                            sle->getFieldVL(sfNegativeUNLToReEnable))
+                                sle->getFieldVL(sfNegativeUNLToReEnable))
                             continue;
                         newNUnl.push_back(v);
                     }
@@ -693,8 +692,7 @@ Ledger::updateNegativeUNL()
                 {
                     newNUnl.emplace_back(sfNegativeUNLEntry);
                     newNUnl.back().setFieldVL(
-                        sfPublicKey,
-                        sle->getFieldVL(sfNegativeUNLToDisable));
+                        sfPublicKey, sle->getFieldVL(sfNegativeUNLToDisable));
                     newNUnl.back().setFieldU32(sfNegativeUNLLgrSeq, seq());
                 }
 

@@ -749,8 +749,7 @@ ValidatorList::getJson() const
     // Negative UNL
     if(!nUnl_.empty())
     {
-        Json::Value& jNegativeUNL =
-                (res[jss::NegativeUNL] = Json::arrayValue);
+        Json::Value& jNegativeUNL = (res[jss::NegativeUNL] = Json::arrayValue);
         for (auto const& k : nUnl_)
         {
             jNegativeUNL.append(toBase58(TokenType::NodePublic, k));
@@ -829,9 +828,10 @@ ValidatorList::getAvailable(boost::beast::string_view const& pubKey)
 }
 
 std::size_t
-ValidatorList::calculateQuorum (std::size_t unl,
-                               std::size_t effectUnl,
-                               std::size_t seen)
+ValidatorList::calculateQuorum(
+    std::size_t unlSize,
+    std::size_t effectiveUnlSize,
+    std::size_t seenSize)
 {
     // Do not use achievable quorum until lists from all configured
     // publishers are available

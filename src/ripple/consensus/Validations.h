@@ -652,12 +652,12 @@ public:
     expire()
     {
         std::lock_guard lock{mutex_};
-        if(toKeep_)
+        if (toKeep_)
         {
-            for(auto i = byLedger_.begin(); i != byLedger_.end(); ++i)
+            for (auto i = byLedger_.begin(); i != byLedger_.end(); ++i)
             {
-                auto const & validationMap = i->second;
-                if ( ! validationMap.empty() &&
+                auto const& validationMap = i->second;
+                if (!validationMap.empty() &&
                     validationMap.begin()->second.seq() >= toKeep_)
                 {
                     byLedger_.touch(i);
