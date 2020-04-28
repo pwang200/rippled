@@ -1268,21 +1268,23 @@ private:
     }
 
     void
-    testNegativeUNL ()
+    testNegativeUNL()
     {
-        testcase ("NegativeUNL");
-        jtx::Env env (*this);
+        testcase("NegativeUNL");
+        jtx::Env env(*this);
         PublicKey emptyLocalKey;
         ManifestCache manifests;
 
-        auto createValidatorList = [&](uint vlSize,
-                boost::optional<std::size_t> minimumQuorum = {})
-                -> std::shared_ptr<ValidatorList>
-        {
-            auto trustedKeys = std::make_shared<ValidatorList> (
-                    manifests, manifests, env.timeKeeper(),
-                    env.app().config().legacy("database_path"),
-                    env.journal, minimumQuorum);
+        auto createValidatorList =
+            [&](uint vlSize, boost::optional<std::size_t> minimumQuorum = {})
+            -> std::shared_ptr<ValidatorList> {
+            auto trustedKeys = std::make_shared<ValidatorList>(
+                manifests,
+                manifests,
+                env.timeKeeper(),
+                env.app().config().legacy("database_path"),
+                env.journal,
+                minimumQuorum);
 
             std::vector<std::string> cfgPublishers;
             std::vector<std::string> cfgKeys;
@@ -1291,14 +1293,13 @@ private:
             while (cfgKeys.size() < cfgKeys.capacity())
             {
                 auto const valKey = randomNode();
-                cfgKeys.push_back (toBase58(
-                        TokenType::NodePublic, valKey));
+                cfgKeys.push_back(toBase58(TokenType::NodePublic, valKey));
                 activeValidators.emplace(calcNodeID(valKey));
             }
-            if(trustedKeys->load (emptyLocalKey, cfgKeys, cfgPublishers))
+            if (trustedKeys->load(emptyLocalKey, cfgKeys, cfgPublishers))
             {
                 trustedKeys->updateTrusted(activeValidators);
-                if(trustedKeys->quorum () == std::ceil(cfgKeys.size() * 0.8f))
+                if (trustedKeys->quorum() == std::ceil(cfgKeys.size() * 0.8f))
                     return trustedKeys;
             }
             return nullptr;
@@ -1323,34 +1324,35 @@ private:
             //== Combinations ==
             std::array<uint, 4> unlSizes({34, 35, 39, 60});
             std::array<uint, 4> nUnlPercent({0, 20, 30, 50});
-            for(auto us : unlSizes)
+            for (auto us : unlSizes)
             {
                 for (auto np : nUnlPercent)
                 {
                     auto validators = createValidatorList(us);
                     BEAST_EXPECT(validators);
-                    if(validators)
+                    if (validators)
                     {
                         uint nUnlSize = us * np / 100;
                         auto unl = validators->getTrustedMasterKeys();
                         hash_set<PublicKey> nUnl;
                         auto it = unl.begin();
-                        for(uint i = 0; i < nUnlSize; ++i)
+                        for (uint i = 0; i < nUnlSize; ++i)
                         {
                             nUnl.insert(*it);
                             ++it;
                         }
                         validators->setnUnl(nUnl);
                         validators->updateTrusted(activeValidators);
-                        BEAST_EXPECT(validators->quorum() ==
-                                     static_cast<std::size_t>(std::ceil(std::max((us-nUnlSize)*0.8f, us*0.6f))));
+                        BEAST_EXPECT(
+                            validators->quorum() ==
+                            static_cast<std::size_t>(std::ceil(
+                                std::max((us - nUnlSize) * 0.8f, us * 0.6f))));
                     }
                 }
             }
         }
 
         {
-
             //== with UNL size 60
             auto validators = createValidatorList(60);
             BEAST_EXPECT(validators);
@@ -1362,8 +1364,7 @@ private:
                 {
                     //-- set == get,
                     //-- check quorum, with nUNL size: 0, 30, 18, 12
-                    auto nUnlChange = [&](uint nUnlSize, uint quorum) -> bool
-                    {
+                    auto nUnlChange = [&](uint nUnlSize, uint quorum) -> bool {
                         hash_set<PublicKey> nUnl;
                         auto it = unl.begin();
                         for (uint i = 0; i < nUnlSize; ++i)
@@ -1375,7 +1376,7 @@ private:
                         auto nUnl_temp = validators->getnUnl();
                         if (nUnl_temp.size() == nUnl.size())
                         {
-                            for (auto &n : nUnl_temp)
+                            for (auto& n : nUnl_temp)
                             {
                                 if (nUnl.find(n) == nUnl.end())
                                     return false;
@@ -1392,7 +1393,7 @@ private:
                 }
 
                 {
-                    //nUNL overlap: |nUNL - UNL| = 5, with nUNL size: 18
+                    // nUNL overlap: |nUNL - UNL| = 5, with nUNL size: 18
                     auto nUnl = validators->getnUnl();
                     BEAST_EXPECT(nUnl.size() == 12);
                     std::size_t ss = 33;
@@ -1417,7 +1418,7 @@ private:
             //   seen_reliable affected by nUNL
             auto validators = createValidatorList(60, 30);
             BEAST_EXPECT(validators);
-            if(validators)
+            if (validators)
             {
                 hash_set<NodeID> activeValidators;
                 hash_set<PublicKey> unl = validators->getTrustedMasterKeys();
@@ -1442,7 +1443,6 @@ private:
             }
         }
     }
-
 
 public:
     void

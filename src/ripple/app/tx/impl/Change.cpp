@@ -332,7 +332,7 @@ Change::applyUNLModify()
             return tefFAILURE;
         }
 
-        // cannot be the same as toAdd
+        // cannot be the same as toDisable
         if (nUnlObject->isFieldPresent(sfNegativeUNLToDisable))
         {
             if (nUnlObject->getFieldVL(sfNegativeUNLToDisable) == validator)

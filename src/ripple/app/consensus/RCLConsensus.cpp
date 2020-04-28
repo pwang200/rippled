@@ -315,7 +315,8 @@ RCLConsensus::Adaptor::onClose(
         auto seq = prevLedger->info().seq + 1;
         if (((seq - 1) % 256) == 0)
         {
-            // previous ledger was flag ledger, add pseudo-transactions
+            // previous ledger was flag ledger, add fee and amendment
+            // pseudo-transactions
             auto validations = app_.getValidations().getTrustedForLedger(
                 prevLedger->info().parentHash);
             filterValsWithnUnl(validations, app_.validators().getnUnlNodeIDs());
@@ -329,6 +330,7 @@ RCLConsensus::Adaptor::onClose(
         else if (
             (seq % 256) == 0 && prevLedger->rules().enabled(featureNegativeUNL))
         {
+            // flag ledger now, add negative UNL pseudo-transactions
             nUnlVote_.doVoting(
                 prevLedger,
                 app_.validators().getTrustedMasterKeys(),

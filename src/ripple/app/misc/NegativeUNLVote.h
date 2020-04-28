@@ -60,7 +60,7 @@ public:
     static constexpr size_t nUnlMinLocalValsToVote = 230;  //~256 * 0.9;
     /**
      * We don't want to disable new validators immediately after adding them.
-     * So we skip voting for disable them for 2 flag ledgers.
+     * So we skip voting for disabling them for 2 flag ledgers.
      */
     static constexpr size_t newValidatorDisableSkip = 512;  // 256 * 2;
     /**

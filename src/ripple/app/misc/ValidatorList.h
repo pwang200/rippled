@@ -599,7 +599,8 @@ private:
         the NegativeUNL
 
         @param seenSize Number of trusted validators that have signed
-        recently received validations */
+        recently received validations
+    */
     std::size_t
     calculateQuorum(
         std::size_t unlSize,

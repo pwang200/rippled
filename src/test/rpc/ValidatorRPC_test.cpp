@@ -149,16 +149,17 @@ public:
             env.app().validators().setnUnl(disabledKeys);
 
             auto const jrr = env.rpc("validators")[jss::result];
-            auto & jrrnUnl = jrr[jss::NegativeUNL];
+            auto& jrrnUnl = jrr[jss::NegativeUNL];
             auto jrrnUnlSize = jrrnUnl.size();
             BEAST_EXPECT(jrrnUnlSize == 2);
-            for(uint x = 0; x < jrrnUnlSize; ++x)
+            for (uint x = 0; x < jrrnUnlSize; ++x)
             {
                 auto parsedKey = parseBase58<PublicKey>(
-                        TokenType::NodePublic, jrrnUnl[x].asString());
+                    TokenType::NodePublic, jrrnUnl[x].asString());
                 BEAST_EXPECT(parsedKey);
-                if(parsedKey)
-                    BEAST_EXPECT(disabledKeys.find(*parsedKey) != disabledKeys.end());
+                if (parsedKey)
+                    BEAST_EXPECT(
+                        disabledKeys.find(*parsedKey) != disabledKeys.end());
             }
 
             disabledKeys.clear();

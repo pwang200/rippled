@@ -70,7 +70,7 @@ NegativeUNLVote::doVoting(
         for (auto const& k : nUnlKeys)
         {
             auto nid = calcNodeID(k);
-            nUnlNodeIDs.insert(nid);
+            nUnlNodeIDs.emplace(nid);
             if (nidToKeyMap.find(nid) == nidToKeyMap.end())
             {
                 nidToKeyMap.emplace(nid, k);
@@ -204,7 +204,7 @@ NegativeUNLVote::buildScoreTable(
     }
 
     // have enough ledger ancestors, build the score table
-    for (auto& k : unl)
+    for (auto const& k : unl)
     {
         scoreTable[k] = 0;
     }
@@ -237,7 +237,7 @@ NegativeUNLVote::buildScoreTable(
     }
     else
     {
-        // cannot happen because validations_.getTrustedForLedger does not
+        // cannot happen because validations.getTrustedForLedger does not
         // return multiple validations of the same ledger from a validator.
         JLOG(j_.error()) << "N-UNL: ledger " << seq << ". I issued "
                          << myValidationCount
@@ -306,7 +306,7 @@ NegativeUNLVote::findAllCandidates(
 
     if (toReEnableCandidates.empty())
     {
-        for (auto& n : nUnl)
+        for (auto const& n : nUnl)
         {
             if (unl.find(n) == unl.end())
             {
@@ -322,7 +322,7 @@ NegativeUNLVote::newValidators(
     hash_set<NodeID> const& nowTrusted)
 {
     std::lock_guard lock(mutex_);
-    for (auto& n : nowTrusted)
+    for (auto const& n : nowTrusted)
     {
         if (newValidators_.find(n) == newValidators_.end())
         {
