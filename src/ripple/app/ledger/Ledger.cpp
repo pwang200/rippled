@@ -697,7 +697,7 @@ Ledger::updateNegativeUNL()
                     newNUnl.emplace_back(sfNegativeUNLEntry);
                     newNUnl.back().setFieldVL(
                         sfPublicKey, sle->getFieldVL(sfNegativeUNLToDisable));
-                    newNUnl.back().setFieldU32(sfNegativeUNLLgrSeq, seq());
+                    newNUnl.back().setFieldU32(sfFirstLedgerSequence, seq());
                 }
 
                 if (!newNUnl.empty())
