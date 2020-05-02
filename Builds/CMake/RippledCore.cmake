@@ -742,7 +742,7 @@ target_sources (rippled PRIVATE
   src/test/consensus/DistributedValidatorsSim_test.cpp
   src/test/consensus/LedgerTiming_test.cpp
   src/test/consensus/LedgerTrie_test.cpp
-  src/test/consensus/NegativeUNLVote_test.cpp
+  src/test/consensus/NegativeUNL_test.cpp
   src/test/consensus/ScaleFreeSim_test.cpp
   src/test/consensus/Validations_test.cpp
   #[===============================[
@@ -830,7 +830,6 @@ target_sources (rippled PRIVATE
   src/test/ledger/CashDiff_test.cpp
   src/test/ledger/Directory_test.cpp
   src/test/ledger/Invariants_test.cpp
-  src/test/ledger/NegativeUNL_test.cpp
   src/test/ledger/PaymentSandbox_test.cpp
   src/test/ledger/PendingSaves_test.cpp
   src/test/ledger/SkipList_test.cpp
