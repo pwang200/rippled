@@ -654,24 +654,20 @@ struct NetworkHistory
      * @param v the validator
      * @return the validation
      */
-    STValidation::pointer
+    std::shared_ptr<STValidation>
     createSTVal(std::shared_ptr<Ledger const> const& ledger, NodeID const& v)
     {
         static auto keyPair = randomKeyPair(KeyType::secp256k1);
-        static uint256 consensusHash;
-        static STValidation::FeeSettings fees;
-        static std::vector<uint256> amendments;
         return std::make_shared<STValidation>(
-            ledger->info().hash,
-            ledger->seq(),
-            consensusHash,
             env.app().timeKeeper().now(),
             keyPair.first,
             keyPair.second,
             v,
-            true,
-            fees,
-            amendments);
+            [&](STValidation& v) {
+                v.setFieldH256(sfLedgerHash, ledger->info().hash);
+                v.setFieldU32(sfLedgerSequence, ledger->seq());
+                v.setFlag(vfFullValidation);
+            });
     };
 
     /**
@@ -901,9 +897,7 @@ class NegativeUNLVoteInternal_test : public beast::unit_test::suite
                     RCLValidation v1(history.createSTVal(l, myId));
                     history.validations.add(myId, v1);
                     RCLValidation v2(history.createSTVal(l, badNode));
-                    BEAST_EXPECT(
-                        ValStatus::badSeq ==
-                        history.validations.add(badNode, v2));
+                    history.validations.add(badNode, v2);
                 }
 
                 NegativeUNLVote vote(myId, history.env.journal);
