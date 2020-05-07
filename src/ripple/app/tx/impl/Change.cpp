@@ -84,26 +84,32 @@ Change::preclaim(PreclaimContext const& ctx)
         return temINVALID;
     }
 
-    if (ctx.tx.getTxnType() != ttAMENDMENT && ctx.tx.getTxnType() != ttFEE &&
-        ctx.tx.getTxnType() != ttUNL_MODIFY)
-        return temUNKNOWN;
-
-    return tesSUCCESS;
+    switch (ctx.tx.getTxnType())
+    {
+        case ttAMENDMENT:
+        case ttFEE:
+        case ttUNL_MODIFY:
+            return tesSUCCESS;
+        default:
+            return temUNKNOWN;
+    }
 }
 
 TER
 Change::doApply()
 {
-    assert(
-        ctx_.tx.getTxnType() == ttAMENDMENT || ctx_.tx.getTxnType() == ttFEE ||
-        ctx_.tx.getTxnType() == ttUNL_MODIFY);
-
-    if (ctx_.tx.getTxnType() == ttAMENDMENT)
-        return applyAmendment();
-    else if (ctx_.tx.getTxnType() == ttFEE)
-        return applyFee();
-    else
-        return applyUNLModify();
+    switch (ctx_.tx.getTxnType())
+    {
+        case ttAMENDMENT:
+            return applyAmendment();
+        case ttFEE:
+            return applyFee();
+        case ttUNL_MODIFY:
+            return applyUNLModify();
+        default:
+            assert(0);
+            return tefFAILURE;
+    }
 }
 
 void
@@ -254,15 +260,15 @@ Change::applyUNLModify()
         return tefFAILURE;
     }
 
-    bool disabling = ctx_.tx.getFieldU8(sfUNLModifyDisabling);
-    auto seq = ctx_.tx.getFieldU32(sfLedgerSequence);
+    bool const disabling = ctx_.tx.getFieldU8(sfUNLModifyDisabling);
+    auto const seq = ctx_.tx.getFieldU32(sfLedgerSequence);
     if (seq != view().seq())
     {
         JLOG(j_.warn()) << "N-UNL: applyUNLModify, wrong ledger seq=" << seq;
         return tefFAILURE;
     }
 
-    Blob validator = ctx_.tx.getFieldVL(sfUNLModifyValidator);
+    Blob const validator = ctx_.tx.getFieldVL(sfUNLModifyValidator);
     if (!publicKeyType(makeSlice(validator)))
     {
         JLOG(j_.warn()) << "N-UNL: applyUNLModify, bad validator key";
@@ -281,17 +287,26 @@ Change::applyUNLModify()
         view().insert(nUnlObject);
     }
 
-    bool found = false;
-    if (nUnlObject->isFieldPresent(sfNegativeUNL))
-    {
-        auto const& nUnl = nUnlObject->getFieldArray(sfNegativeUNL);
-        for (auto it = nUnl.begin(); it != nUnl.end(); ++it)
+    bool const found = [&] {
+        if (nUnlObject->isFieldPresent(sfNegativeUNL))
         {
-            if (it->isFieldPresent(sfPublicKey) &&
-                it->getFieldVL(sfPublicKey) == validator)
-                found = true;
+            auto const& nUnl = nUnlObject->getFieldArray(sfNegativeUNL);
+            //            for (auto it = nUnl.begin(); it != negativeUnl.end();
+            //            ++it)
+            //            {
+            //                if (it->isFieldPresent(sfPublicKey) &&
+            //                    it->getFieldVL(sfPublicKey) == validator)
+            //                    return true;
+            //            }
+            for (auto const& v : nUnl)
+            {
+                if (v.isFieldPresent(sfPublicKey) &&
+                    v.getFieldVL(sfPublicKey) == validator)
+                    return true;
+            }
         }
-    }
+        return false;
+    }();
 
     if (disabling)
     {

@@ -326,9 +326,10 @@ RCLConsensus::Adaptor::onClose(
         {
             // previous ledger was flag ledger, add fee and amendment
             // pseudo-transactions
-            auto validations = app_.getValidations().getTrustedForLedger(
-                prevLedger->info().parentHash);
-            filterValsWithnUnl(validations, app_.validators().getnUnlNodeIDs());
+            auto validations = negativeUNLFilter(
+                app_.getValidations().getTrustedForLedger(
+                    prevLedger->info().parentHash),
+                app_.validators().getNegativeUnlNodeIDs());
             if (validations.size() >= app_.validators().quorum())
             {
                 feeVote_->doVoting(prevLedger, validations, initialSet);
