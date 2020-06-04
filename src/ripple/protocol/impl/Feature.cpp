@@ -131,7 +131,8 @@ detail::supportedAmendments()
         "RequireFullyCanonicalSig",
         "fix1781",
         "HardenedValidations",
-        "NegativeUNL"};
+    //    "NegativeUNL"      // Commented out to prevent automatic enablement
+    };
     return supported;
 }
 
