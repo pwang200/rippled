@@ -1,17 +1,16 @@
 var searchData=
 [
-  ['readbufferbytes_24159',['readBufferBytes',['../namespaceripple_1_1Tuning.html#a38b288f78ba70f14d8efdb54ca50dac5ad268eb8ea6723478c8381ec8194ec68e',1,'ripple::Tuning']]],
-  ['readytoclean_24160',['readyToClean',['../classripple_1_1detail_1_1LedgerCleanerImp.html#abd1255e3e697dc31a70ef5d2b78778e4ac249f90c186ff82c5b8ca464f7b577fd',1,'ripple::detail::LedgerCleanerImp']]],
-  ['realvalue_24161',['realValue',['../namespaceJson.html#a7d654b75c16a57007925868e38212b4eab837c7b869c14d8be712deb45c9e490e',1,'Json']]],
-  ['redeems_24162',['redeems',['../namespaceripple.html#a8c623abdba7fa97ffd148311056d401ea7e611dd9f79193db43a5e9983752239e',1,'ripple']]],
-  ['redirectendpointcount_24163',['redirectEndpointCount',['../namespaceripple_1_1PeerFinder_1_1Tuning.html#a64251435427f33c1f5e7e6da6d63ee30a35bdfab4d82d9a91b5fa70a076b88993',1,'ripple::PeerFinder::Tuning']]],
-  ['removed_24164',['REMOVED',['../namespaceripple.html#a2e97c395a5e1ef4ed1052299e0e60843af7c72e1185798773093e01c631b27fc8',1,'ripple']]],
-  ['replace_24165',['replace',['../classripple_1_1detail_1_1RawStateTable.html#a8633f1d3c862430e0e3d8507f1f604f2a9dde360102c103867bd2f45872f1129c',1,'ripple::detail::RawStateTable']]],
-  ['replay_24166',['REPLAY',['../classripple_1_1Config.html#a6d275f46c1bb19d9a85917de5ca1b99ea33211dccd4e6e97872b39719a141e10c',1,'ripple::Config']]],
-  ['reply_24167',['reply',['../classripple_1_1InboundLedger.html#a6e9a443c8f271522e38916b0f673f07cae84afaab83ecb301b3d97ce4174d2773',1,'ripple::InboundLedger']]],
-  ['reqnodes_24168',['reqNodes',['../namespaceripple.html#a91d1e31035e5c208f30177b89c4268f3a4451c5eef6d9238ac473abc813391c5a',1,'ripple']]],
-  ['reqnodesreply_24169',['reqNodesReply',['../namespaceripple.html#a91d1e31035e5c208f30177b89c4268f3a42e96db43b3ccbe4d9f458159c8b6dcf',1,'ripple']]],
-  ['reservesize_24170',['reserveSize',['../classripple_1_1STArray.html#a126d1386be6ed6b6c3f41acc1868b1eaa8d0a1784faf6cb13a97d57f51cd67457',1,'ripple::STArray::reserveSize()'],['../classripple_1_1STObject.html#afd334405ed194cbef0ac6867ccf93e1eaa2917b6d5312304a605075b498fbd8e6',1,'ripple::STObject::reserveSize()']]],
+  ['readbufferbytes_24160',['readBufferBytes',['../namespaceripple_1_1Tuning.html#a38b288f78ba70f14d8efdb54ca50dac5ad268eb8ea6723478c8381ec8194ec68e',1,'ripple::Tuning']]],
+  ['readytoclean_24161',['readyToClean',['../classripple_1_1detail_1_1LedgerCleanerImp.html#abd1255e3e697dc31a70ef5d2b78778e4ac249f90c186ff82c5b8ca464f7b577fd',1,'ripple::detail::LedgerCleanerImp']]],
+  ['realvalue_24162',['realValue',['../namespaceJson.html#a7d654b75c16a57007925868e38212b4eab837c7b869c14d8be712deb45c9e490e',1,'Json']]],
+  ['redeems_24163',['redeems',['../namespaceripple.html#a8c623abdba7fa97ffd148311056d401ea7e611dd9f79193db43a5e9983752239e',1,'ripple']]],
+  ['redirectendpointcount_24164',['redirectEndpointCount',['../namespaceripple_1_1PeerFinder_1_1Tuning.html#a64251435427f33c1f5e7e6da6d63ee30a35bdfab4d82d9a91b5fa70a076b88993',1,'ripple::PeerFinder::Tuning']]],
+  ['removed_24165',['REMOVED',['../namespaceripple.html#a2e97c395a5e1ef4ed1052299e0e60843af7c72e1185798773093e01c631b27fc8',1,'ripple']]],
+  ['replace_24166',['replace',['../classripple_1_1detail_1_1RawStateTable.html#a8633f1d3c862430e0e3d8507f1f604f2a9dde360102c103867bd2f45872f1129c',1,'ripple::detail::RawStateTable']]],
+  ['replay_24167',['REPLAY',['../classripple_1_1Config.html#a6d275f46c1bb19d9a85917de5ca1b99ea33211dccd4e6e97872b39719a141e10c',1,'ripple::Config']]],
+  ['reply_24168',['reply',['../classripple_1_1InboundLedger.html#a6e9a443c8f271522e38916b0f673f07cae84afaab83ecb301b3d97ce4174d2773',1,'ripple::InboundLedger']]],
+  ['reqnodes_24169',['reqNodes',['../namespaceripple.html#a91d1e31035e5c208f30177b89c4268f3a4451c5eef6d9238ac473abc813391c5a',1,'ripple']]],
+  ['reqnodesreply_24170',['reqNodesReply',['../namespaceripple.html#a91d1e31035e5c208f30177b89c4268f3a42e96db43b3ccbe4d9f458159c8b6dcf',1,'ripple']]],
   ['retry_24171',['retry',['../classripple_1_1OpenLedger.html#a96bb5c3c9dfae39b054eedc8d6026a97abd936aff81db9087051d25a3e30e6e54',1,'ripple::OpenLedger::retry()'],['../namespaceripple.html#abbfb5342bce7b612bff600b8a44268aba6327b4e59f58137083214a1fec358855',1,'ripple::Retry()']]],
   ['reverse_24172',['reverse',['../namespaceripple.html#a2fca0f72cfacc04d15ad41d84ebf46fda4d9c2073afa3c2abb817dceb22c34de6',1,'ripple']]],
   ['rootacc_24173',['rootAcc',['../classripple_1_1test_1_1ElementComboIter.html#a4a14ce172d72da140cb8ae49a8f132dca84cddf3c98e840adcd2db5f1c234214a',1,'ripple::test::ElementComboIter']]],
@@ -79,5 +78,5 @@ var searchData=
   ['rpcunknown_24235',['rpcUNKNOWN',['../namespaceripple.html#a32d6d3ce1a48272b677d2c88b1d30932aa4f3cb4313d397ba327dfc49ce439cae',1,'ripple']]],
   ['rpcunknown_5fcommand_24236',['rpcUNKNOWN_COMMAND',['../namespaceripple.html#a32d6d3ce1a48272b677d2c88b1d30932a2e316006c45784996f1c36ff28ecf795',1,'ripple']]],
   ['rsasha256_24237',['rsaSha256',['../namespaceripple_1_1cryptoconditions.html#aa3107e15003c13674a275abb96856ccda13da7df82b08c2bca253d97812ba1eb4',1,'ripple::cryptoconditions']]],
-  ['running_24238',['running',['../classripple_1_1test_1_1Stoppable__test_1_1A.html#a69e518f49b6c931fc11e68859c00fbc9a7e7d1a32bab97badfc2b383ae70f81f6',1,'ripple::test::Stoppable_test::A::running()'],['../classripple_1_1NetworkOPsImp.html#a2f6f4ea357f04537a3d762db3464caafa75101dcdfc88455bcafc9e53e0b06689',1,'ripple::NetworkOPsImp::running()']]]
+  ['running_24238',['running',['../classripple_1_1test_1_1Stoppable__test_1_1A.html#afe61341b8f522aee47b01760e804a79da7e7d1a32bab97badfc2b383ae70f81f6',1,'ripple::test::Stoppable_test::A::running()'],['../classripple_1_1NetworkOPsImp.html#a2f6f4ea357f04537a3d762db3464caafa75101dcdfc88455bcafc9e53e0b06689',1,'ripple::NetworkOPsImp::running()']]]
 ];
