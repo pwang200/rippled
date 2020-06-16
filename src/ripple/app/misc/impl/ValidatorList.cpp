@@ -17,6 +17,7 @@
 */
 //==============================================================================
 
+#include <ripple/app/ledger/Ledger.h>
 #include <ripple/app/misc/HashRouter.h>
 #include <ripple/app/misc/ValidatorList.h>
 #include <ripple/basics/FileUtilities.h>
@@ -746,16 +747,6 @@ ValidatorList::getJson() const
         }
     });
 
-    // Negative UNL
-    if (!negUnl_.empty())
-    {
-        Json::Value& jNegativeUNL = (res[jss::NegativeUNL] = Json::arrayValue);
-        for (auto const& k : negUnl_)
-        {
-            jNegativeUNL.append(toBase58(TokenType::NodePublic, k));
-        }
-    }
-
     return res;
 }
 
@@ -828,10 +819,7 @@ ValidatorList::getAvailable(boost::beast::string_view const& pubKey)
 }
 
 std::size_t
-ValidatorList::calculateQuorum(
-    std::size_t unlSize,
-    std::size_t effectiveUnlSize,
-    std::size_t seenSize)
+ValidatorList::calculateQuorum(std::size_t trusted, std::size_t seen)
 {
     // Do not use achievable quorum until lists from all configured
     // publishers are available
@@ -871,12 +859,11 @@ ValidatorList::calculateQuorum(
     // Oi,j > nj/2 + ni − qi + ti,j
     // ni - pi > (ni - pi + pj)/2 + ni − .8*ni + .2*ni
     // pi + pj < .2*ni
-    auto quorum = static_cast<std::size_t>(std::max(
-        std::ceil(effectiveUnlSize * 0.8f), std::ceil(unlSize * 0.6f)));
+    auto quorum = static_cast<std::size_t>(std::ceil(trusted * 0.8f));
 
     // Use lower quorum specified via command line if the normal quorum appears
     // unreachable based on the number of recently received validations.
-    if (minimumQuorum_ && *minimumQuorum_ < quorum && seenSize < quorum)
+    if (minimumQuorum_ && *minimumQuorum_ < quorum && seen < quorum)
     {
         quorum = *minimumQuorum_;
 
@@ -936,24 +923,7 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
         << trustedMasterKeys_.size() << "  of " << keyListings_.size()
         << " listed validators eligible for inclusion in the trusted set";
 
-    auto unlSize = trustedMasterKeys_.size();
-    auto effectiveUnlSize = unlSize;
-    auto seenSize = seenValidators.size();
-    if (!negUnl_.empty())
-    {
-        for (auto const& k : trustedMasterKeys_)
-        {
-            if (negUnl_.find(k) != negUnl_.end())
-                --effectiveUnlSize;
-        }
-
-        for (auto const& nid : seenValidators)
-        {
-            if (negUnlNodeIDs_.find(nid) != negUnlNodeIDs_.end())
-                --seenSize;
-        }
-    }
-    quorum_ = calculateQuorum(unlSize, effectiveUnlSize, seenSize);
+    quorum_ = calculateQuorum(trustedMasterKeys_.size(), seenValidators.size());
 
     JLOG(j_.debug()) << "Using quorum of " << quorum_ << " for new set of "
                      << trustedMasterKeys_.size() << " trusted validators ("
@@ -971,36 +941,68 @@ ValidatorList::updateTrusted(hash_set<NodeID> const& seenValidators)
 }
 
 hash_set<PublicKey>
-ValidatorList::getTrustedMasterKeys()
+ValidatorList::getTrustedMasterKeys() const
 {
     std::shared_lock lock{mutex_};
     return trustedMasterKeys_;
 }
 
-hash_set<NodeID>
-ValidatorList::getNegativeUnlNodeIDs()
+std::vector<std::shared_ptr<STValidation>>
+ValidatorList::negativeUNLFilter(
+    std::vector<std::shared_ptr<STValidation>>&& validations,
+    std::shared_ptr<Ledger const> const& ledger)
 {
-    std::shared_lock lock{mutex_};
-    return negUnlNodeIDs_;
-}
+    auto ret = std::move(validations);
 
-hash_set<PublicKey>
-ValidatorList::getNegativeUnl()
-{
-    std::shared_lock lock{mutex_};
-    return negUnl_;
-}
-
-void
-ValidatorList::setNegativeUnl(hash_set<PublicKey> const& nUnl)
-{
-    std::lock_guard lock{mutex_};
-    negUnl_ = nUnl;
-    negUnlNodeIDs_.clear();
-    for (auto const& k : negUnl_)
+    // Remove validations that are from validators on the negative UNL.
+    if (auto const negUnl = ledger->negativeUnl(); !negUnl.empty())
     {
-        negUnlNodeIDs_.insert(calcNodeID(k));
+        ret.erase(
+            std::remove_if(
+                ret.begin(),
+                ret.end(),
+                [&](auto const& v) {
+                    if (auto const mKey = getTrustedKey(v->getSignerPublic());
+                        mKey)
+                    {
+                        return negUnl.find(*mKey) != negUnl.end();
+                    }
+                    else
+                    {
+                        JLOG(j_.warn())
+                            << "Cannot find the master key of the signing key: "
+                            << toBase58(
+                                   TokenType::NodePublic, v->getSignerPublic());
+                        return false;
+                    }
+                }),
+            ret.end());
     }
+
+    return ret;
+}
+
+std::size_t
+ValidatorList::effectiveQuorum(std::shared_ptr<Ledger const> const& ledger)
+{
+    auto q = quorum();
+    if (auto const negUnl = ledger->negativeUnl(); !negUnl.empty())
+    {
+        auto const keys = getTrustedMasterKeys();
+        auto originalUNL = keys.size();
+        auto effectiveUNL = std::count_if(
+            keys.begin(), keys.end(), [&negUnl](PublicKey const& k) {
+                return negUnl.find(k) == negUnl.end();
+            });
+        // quorum = Ceiling(max(60% * original UNL, 80% * effective UNL))
+        q = static_cast<std::size_t>(std::max(
+            std::ceil(originalUNL * 0.6f), std::ceil(effectiveUNL * 0.8f)));
+        JLOG(j_.debug()) << "N-UNL: ledger " << ledger->seq()
+                         << ", original UNL size " << originalUNL
+                         << ", effective UNL size " << effectiveUNL
+                         << ", effective quorum " << q;
+    }
+    return q;
 }
 
 }  // namespace ripple

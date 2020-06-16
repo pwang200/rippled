@@ -38,6 +38,8 @@ namespace ripple {
 // predeclaration
 class Overlay;
 class HashRouter;
+class Ledger;
+class STValidation;
 
 enum class ListDisposition {
     /// List is valid
@@ -510,28 +512,28 @@ public:
      * @return the public keys
      */
     hash_set<PublicKey>
-    getTrustedMasterKeys();
+    getTrustedMasterKeys() const;
 
     /**
-     * get the NodeIDs of Negative UNL validators
-     * @return the NodeIDs
+     * Remove validations that are from validators on the negative UNL.
+     *
+     * @param validations  the validations to filter
+     * @param ledger  the ledger to retrieve the Negative UNL
+     * @return a filtered copy of the validations
      */
-    hash_set<NodeID>
-    getNegativeUnlNodeIDs();
+    std::vector<std::shared_ptr<STValidation>>
+    negativeUNLFilter(
+        std::vector<std::shared_ptr<STValidation>>&& validations,
+        std::shared_ptr<Ledger const> const& ledger);
 
     /**
-     * get the master public keys of Negative UNL validators
-     * @return the public keys
+     * Compute the per ledger effective quorum given the ledger
+     *
+     * @param ledger the ledger that may have a negative UNL
+     * @return the effective quorum
      */
-    hash_set<PublicKey>
-    getNegativeUnl();
-
-    /**
-     * set the Negative UNL with validators' master public keys
-     * @param nUnl the public keys
-     */
-    void
-    setNegativeUnl(hash_set<PublicKey> const& nUnl);
+    std::size_t
+    effectiveQuorum(std::shared_ptr<Ledger const> const& ledger);
 
 private:
     /** Get the filename used for caching UNLs
@@ -543,9 +545,6 @@ private:
      */
     void
     CacheValidatorFile(PublicKey const& pubKey, PublisherList const& publisher);
-
-    hash_set<PublicKey> negUnl_;
-    hash_set<NodeID> negUnlNodeIDs_;
 
     /** Check response for trusted valid published list
 
@@ -578,19 +577,12 @@ private:
 
     /** Return quorum for trusted validator set
 
-        @param unlSize Number of trusted validator keys
+        @param trusted Number of trusted validator keys
 
-        @param effectiveUnlSize Number of trusted validator keys that are not in
-        the NegativeUNL
-
-        @param seenSize Number of trusted validators that have signed
-        recently received validations
-    */
+        @param seen Number of trusted validators that have signed
+        recently received validations */
     std::size_t
-    calculateQuorum(
-        std::size_t unlSize,
-        std::size_t effectiveUnlSize,
-        std::size_t seenSize);
+    calculateQuorum(std::size_t trusted, std::size_t seen);
 };
 }  // namespace ripple
 

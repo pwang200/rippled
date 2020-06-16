@@ -328,11 +328,24 @@ RCLConsensus::Adaptor::onClose(
         {
             // previous ledger was flag ledger, add fee and amendment
             // pseudo-transactions
-            auto validations = negativeUNLFilter(
-                app_.getValidations().getTrustedForLedger(
-                    prevLedger->info().parentHash),
-                app_.validators().getNegativeUnlNodeIDs());
-            if (validations.size() >= app_.validators().quorum())
+            auto validations = app_.getValidations().getTrustedForLedger(
+                prevLedger->info().parentHash);
+            bool haveQuorum = false;
+            auto const grandpaLedger = app_.getLedgerMaster().getLedgerByHash(
+                prevLedger->info().parentHash);
+            if (grandpaLedger &&
+                grandpaLedger->rules().enabled(featureNegativeUNL))
+            {
+                validations = app_.validators().negativeUNLFilter(
+                    std::move(validations), grandpaLedger);
+                haveQuorum = validations.size() >=
+                    app_.validators().effectiveQuorum(grandpaLedger);
+            }
+            else
+            {
+                haveQuorum = validations.size() >= app_.validators().quorum();
+            }
+            if (haveQuorum)
             {
                 feeVote_->doVoting(prevLedger, validations, initialSet);
                 app_.getAmendmentTable().doVoting(

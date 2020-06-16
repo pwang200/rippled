@@ -44,6 +44,7 @@
 #include <ripple/nodestore/DatabaseShard.h>
 #include <ripple/overlay/Overlay.h>
 #include <ripple/overlay/Peer.h>
+#include <ripple/protocol/Feature.h>
 #include <ripple/protocol/HashPrefix.h>
 #include <ripple/protocol/digest.h>
 #include <ripple/resource/Fees.h>
@@ -313,9 +314,11 @@ LedgerMaster::setValidLedger(std::shared_ptr<Ledger const> const& l)
 
     if (!standalone_)
     {
-        auto validations = negativeUNLFilter(
-            app_.getValidations().getTrustedForLedger(l->info().hash),
-            app_.validators().getNegativeUnlNodeIDs());
+        auto validations =
+            app_.getValidations().getTrustedForLedger(l->info().hash);
+        if (l->rules().enabled(featureNegativeUNL))
+            validations =
+                app_.validators().negativeUNLFilter(std::move(validations), l);
         times.reserve(validations.size());
         for (auto const& val : validations)
             times.push_back(val->getSignTime());
@@ -929,10 +932,8 @@ LedgerMaster::checkAccept(uint256 const& hash, std::uint32_t seq)
         if (seq < mValidLedgerSeq)
             return;
 
-        auto validations = negativeUNLFilter(
-            app_.getValidations().getTrustedForLedger(hash),
-            app_.validators().getNegativeUnlNodeIDs());
-        valCount = validations.size();
+        valCount = app_.getValidations().numTrustedForLedger(hash);
+
         if (valCount >= app_.validators().quorum())
         {
             std::lock_guard ml(m_mutex);
@@ -995,12 +996,22 @@ LedgerMaster::checkAccept(std::shared_ptr<Ledger const> const& ledger)
     if (ledger->info().seq <= mValidLedgerSeq)
         return;
 
-    auto const minVal = getNeededValidations();
-    auto validations = negativeUNLFilter(
-        app_.getValidations().getTrustedForLedger(ledger->info().hash),
-        app_.validators().getNegativeUnlNodeIDs());
-    auto const tvc = validations.size();
-    if (tvc < minVal)  // nothing we can do
+    std::size_t tvc = 0;
+    bool haveQuorum = false;
+    if (ledger->rules().enabled(featureNegativeUNL))
+    {
+        auto validations = app_.validators().negativeUNLFilter(
+            app_.getValidations().getTrustedForLedger(ledger->info().hash),
+            ledger);
+        tvc = validations.size();
+        haveQuorum = tvc >= app_.validators().effectiveQuorum(ledger);
+    }
+    else
+    {
+        tvc = app_.getValidations().numTrustedForLedger(ledger->info().hash);
+        haveQuorum = tvc >= getNeededValidations();
+    }
+    if (!haveQuorum)  // nothing we can do
     {
         JLOG(m_journal.trace())
             << "Only " << tvc << " validations for " << ledger->info().hash;
@@ -1008,7 +1019,7 @@ LedgerMaster::checkAccept(std::shared_ptr<Ledger const> const& ledger)
     }
 
     JLOG(m_journal.info()) << "Advancing accepted ledger to "
-                           << ledger->info().seq << " with >= " << minVal
+                           << ledger->info().seq << " with " << tvc
                            << " validations";
 
     ledger->setValidated();
@@ -1082,9 +1093,7 @@ LedgerMaster::consensusBuilt(
     // This ledger cannot be the new fully-validated ledger, but
     // maybe we saved up validations for some other ledger that can be
 
-    auto validations = negativeUNLFilter(
-        app_.getValidations().currentTrusted(),
-        app_.validators().getNegativeUnlNodeIDs());
+    auto const val = app_.getValidations().currentTrusted();
 
     // Track validation counts with sequence numbers
     class valSeq
@@ -1111,7 +1120,7 @@ LedgerMaster::consensusBuilt(
 
     // Count the number of current, trusted validations
     hash_map<uint256, valSeq> count;
-    for (auto const& v : validations)
+    for (auto const& v : val)
     {
         valSeq& vs = count[v->getLedgerHash()];
         vs.mergeValidation(v->getFieldU32(sfLedgerSequence));
