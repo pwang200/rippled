@@ -166,8 +166,13 @@ private:
     template <std::size_t N>
     explicit HandlerTable(const Handler (&entries)[N])
     {
+        assert(
+            RPC::ApiMaximumSupportedVersion >=
+                RPC::ApiMinimumSupportedVersion &&
+            RPC::ApiMaximumSupportedVersion <= RPC::ApiExperimentalVersion);
+
         for (auto v = RPC::ApiMinimumSupportedVersion;
-             v <= RPC::ApiMaximumSupportedVersion;
+             v <= RPC::ApiExperimentalVersion;
              ++v)
         {
             for (std::size_t i = 0; i < N; ++i)
@@ -219,7 +224,7 @@ public:
     }
 
 private:
-    std::array<std::map<std::string, Handler>, APINumberVersionSupported>
+    std::array<std::map<std::string, Handler>, ApiNumberVersionSupported>
         table_;
 
     template <class HandlerImpl>
@@ -228,7 +233,7 @@ private:
     {
         assert(
             version >= RPC::ApiMinimumSupportedVersion &&
-            version <= RPC::ApiMaximumSupportedVersion);
+            version <= RPC::ApiExperimentalVersion);
         auto& innerTable = table_[versionToIndex(version)];
         assert(innerTable.find(HandlerImpl::name()) == innerTable.end());
 

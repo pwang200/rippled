@@ -212,26 +212,44 @@ extern beast::SemanticVersion const lastVersion;
  * version 1.
  *
  * Command line Requests use ApiMaximumSupportedVersion.
+ *
+ * ApiMaximumSupportedVersion is not const for testing
+ * experimental API versions that are not enabled for public
+ * consumption. In unit tests, ApiMaximumSupportedVersion
+ * can be promoted to ApiExperimentalVersion.
+ *
+ * @note ApiMaximumSupportedVersion can only be changed
+ * by unit tests.
  */
 
-constexpr unsigned int APIInvalidVersion = 0;
-constexpr unsigned int APIVersionIfUnspecified = 1;
+extern unsigned int ApiMaximumSupportedVersion;
+constexpr unsigned int ApiInvalidVersion = 0;
+constexpr unsigned int ApiVersionIfUnspecified = 1;
 constexpr unsigned int ApiMinimumSupportedVersion = 1;
-constexpr unsigned int ApiMaximumSupportedVersion = 1;
-constexpr unsigned int APINumberVersionSupported =
-    ApiMaximumSupportedVersion - ApiMinimumSupportedVersion + 1;
+constexpr unsigned int ApiExperimentalVersion = 2;
+constexpr unsigned int ApiNumberVersionSupported =
+    ApiExperimentalVersion - ApiMinimumSupportedVersion + 1;
 
-static_assert(ApiMinimumSupportedVersion >= APIVersionIfUnspecified);
-static_assert(ApiMaximumSupportedVersion >= ApiMinimumSupportedVersion);
+static_assert(ApiMinimumSupportedVersion >= ApiVersionIfUnspecified);
+static_assert(ApiExperimentalVersion >= ApiMinimumSupportedVersion);
 
 template <class Object>
 void
-setVersion(Object& parent)
+setVersion(Object& parent, unsigned int apiVersion)
 {
+    assert(apiVersion != ApiInvalidVersion);
     auto&& object = addObject(parent, jss::version);
-    object[jss::first] = firstVersion.print();
-    object[jss::good] = goodVersion.print();
-    object[jss::last] = lastVersion.print();
+    if (apiVersion == ApiVersionIfUnspecified)
+    {
+        object[jss::first] = firstVersion.print();
+        object[jss::good] = goodVersion.print();
+        object[jss::last] = lastVersion.print();
+    }
+    else
+    {
+        object[jss::first] = ApiMinimumSupportedVersion;
+        object[jss::last] = ApiMaximumSupportedVersion;
+    }
 }
 
 std::pair<RPC::Status, LedgerEntryType>

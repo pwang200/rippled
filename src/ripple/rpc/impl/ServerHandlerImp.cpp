@@ -391,7 +391,7 @@ ServerHandlerImp::processSession(
     try
     {
         auto apiVersion = RPC::getAPIVersionNumber(jv);
-        if (apiVersion == RPC::APIInvalidVersion ||
+        if (apiVersion == RPC::ApiInvalidVersion ||
             (!jv.isMember(jss::command) && !jv.isMember(jss::method)) ||
             (jv.isMember(jss::command) && !jv[jss::command].isString()) ||
             (jv.isMember(jss::method) && !jv[jss::method].isString()) ||
@@ -400,7 +400,7 @@ ServerHandlerImp::processSession(
         {
             jr[jss::type] = jss::response;
             jr[jss::status] = jss::error;
-            jr[jss::error] = apiVersion == RPC::APIInvalidVersion
+            jr[jss::error] = apiVersion == RPC::ApiInvalidVersion
                 ? jss::invalid_API_version
                 : jss::missingCommand;
             jr[jss::request] = jv;
@@ -610,7 +610,7 @@ ServerHandlerImp::processRequest(
             continue;
         }
 
-        auto apiVersion = RPC::APIVersionIfUnspecified;
+        auto apiVersion = RPC::ApiVersionIfUnspecified;
         if (jsonRPC.isMember(jss::params) && jsonRPC[jss::params].isArray() &&
             jsonRPC[jss::params].size() > 0 &&
             jsonRPC[jss::params][0u].isObject())
@@ -619,13 +619,13 @@ ServerHandlerImp::processRequest(
                 RPC::getAPIVersionNumber(jsonRPC[jss::params][Json::UInt(0)]);
         }
 
-        if (apiVersion == RPC::APIVersionIfUnspecified && batch)
+        if (apiVersion == RPC::ApiVersionIfUnspecified && batch)
         {
             // for batch request, api_version may be at a different level
             apiVersion = RPC::getAPIVersionNumber(jsonRPC);
         }
 
-        if (apiVersion == RPC::APIInvalidVersion)
+        if (apiVersion == RPC::ApiInvalidVersion)
         {
             if (!batch)
             {

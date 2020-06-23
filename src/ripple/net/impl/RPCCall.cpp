@@ -1402,7 +1402,8 @@ struct RPCCallImp
 
             // Parse reply
             JLOG(j.debug()) << "RPC reply: " << strData << std::endl;
-            if (strData.find("Unable to parse request") == 0)
+            if (strData.find("Unable to parse request") == 0 ||
+                strData.find(jss::invalid_API_version.c_str()) == 0)
                 Throw<RequestNotParseable>(strData);
             Json::Reader reader;
             Json::Value jvReply;

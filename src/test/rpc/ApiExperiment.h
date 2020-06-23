@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------
 /*
     This file is part of rippled: https://github.com/ripple/rippled
-    Copyright (c) 2012, 2013 Ripple Labs Inc.
+    Copyright (c) 2021 Ripple Labs Inc.
 
     Permission to use, copy, modify, and/or distribute this software for any
     purpose  with  or without fee is hereby granted, provided that the above
@@ -17,57 +17,31 @@
 */
 //==============================================================================
 
-#ifndef RIPPLED_RIPPLE_RPC_HANDLERS_VERSION_H
-#define RIPPLED_RIPPLE_RPC_HANDLERS_VERSION_H
+#ifndef RIPPLED_APIEXPERIMENT_H
+#define RIPPLED_APIEXPERIMENT_H
 
 #include <ripple/rpc/impl/RPCHelpers.h>
 
 namespace ripple {
-namespace RPC {
+namespace test {
 
-class VersionHandler
+class ApiExperiment
 {
 public:
-    explicit VersionHandler(JsonContext& c) : apiVersion_(c.apiVersion)
+    ApiExperiment() : cachedMaxVersion_(RPC::ApiMaximumSupportedVersion)
     {
+        RPC::ApiMaximumSupportedVersion = RPC::ApiExperimentalVersion;
     }
 
-    Status
-    check()
+    ~ApiExperiment()
     {
-        return Status::OK;
-    }
-
-    template <class Object>
-    void
-    writeResult(Object& obj)
-    {
-        setVersion(obj, apiVersion_);
-    }
-
-    static char const*
-    name()
-    {
-        return "version";
-    }
-
-    static Role
-    role()
-    {
-        return Role::USER;
-    }
-
-    static Condition
-    condition()
-    {
-        return NO_CONDITION;
+        RPC::ApiMaximumSupportedVersion = cachedMaxVersion_;
     }
 
 private:
-    unsigned int apiVersion_;
+    unsigned int cachedMaxVersion_;
 };
 
-}  // namespace RPC
+}  // namespace test
 }  // namespace ripple
-
-#endif
+#endif  // RIPPLED_APIEXPERIMENT_H
