@@ -167,7 +167,7 @@ private:
     explicit HandlerTable(const Handler (&entries)[N])
     {
         for (auto v = RPC::ApiMinimumSupportedVersion;
-             v <= RPC::ApiMaximumSupportedVersion;
+             v <= RPC::ApiExperimentalVersion;
              ++v)
         {
             for (std::size_t i = 0; i < N; ++i)
@@ -228,7 +228,7 @@ private:
     {
         assert(
             version >= RPC::ApiMinimumSupportedVersion &&
-            version <= RPC::ApiMaximumSupportedVersion);
+            version <= RPC::ApiExperimentalVersion);
         auto& innerTable = table_[versionToIndex(version)];
         assert(innerTable.find(HandlerImpl::name()) == innerTable.end());
 

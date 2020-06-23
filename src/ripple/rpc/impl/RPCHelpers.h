@@ -217,21 +217,51 @@ extern beast::SemanticVersion const lastVersion;
 constexpr unsigned int APIInvalidVersion = 0;
 constexpr unsigned int APIVersionIfUnspecified = 1;
 constexpr unsigned int ApiMinimumSupportedVersion = 1;
-constexpr unsigned int ApiMaximumSupportedVersion = 1;
+constexpr unsigned int ApiExperimentalVersion = 2;
 constexpr unsigned int APINumberVersionSupported =
-    ApiMaximumSupportedVersion - ApiMinimumSupportedVersion + 1;
+    ApiExperimentalVersion - ApiMinimumSupportedVersion + 1;
 
 static_assert(ApiMinimumSupportedVersion >= APIVersionIfUnspecified);
-static_assert(ApiMaximumSupportedVersion >= ApiMinimumSupportedVersion);
+static_assert(ApiExperimentalVersion >= ApiMinimumSupportedVersion);
+
+extern unsigned int ApiMaximumSupportedVersion;
+
+class
+ApiExperiment
+{
+public:
+    ApiExperiment()
+    : cachedMaxVersion_(ApiMaximumSupportedVersion)
+    {
+        ApiMaximumSupportedVersion = ApiExperimentalVersion;
+    }
+
+    ~ApiExperiment()
+    {
+        ApiMaximumSupportedVersion = cachedMaxVersion_;
+    }
+
+private:
+    unsigned int cachedMaxVersion_;
+};
 
 template <class Object>
 void
-setVersion(Object& parent)
+setVersion(Object& parent, unsigned int apiVersion)
 {
+    assert(apiVersion != APIInvalidVersion);
     auto&& object = addObject(parent, jss::version);
-    object[jss::first] = firstVersion.print();
-    object[jss::good] = goodVersion.print();
-    object[jss::last] = lastVersion.print();
+    if (apiVersion == APIVersionIfUnspecified)
+    {
+        object[jss::first] = firstVersion.print();
+        object[jss::good] = goodVersion.print();
+        object[jss::last] = lastVersion.print();
+    }
+    else
+    {
+        object[jss::api_version_lower_limit] = ApiMinimumSupportedVersion;
+        object[jss::api_version_upper_limit] = ApiMaximumSupportedVersion;
+    }
 }
 
 std::pair<RPC::Status, LedgerEntryType>
