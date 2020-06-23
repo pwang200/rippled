@@ -28,7 +28,7 @@ namespace RPC {
 class VersionHandler
 {
 public:
-    explicit VersionHandler(JsonContext&)
+    explicit VersionHandler(JsonContext& c) : apiVersion_(c.apiVersion)
     {
     }
 
@@ -42,7 +42,7 @@ public:
     void
     writeResult(Object& obj)
     {
-        setVersion(obj);
+        setVersion(obj, apiVersion_);
     }
 
     static char const*
@@ -62,6 +62,9 @@ public:
     {
         return NO_CONDITION;
     }
+
+private:
+    unsigned int apiVersion_;
 };
 
 }  // namespace RPC

@@ -123,8 +123,9 @@ JSS(alternatives);           // out: PathRequest, RipplePathFind
 JSS(amendment_blocked);      // out: NetworkOPs
 JSS(amendments);             // in: AccountObjects, out: NetworkOPs
 JSS(amount);                 // out: AccountChannels
-JSS(api_version);            // in: many, out: Version
-JSS(api_version_low);        // out: Version
+JSS(api_version);            // in: many
+JSS(api_version_lower_limit);  // out: Version
+JSS(api_version_upper_limit);  // out: Version
 JSS(applied);                // out: SubmitTransaction
 JSS(asks);                   // out: Subscribe
 JSS(assets);                 // out: GatewayBalances

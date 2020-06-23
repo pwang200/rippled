@@ -203,6 +203,36 @@ class Version_test : public beast::unit_test::suite
         BEAST_EXPECT(re[1u].isMember(jss::error));
     }
 
+    void
+    testVersionRPCV2()
+    {
+        testcase("test version RPC with api_version >= 2");
+        if (!BEAST_EXPECT(RPC::ApiMaximumSupportedVersion >= 2))
+            return;
+
+        using namespace test::jtx;
+        Env env{*this};
+        auto jrr = env.rpc(
+            "json",
+            "version",
+            "{\"api_version\": " +
+                std::to_string(RPC::ApiMaximumSupportedVersion) +
+                "}")[jss::result];
+
+        if (!BEAST_EXPECT(jrr.isMember(jss::version)))
+            return;
+        if (!BEAST_EXPECT(
+            jrr[jss::version].isMember(jss::api_version_lower_limit)) &&
+            jrr[jss::version].isMember(jss::api_version_upper_limit))
+            return;
+        BEAST_EXPECT(
+            jrr[jss::version][jss::api_version_lower_limit] ==
+            RPC::ApiMinimumSupportedVersion);
+        BEAST_EXPECT(
+            jrr[jss::version][jss::api_version_upper_limit] ==
+            RPC::ApiMaximumSupportedVersion);
+    }
+
 public:
     void
     run() override
@@ -212,6 +242,7 @@ public:
         testGetAPIVersionNumber();
         testBatch();
         testBatchFail();
+        testVersionRPCV2();
     }
 };
 
