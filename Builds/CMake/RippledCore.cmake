@@ -696,6 +696,7 @@ target_sources (rippled PRIVATE
   src/test/app/Transaction_ordering_test.cpp
   src/test/app/TrustAndBalance_test.cpp
   src/test/app/TxQ_test.cpp
+  src/test/app/UNLTool_test.cpp
   src/test/app/ValidatorKeys_test.cpp
   src/test/app/ValidatorList_test.cpp
   src/test/app/ValidatorSite_test.cpp
