@@ -67,6 +67,47 @@ private:
     unsigned int apiVersion_;
 };
 
+class VersionHandlerV3Plus
+{
+public:
+    explicit VersionHandlerV3Plus(JsonContext& c) : apiVersion_(c.apiVersion)
+    {
+    }
+
+    Status
+    check()
+    {
+        return Status::OK;
+    }
+
+    template <class Object>
+    void
+    writeResult(Object& obj)
+    {
+        setVersionV3Plus(obj, apiVersion_);
+    }
+
+    static char const*
+    name()
+    {
+        return "version";
+    }
+
+    static Role
+    role()
+    {
+        return Role::USER;
+    }
+
+    static Condition
+    condition()
+    {
+        return NO_CONDITION;
+    }
+
+private:
+    unsigned int apiVersion_;
+};
 }  // namespace RPC
 }  // namespace ripple
 

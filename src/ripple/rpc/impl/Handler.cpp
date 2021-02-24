@@ -181,7 +181,10 @@ private:
             // This is where the new-style handlers are added.
             // This is also where different versions of handlers are added.
             addHandler<LedgerHandler>(v);
-            addHandler<VersionHandler>(v);
+            if(v <= 2)
+                addHandler<VersionHandler>(v);
+            else
+                addHandler<VersionHandlerV3Plus>(v);
         }
     }
 

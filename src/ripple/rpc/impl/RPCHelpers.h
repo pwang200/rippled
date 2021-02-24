@@ -217,7 +217,7 @@ extern beast::SemanticVersion const lastVersion;
 constexpr unsigned int APIInvalidVersion = 0;
 constexpr unsigned int APIVersionIfUnspecified = 1;
 constexpr unsigned int ApiMinimumSupportedVersion = 1;
-constexpr unsigned int ApiExperimentalVersion = 2;
+constexpr unsigned int ApiExperimentalVersion = 3;
 constexpr unsigned int APINumberVersionSupported =
     ApiExperimentalVersion - ApiMinimumSupportedVersion + 1;
 
@@ -225,6 +225,8 @@ static_assert(ApiMinimumSupportedVersion >= APIVersionIfUnspecified);
 static_assert(ApiExperimentalVersion >= ApiMinimumSupportedVersion);
 
 extern unsigned int ApiMaximumSupportedVersion;
+void
+allowExperimentalApiVersion();
 
 class
 ApiExperiment
@@ -249,7 +251,7 @@ template <class Object>
 void
 setVersion(Object& parent, unsigned int apiVersion)
 {
-    assert(apiVersion != APIInvalidVersion);
+    assert(apiVersion != APIInvalidVersion && apiVersion < 3);
     auto&& object = addObject(parent, jss::version);
     if (apiVersion == APIVersionIfUnspecified)
     {
@@ -262,6 +264,15 @@ setVersion(Object& parent, unsigned int apiVersion)
         object[jss::api_version_lower_limit] = ApiMinimumSupportedVersion;
         object[jss::api_version_upper_limit] = ApiMaximumSupportedVersion;
     }
+}
+
+template <class Object>
+void
+setVersionV3Plus(Object& parent, unsigned int apiVersion)
+{
+    assert(apiVersion >= 3);
+    auto&& object = addObject(parent, jss::version);
+    object[jss::api_version] = apiVersion;
 }
 
 std::pair<RPC::Status, LedgerEntryType>

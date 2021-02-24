@@ -214,46 +214,42 @@ class Version_test : public beast::unit_test::suite
     }
 
     void
-    testVersionRPCV2()
+    testVersionRPCDiffApi_version()
     {
-        testcase("test version RPC with api_version >= 2");
-        RPC::ApiExperiment experiment;
-        if (!BEAST_EXPECT(RPC::ApiMaximumSupportedVersion >= 2))
-            return;
-
+        testcase("test version RPC with different api_version");
         using namespace test::jtx;
         Env env{*this};
-        auto jrr = env.rpc(
-            "json",
-            "version",
-            "{\"api_version\": " +
-                std::to_string(RPC::ApiMaximumSupportedVersion) +
-                "}")[jss::result];
+        auto print = [&](unsigned v)
+        {
+            std::cout << "api_version=" << v << " " << env.rpc(
+                "json",
+                "version",
+                "{\"api_version\": " +
+                std::to_string(v) +
+                "}")[jss::result] << std::endl;
+        };
 
-        if (!BEAST_EXPECT(jrr.isMember(jss::version)))
-            return;
-        if (!BEAST_EXPECT(
-            jrr[jss::version].isMember(jss::api_version_lower_limit)) &&
-            jrr[jss::version].isMember(jss::api_version_upper_limit))
-            return;
-        BEAST_EXPECT(
-            jrr[jss::version][jss::api_version_lower_limit] ==
-            RPC::ApiMinimumSupportedVersion);
-        BEAST_EXPECT(
-            jrr[jss::version][jss::api_version_upper_limit] ==
-            RPC::ApiMaximumSupportedVersion);
+        print(0);
+        print(1);
+        print(2);
+        print(3);
+        RPC::ApiExperiment experiment;
+        BEAST_EXPECT(RPC::ApiMaximumSupportedVersion >= 3);
+        std::cout << "Promoted ApiMaximumSupportedVersion" << std::endl;
+        print(3);
+        print(4);
     }
 
 public:
     void
     run() override
     {
-        testCorrectVersionNumber();
-        testWrongVersionNumber();
-        testGetAPIVersionNumber();
-        testBatch();
-        testBatchFail();
-        testVersionRPCV2();
+//        testCorrectVersionNumber();
+//        testWrongVersionNumber();
+//        testGetAPIVersionNumber();
+//        testBatch();
+//        testBatchFail();
+        testVersionRPCDiffApi_version();
     }
 };
 

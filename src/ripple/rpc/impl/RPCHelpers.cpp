@@ -883,7 +883,13 @@ beast::SemanticVersion const firstVersion("1.0.0");
 beast::SemanticVersion const goodVersion("1.0.0");
 beast::SemanticVersion const lastVersion("1.0.0");
 
-unsigned int ApiMaximumSupportedVersion = 1;
+unsigned int ApiMaximumSupportedVersion = 2;
+
+void
+allowExperimentalApiVersion()
+{
+    RPC::ApiMaximumSupportedVersion = RPC::ApiExperimentalVersion;
+}
 
 unsigned int
 getAPIVersionNumber(Json::Value const& jv)
