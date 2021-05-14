@@ -34,7 +34,7 @@ namespace test {
 class UNLTool_test : public beast::unit_test::suite
 {
 private:
-    struct Validator
+    struct Signer
     {
         SecretKey masterSecret;
         PublicKey masterPublic;
@@ -42,7 +42,8 @@ private:
         PublicKey signingPublic;
         std::string manifest;
 
-        std::string tokenString() const
+        std::string
+        tokenString() const
         {
             Json::Value jv;
             jv["validation_secret_key"] = strHex(signingSecret);
@@ -51,21 +52,33 @@ private:
             return ripple::base64_encode(to_string(jv));
         }
 
-        void print(std::string const & first_line, std::string const & last_line) const
+        void
+        print(std::string const& first_line, std::string const& last_line) const
         {
             std::cout << first_line << std::endl;
-            std::cout << "masterSecret Base58 " << toBase58(TokenType::NodePrivate, masterSecret) << std::endl;
-            std::cout << "masterPublic Base58 " << toBase58(TokenType::NodePublic, masterPublic) << std::endl;
-            std::cout << "signingSecret Base58 " << toBase58(TokenType::NodePrivate, signingSecret) << std::endl;
-            std::cout << "signingPublic Base58 " << toBase58(TokenType::NodePublic, signingPublic) << std::endl;
-            std::cout << "masterSecret hex " << strHex(masterSecret) << std::endl;
-            std::cout << "masterPublic hex " << strHex(masterPublic) << std::endl;
-            std::cout << "signingSecret hex " << strHex(signingSecret) << std::endl;
-            std::cout << "signingPublic hex " << strHex(signingPublic) << std::endl;
+            std::cout << "masterSecret Base58 "
+                      << toBase58(TokenType::NodePrivate, masterSecret)
+                      << std::endl;
+            std::cout << "masterPublic Base58 "
+                      << toBase58(TokenType::NodePublic, masterPublic)
+                      << std::endl;
+            std::cout << "signingSecret Base58 "
+                      << toBase58(TokenType::NodePrivate, signingSecret)
+                      << std::endl;
+            std::cout << "signingPublic Base58 "
+                      << toBase58(TokenType::NodePublic, signingPublic)
+                      << std::endl;
+            std::cout << "masterSecret hex " << strHex(masterSecret)
+                      << std::endl;
+            std::cout << "masterPublic hex " << strHex(masterPublic)
+                      << std::endl;
+            std::cout << "signingSecret hex " << strHex(signingSecret)
+                      << std::endl;
+            std::cout << "signingPublic hex " << strHex(signingPublic)
+                      << std::endl;
             std::cout << "manifest " << manifest << std::endl;
             std::cout << "token " << tokenString() << std::endl;
             std::cout << last_line << std::endl;
-
         }
     };
 
@@ -102,7 +115,7 @@ private:
 
     std::string
     makeList(
-        std::vector<Validator> const& validators,
+        std::vector<Signer> const& Signers,
         std::size_t sequence,
         std::size_t expiration)
     {
@@ -110,7 +123,7 @@ private:
             ",\"expiration\":" + std::to_string(expiration) +
             ",\"validators\":[";
 
-        for (auto const& val : validators)
+        for (auto const& val : Signers)
         {
             data += "{\"validation_public_key\":\"" + strHex(val.masterPublic) +
                 "\",\"manifest\":\"" + val.manifest + "\"},";
@@ -124,113 +137,215 @@ private:
     std::string
     signList(
         std::string const& blob,
-        PublicKey const& pub, SecretKey const& sec)
+        PublicKey const& pub,
+        SecretKey const& sec)
     {
         auto const data = base64_decode(blob);
         return strHex(sign(pub, sec, makeSlice(data)));
     }
 
-    static Validator
-    createValidator(std::string masterSeed,
-                    std::string signingSeed,
-                    int seq)
+    std::vector<ValidatorBlobInfo>
+    makeBlobInfo(
+        std::vector<Signer> const& validators,
+        std::size_t sequence,
+        std::size_t expiration,
+        PublicKey const& pub,
+        SecretKey const& sec,
+        std::string manifest)
+    {
+        std::vector<ValidatorBlobInfo> v;
+        auto const blob = makeList(validators, sequence, expiration);
+        auto const sig = signList(blob, pub, sec);
+        ValidatorBlobInfo b{blob, sig, manifest};
+        v.push_back(b);
+        return v;
+    }
+
+    static Signer
+    createValidator(std::string masterSeed, std::string signingSeed, int seq)
     {
         Seed master_seed = generateSeed(masterSeed);
         Seed signing_seed = generateSeed(signingSeed);
-        auto const masterSecret = generateSecretKey(KeyType::ed25519, master_seed);
-        auto const masterPublic = derivePublicKey(KeyType::ed25519, masterSecret);
-        auto const signingSecret = generateSecretKey(KeyType::secp256k1, signing_seed);
-        auto const signingPublic = derivePublicKey(KeyType::secp256k1, signingSecret);
+        auto const masterSecret =
+            generateSecretKey(KeyType::ed25519, master_seed);
+        auto const masterPublic =
+            derivePublicKey(KeyType::ed25519, masterSecret);
+        auto const signingSecret =
+            generateSecretKey(KeyType::secp256k1, signing_seed);
+        auto const signingPublic =
+            derivePublicKey(KeyType::secp256k1, signingSecret);
 
-        return {masterSecret,
+        return {
+            masterSecret,
+            masterPublic,
+            signingSecret,
+            signingPublic,
+            base64_encode(makeManifestString(
                 masterPublic,
-                signingSecret,
+                masterSecret,
                 signingPublic,
-                base64_encode(makeManifestString(
-                    masterPublic,
-                    masterSecret,
-                    signingPublic,
-                    signingSecret,
-                    seq))};
+                signingSecret,
+                seq))};
     }
+
+    static Signer
+    createPublisher(std::string masterSeed, std::string signingSeed, int seq)
+    {
+        return createValidator(masterSeed, signingSeed, seq);
+    }
+
+    static Signer
+    recreatePublisherFromPrivateKey(
+        std::string privateKey,
+        std::string signingSeed,
+        int seq)
+    {
+        std::optional<SecretKey> masterSecret =
+            parseBase58<SecretKey>(TokenType::NodePrivate, privateKey);
+        if (!masterSecret)
+            return {};
+        auto const masterPublic =
+            derivePublicKey(KeyType::ed25519, *masterSecret);
+        Seed signing_seed = generateSeed(signingSeed);
+        auto const signingSecret =
+            generateSecretKey(KeyType::secp256k1, signing_seed);
+        auto const signingPublic =
+            derivePublicKey(KeyType::secp256k1, signingSecret);
+
+        return {
+            *masterSecret,
+            masterPublic,
+            signingSecret,
+            signingPublic,
+            base64_encode(makeManifestString(
+                masterPublic,
+                *masterSecret,
+                signingPublic,
+                signingSecret,
+                seq))};
+    }
+
+    struct NodeSeed
+    {
+        std::string masterSeed;
+        std::string signingSeed;
+        int manifestSeq;
+    };
 
     void
     testPrintUNL()
     {
-        std::string const masterSeed = "";
-        int num_validators = 10;
-        int publisher_seq = 4;
-        int unl_seq = 4;
-        std::vector<int> validator_seq(num_validators, 4);
+        /**
+         * fill in the empty strings in the section below:
+         * fill one and only one of publisherMasterSeed and publisherPrivateKey
+         */
 
-        std::string const siteUri = "testPrintUNL.test";
+        // publisher,
+        // one of publisherMasterSeed and publisherPrivateKey must be empty.
+        std::string const publisherMasterSeed = "not a good publisher seed";
+        std::string const publisherPrivateKey;
+        std::string const publisherSignKeySeed = "not a good signing seed";
+        int publisherManifestSeq = 5;
+
+        // validator, one per line. {masterSeed, signingSeed, manifestSeq}
+        // for example:
+        std::vector<NodeSeed> SignerSeeds = {
+            {"deadbeef1", "deadbeef1_sign", 7},
+            {"deadbeef2", "deadbeef2_sign", 5}};
+
+        // misc
+        int unlSeq = 5;                                   // need to update
+        std::string const siteUri = "testPrintUNL.test";  // no need to change
+
+        /********************************************************************/
+        // create publisher
+        {
+            auto psEmpty = publisherMasterSeed.empty();
+            auto pkEmpty = publisherPrivateKey.empty();
+            BEAST_EXPECT((psEmpty || pkEmpty) && (!(psEmpty && pkEmpty)));
+        }
+
+        auto const publisher = publisherMasterSeed.empty()
+            ? recreatePublisherFromPrivateKey(
+                  publisherPrivateKey,
+                  publisherSignKeySeed,
+                  publisherManifestSeq)
+            : createPublisher(
+                  publisherMasterSeed,
+                  publisherSignKeySeed,
+                  publisherManifestSeq);
+
         ManifestCache manifests;
         jtx::Env env(*this);
-        auto& app = env.app();
         auto timeKeeper = make_TimeKeeper(env.journal);
         auto trustedKeys = std::make_unique<ValidatorList>(
             manifests,
             manifests,
             env.app().timeKeeper(),
-            app.config().legacy("database_path"),
+            env.app().config().legacy("database_path"),
             env.journal);
-
-        auto const publisher = createValidator(
-            masterSeed + std::string("_publisher"),
-            std::string("_publisher_sign")+std::to_string(publisher_seq),
-            publisher_seq);
 
         std::vector<std::string> cfgKeys1({strHex(publisher.masterPublic)});
         PublicKey emptyLocalKey;
         std::vector<std::string> emptyCfgKeys;
         BEAST_EXPECT(trustedKeys->load(emptyLocalKey, emptyCfgKeys, cfgKeys1));
+        publisher.print("publisher", "");
 
-        std::vector<Validator> validator_list;
-        validator_list.reserve(num_validators);
-        for(int i = 0; i < num_validators; ++i)
+        // create validators
+        BEAST_EXPECT(!SignerSeeds.empty());
+        std::vector<Signer> validator_list;
+        int i = 0;
+        for (auto const& seed : SignerSeeds)
         {
             auto v = createValidator(
-                masterSeed+std::to_string(i),
-                masterSeed+std::string("_sign")+
-                    std::to_string(i)+std::to_string(validator_seq[i]),
-                validator_seq[i]);
+                seed.masterSeed, seed.signingSeed, seed.manifestSeq);
 
             validator_list.push_back(v);
             auto ts = v.tokenString();
             auto token = loadValidatorToken({ts});
             BEAST_EXPECT(token);
-            if(token)
+            if (token)
             {
                 BEAST_EXPECT(token->validationSecret == v.signingSecret);
                 auto m = deserializeManifest(base64_decode(token->manifest));
                 BEAST_EXPECT(m);
-                if(m)
+                if (m)
                 {
                     BEAST_EXPECT(m->masterKey == v.masterPublic);
                     BEAST_EXPECT(m->signingKey == v.signingPublic);
                 }
             }
 
-            v.print(std::string("validator_")+std::to_string(i), "");
+            v.print(std::string("validator_") + std::to_string(i++), "");
         }
 
+        // create UNL
         using namespace std::chrono_literals;
         NetClock::time_point const expiration = timeKeeper->now() + 24h * 365;
         auto const version = 1;
-        auto const blob =
-            makeList(
-            validator_list, unl_seq, expiration.time_since_epoch().count());
-        auto const sig1 = signList(blob, publisher.signingPublic, publisher.signingSecret);
+        auto const blob = makeList(
+            validator_list, unlSeq, expiration.time_since_epoch().count());
+        auto const sig1 =
+            signList(blob, publisher.signingPublic, publisher.signingSecret);
 
         BEAST_EXPECT(
             ListDisposition::accepted ==
-            trustedKeys->applyList(publisher.manifest, blob, sig1, version, siteUri)
-                .disposition);
+            trustedKeys
+                ->applyLists(
+                    publisher.manifest,
+                    version,
+                    makeBlobInfo(
+                        validator_list,
+                        unlSeq,
+                        expiration.time_since_epoch().count(),
+                        publisher.signingPublic,
+                        publisher.signingSecret,
+                        publisher.manifest),
+                    siteUri)
+                .worstDisposition());
 
-        publisher.print("publisher", "");
         std::cout << "UNL blob " << blob << std::endl;
         std::cout << "UNL sig " << sig1 << std::endl;
-        std::cout << "masterSeed " << masterSeed << std::endl;
     }
 
 public:
