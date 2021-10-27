@@ -871,5 +871,73 @@ public:
 
 BEAST_DEFINE_TESTSUITE(WalletPropose, ripple_basics, ripple);
 
+class WalletProposeLoop_test : public TestSuite
+{
+public:
+    void
+    testWalletProposeLoop(std::string secretType)
+    {
+        for (int i = 0; i < 1000; ++i)
+        {
+            Json::Value wpRequest;
+            Json::Value const result = walletPropose(wpRequest);
+            if (!BEAST_EXPECT(
+                    !contains_error(result) &&
+                    result.isMember(jss::master_key)))
+            {
+                std::cout << result << std::endl;
+                return;
+            }
+
+            Json::Value error;
+            Json::Value signRequest;
+            signRequest[jss::secret] = result[secretType];
+            auto ret = keypairForSignature(signRequest, error);
+            if (!BEAST_EXPECT(!contains_error(error)))
+            {
+                std::cout << error << std::endl;
+                return;
+            }
+
+            if (!BEAST_EXPECT(
+                    toBase58(calcAccountID(ret.first)) ==
+                    result["account_id"].asString()))
+            {
+                std::cout << "test failed, secretType: " << secretType
+                          << std::endl;
+                std::cout << "accountID and public key returned by "
+                             "walletPropose and recomputed using the returned "
+                             "seed are different."
+                          << std::endl;
+
+                std::cout << "accountID in result: "
+                          << result["account_id"].asString() << std::endl;
+                std::cout << "accountID recompute: "
+                          << toBase58(calcAccountID(ret.first)) << std::endl;
+
+                std::cout << "public key in result: "
+                          << result["public_key"].asString() << std::endl;
+                std::cout << "public key recompute: "
+                          << toBase58(TokenType::AccountPublic, ret.first)
+                          << std::endl;
+
+                std::cout << "First error index: " << i << std::endl;
+                std::cout << "walletPropose result " << result << std::endl;
+                return;
+            }
+        }
+        std::cout << "test passed, secretType: " << secretType << std::endl;
+    }
+
+    void
+    run() override
+    {
+        testWalletProposeLoop("master_seed");
+        testWalletProposeLoop("master_key");
+    }
+};
+
+BEAST_DEFINE_TESTSUITE(WalletProposeLoop, ripple_basics, ripple);
+
 }  // namespace RPC
 }  // namespace ripple
