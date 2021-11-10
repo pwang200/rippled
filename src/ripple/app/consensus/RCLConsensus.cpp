@@ -24,6 +24,7 @@
 #include <ripple/app/ledger/InboundTransactions.h>
 #include <ripple/app/ledger/Ledger.h>
 #include <ripple/app/ledger/LedgerMaster.h>
+#include <ripple/app/ledger/LedgerReplayer.h>
 #include <ripple/app/ledger/LocalTxs.h>
 #include <ripple/app/ledger/OpenLedger.h>
 #include <ripple/app/misc/AmendmentTable.h>
@@ -125,7 +126,9 @@ RCLConsensus::Adaptor::acquireLedger(LedgerHash const& hash)
         if (acquiringLedger_ != hash)
         {
             // need to start acquiring the correct consensus LCL
-            JLOG(j_.warn()) << "Need consensus ledger " << hash;
+            JLOG(j_.warn()) << "RCLConsensus::Adaptor::acquireLedger needs "
+                               "consensus ledger "
+                            << hash;
 
             // Tell the ledger acquire system that we need the consensus ledger
             acquiringLedger_ = hash;
@@ -134,8 +137,20 @@ RCLConsensus::Adaptor::acquireLedger(LedgerHash const& hash)
                 jtADVANCE,
                 "getConsensusLedger",
                 [id = hash, &app = app_](Job&) {
-                    app.getInboundLedgers().acquire(
-                        id, 0, InboundLedger::Reason::CONSENSUS);
+                    if (auto const validatedLedger =
+                            app.getLedgerMaster().getValidatedLedger();
+                        app.config().LEDGER_REPLAY && validatedLedger)
+                    {
+                        app.getLedgerReplayer().replay(
+                            InboundLedger::Reason::CONSENSUS,
+                            validatedLedger->info().hash,
+                            id);
+                    }
+                    else
+                    {
+                        app.getInboundLedgers().acquire(
+                            id, 0, InboundLedger::Reason::CONSENSUS);
+                    }
                 });
         }
         return std::nullopt;

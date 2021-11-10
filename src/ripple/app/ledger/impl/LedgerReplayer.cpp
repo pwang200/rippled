@@ -51,9 +51,32 @@ LedgerReplayer::replay(
         finishLedgerHash.isNonZero() && totalNumLedgers > 0 &&
         totalNumLedgers <= LedgerReplayParameters::MAX_TASK_SIZE);
 
+    JLOG(j_.debug()) << "replay, finishLedgerHash " << finishLedgerHash
+                     << " totalNumLedgers " << totalNumLedgers;
+
     LedgerReplayTask::TaskParameter parameter(
         r, finishLedgerHash, totalNumLedgers);
+    replayInternal(std::move(parameter));
+}
 
+void
+LedgerReplayer::replay(
+    InboundLedger::Reason r,
+    const uint256& startLedgerHash,
+    const uint256& finishLedgerHash)
+{
+    assert(startLedgerHash.isNonZero() && finishLedgerHash.isNonZero());
+    JLOG(j_.debug()) << "replay, start " << startLedgerHash << " finish "
+                     << finishLedgerHash;
+
+    LedgerReplayTask::TaskParameter parameter(
+        r, startLedgerHash, finishLedgerHash);
+    replayInternal(std::move(parameter));
+}
+
+void
+LedgerReplayer::replayInternal(LedgerReplayTask::TaskParameter&& parameter)
+{
     std::shared_ptr<LedgerReplayTask> task;
     std::shared_ptr<SkipListAcquire> skipList;
     bool newSkipList = false;
@@ -61,7 +84,8 @@ LedgerReplayer::replay(
         std::lock_guard<std::mutex> lock(mtx_);
         if (app_.isStopping())
             return;
-        if (tasks_.size() >= LedgerReplayParameters::MAX_TASKS)
+        if ((tasks_.size() + skipLists_.size() + deltas_.size()) >=
+            LedgerReplayParameters::MAX_TASKS)
         {
             JLOG(j_.info()) << "Too many replay tasks, dropping new task "
                             << parameter.finishHash_;
@@ -72,14 +96,19 @@ LedgerReplayer::replay(
         {
             if (parameter.canMergeInto(t->getTaskParameter()))
             {
-                JLOG(j_.info()) << "Task " << parameter.finishHash_ << " with "
-                                << totalNumLedgers
-                                << " ledgers merged into an existing task.";
+                if (parameter.totalLedgers_ > 0)
+                    JLOG(j_.info()) << "Task " << parameter.finishHash_
+                                    << " with " << parameter.totalLedgers_
+                                    << " ledgers merged into an existing task.";
+                else
+                    JLOG(j_.info())
+                        << "Task " << parameter.finishHash_
+                        << " with startHash " << parameter.startHash_
+                        << " merged into an existing task.";
                 return;
             }
         }
-        JLOG(j_.info()) << "Replay " << totalNumLedgers
-                        << " ledgers. Finish ledger hash "
+        JLOG(j_.info()) << "Replay ledgers. Finish ledger hash "
                         << parameter.finishHash_;
 
         auto i = skipLists_.find(parameter.finishHash_);

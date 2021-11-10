@@ -74,6 +74,8 @@ public:
             reason != InboundLedger::Reason::SHARD ||
             (seq != 0 && app_.getShardStore()));
 
+        JLOG(j_.trace()) << "InboundLedgers try acquire " << hash;
+
         bool isNew = true;
         std::shared_ptr<InboundLedger> inbound;
         {
@@ -98,6 +100,23 @@ public:
                     std::ref(m_clock),
                     mPeerSetBuilder->build());
                 mLedgers.emplace(hash, inbound);
+                JLOG(j_.info())
+                    << "InboundLedgers new InboundLedger created " << hash
+                    << " reason " << [reason]() -> std::string {
+                    switch (reason)
+                    {
+                        case InboundLedger::Reason::CONSENSUS:
+                            return "CONSENSUS";
+                        case InboundLedger::Reason::GENERIC:
+                            return "GENERIC";
+                        case InboundLedger::Reason::HISTORY:
+                            return "HISTORY";
+                        case InboundLedger::Reason::SHARD:
+                            return "SHARD";
+                        default:
+                            return {};
+                    }
+                }();
                 inbound->init(sl);
                 ++mCounter;
             }

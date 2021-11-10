@@ -30,9 +30,27 @@ LedgerReplayTask::TaskParameter::TaskParameter(
     InboundLedger::Reason r,
     uint256 const& finishLedgerHash,
     std::uint32_t totalNumLedgers)
-    : reason_(r), finishHash_(finishLedgerHash), totalLedgers_(totalNumLedgers)
+    : reason_(r)
+    , type_(hasCount)
+    , startHash_()
+    , finishHash_(finishLedgerHash)
+    , totalLedgers_(totalNumLedgers)
 {
     assert(finishLedgerHash.isNonZero() && totalNumLedgers > 0);
+}
+
+LedgerReplayTask::TaskParameter::TaskParameter(
+    InboundLedger::Reason r,
+    const uint256& startLedgerHash,
+    const uint256& finishLedgerHash)
+    : reason_(r)
+    , type_(hasStart)
+    , startHash_(startLedgerHash)
+    , finishHash_(finishLedgerHash)
+    , totalLedgers_(0)
+{
+    assert(startLedgerHash.isNonZero() && finishLedgerHash.isNonZero());
+    //        startLedgerHash != finishLedgerHash);
 }
 
 bool
@@ -41,14 +59,35 @@ LedgerReplayTask::TaskParameter::update(
     std::uint32_t seq,
     std::vector<uint256> const& sList)
 {
-    if (finishHash_ != hash || sList.size() + 1 < totalLedgers_ || full_)
-        return false;
+    assert(totalLedgers_ != 0 || startHash_.isNonZero());
 
-    finishSeq_ = seq;
+    if (finishHash_ != hash || full_ || sList.size() >= seq ||
+        std::find(sList.begin(), sList.end(), finishHash_) != sList.end())
+    {
+        return false;
+    }
+
     skipList_ = sList;
     skipList_.emplace_back(finishHash_);
-    startHash_ = skipList_[skipList_.size() - totalLedgers_];
-    assert(startHash_.isNonZero());
+
+    if (type_ == hasStart)
+    {
+        auto i = std::find(skipList_.begin(), skipList_.end(), startHash_);
+        if (i == skipList_.end())
+            return false;
+
+        totalLedgers_ = skipList_.end() - i;
+    }
+    else
+    {
+        if (skipList_.size() < totalLedgers_)
+            return false;
+
+        startHash_ = skipList_[skipList_.size() - totalLedgers_];
+        assert(startHash_.isNonZero());
+    }
+
+    finishSeq_ = seq;
     startSeq_ = finishSeq_ - totalLedgers_ + 1;
     full_ = true;
     return true;
@@ -60,20 +99,48 @@ LedgerReplayTask::TaskParameter::canMergeInto(
 {
     if (reason_ == existingTask.reason_)
     {
-        if (finishHash_ == existingTask.finishHash_ &&
-            totalLedgers_ <= existingTask.totalLedgers_)
+        if (type_ == hasStart)
         {
-            return true;
-        }
-
-        if (existingTask.full_)
-        {
-            auto const& exList = existingTask.skipList_;
-            if (auto i = std::find(exList.begin(), exList.end(), finishHash_);
-                i != exList.end())
+            if (startHash_ == existingTask.startHash_ &&
+                finishHash_ == existingTask.finishHash_)
             {
-                return existingTask.totalLedgers_ >=
-                    totalLedgers_ + (exList.end() - i) - 1;
+                return true;
+            }
+
+            if (existingTask.full_)
+            {
+                auto const& exList = existingTask.skipList_;
+                auto const startIter =
+                    std::find(exList.begin(), exList.end(), startHash_);
+                auto const finishIter =
+                    std::find(exList.begin(), exList.end(), finishHash_);
+                auto const otherStartIter = std::find(
+                    exList.begin(), exList.end(), existingTask.startHash_);
+                auto const otherFinishIter = std::find(
+                    exList.begin(), exList.end(), existingTask.finishHash_);
+
+                return otherStartIter <= startIter && startIter <= finishIter &&
+                    finishIter <= otherFinishIter;
+            }
+        }
+        else
+        {
+            if (finishHash_ == existingTask.finishHash_ &&
+                totalLedgers_ <= existingTask.totalLedgers_)
+            {
+                return true;
+            }
+
+            if (existingTask.full_)
+            {
+                auto const& exList = existingTask.skipList_;
+                if (auto i =
+                        std::find(exList.begin(), exList.end(), finishHash_);
+                    i != exList.end())
+                {
+                    return existingTask.totalLedgers_ >=
+                        totalLedgers_ + (exList.end() - i) - 1;
+                }
             }
         }
     }
@@ -228,22 +295,48 @@ LedgerReplayTask::updateSkipList(
     std::uint32_t seq,
     std::vector<uint256> const& sList)
 {
+    bool fallback = false;
+    uint256 fallbackHash;
+    InboundLedger::Reason fallbackReason;
+
     {
         ScopedLockType sl(mtx_);
         if (isDone())
             return;
         if (!parameter_.update(hash, seq, sList))
         {
-            JLOG(journal_.error()) << "Parameter update failed " << hash_;
             failed_ = true;
-            return;
+            if (auto const l = app_.getLedgerMaster().getLedgerByHash(hash_); l)
+            {
+                JLOG(journal_.error())
+                    << "Parameter update failed, but have finishLedger "
+                    << hash_;
+                return;
+            }
+            else
+            {
+                JLOG(journal_.error())
+                    << "Parameter update failed, fallback to inboundLedgers to "
+                       "only download the finishLedger "
+                    << hash_;
+                fallback = true;
+                fallbackHash = parameter_.finishHash_;
+                fallbackReason = parameter_.reason_;
+            }
         }
     }
 
-    replayer_.createDeltas(shared_from_this());
-    ScopedLockType sl(mtx_);
-    if (!isDone())
-        trigger(sl);
+    if (fallback)
+    {
+        inboundLedgers_.acquire(fallbackHash, 0, fallbackReason);
+    }
+    else  // normal cases
+    {
+        replayer_.createDeltas(shared_from_this());
+        ScopedLockType sl(mtx_);
+        if (!isDone())
+            trigger(sl);
+    }
 }
 
 void

@@ -22,6 +22,7 @@
 #include <ripple/app/ledger/AcceptedLedger.h>
 #include <ripple/app/ledger/InboundLedgers.h>
 #include <ripple/app/ledger/LedgerMaster.h>
+#include <ripple/app/ledger/LedgerReplayer.h>
 #include <ripple/app/ledger/LedgerToJson.h>
 #include <ripple/app/ledger/LocalTxs.h>
 #include <ripple/app/ledger/OpenLedger.h>
@@ -1689,8 +1690,35 @@ NetworkOPsImp::checkLastClosedLedger(
     auto consensus = m_ledgerMaster.getLedgerByHash(closedLedger);
 
     if (!consensus)
-        consensus = app_.getInboundLedgers().acquire(
-            closedLedger, 0, InboundLedger::Reason::CONSENSUS);
+    {
+        if (auto const ibl = app_.getInboundLedgers().find(closedLedger); ibl)
+        {
+            if (ibl->isComplete())
+            {
+                consensus = ibl->getLedger();
+            }
+        }
+        else
+        {
+            if (auto const validatedLedger =
+                    app_.getLedgerMaster().getValidatedLedger();
+                app_.config().LEDGER_REPLAY && validatedLedger)
+            {
+                JLOG(m_journal.debug())
+                    << "NetworkOPsImp::checkLastClosedLedger replays from "
+                    << validatedLedger->info().hash << " to " << closedLedger;
+                app_.getLedgerReplayer().replay(
+                    InboundLedger::Reason::CONSENSUS,
+                    validatedLedger->info().hash,
+                    closedLedger);
+            }
+            else
+            {
+                app_.getInboundLedgers().acquire(
+                    closedLedger, 0, InboundLedger::Reason::CONSENSUS);
+            }
+        }
+    }
 
     if (consensus &&
         (!m_ledgerMaster.canBeCurrent(consensus) ||

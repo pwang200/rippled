@@ -216,7 +216,8 @@ LedgerDeltaAcquire::tryBuild(std::shared_ptr<Ledger const> const& parent)
         complete_ = false;
         JLOG(journal_.error()) << "tryBuild failed " << hash_ << " with parent "
                                << parent->info().hash;
-        Throw<std::runtime_error>("Cannot replay ledger");
+        Throw<std::runtime_error>(
+            "Cannot replay ledger");  // TODO will this happen?
     }
 }
 
@@ -247,6 +248,10 @@ LedgerDeltaAcquire::onLedgerBuilt(
                 {
                     case InboundLedger::Reason::GENERIC:
                         app.getLedgerMaster().storeLedger(ledger);
+                        break;
+                    case InboundLedger::Reason::CONSENSUS:
+                        app.getLedgerMaster().storeLedger(ledger);
+                        app.getLedgerMaster().checkAccept(ledger);
                         break;
                     default:
                         // TODO for other use cases

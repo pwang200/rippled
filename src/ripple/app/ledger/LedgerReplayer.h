@@ -56,8 +56,8 @@ auto constexpr MAX_NO_FEATURE_PEER_COUNT = 2;
 // subtask timeout value after fallback
 auto constexpr SUB_TASK_FALLBACK_TIMEOUT = std::chrono::milliseconds{1000};
 
-// for LedgerReplayer to limit the number of LedgerReplayTask
-std::uint32_t constexpr MAX_TASKS = 10;
+// for LedgerReplayer to limit the number of LedgerReplayTask and sub-tasks
+std::uint32_t constexpr MAX_TASKS = 1000;
 
 // for LedgerReplayer to limit the number of ledgers to replay in one task
 std::uint32_t constexpr MAX_TASK_SIZE = 256;
@@ -81,16 +81,49 @@ public:
 
     /**
      * Replay a range of ledgers
+     *
      * @param r  reason for the replay request
      * @param finishLedgerHash  hash of the last ledger
      * @param totalNumLedgers  total number of ledgers in the range, inclusive
+     *
      * @note totalNumLedgers must > 0 && totalNumLedgers must <= 256
+     *
+     * @note try to replay, but in case of failures or lack of peers
+     *       with forward ledger replay enabled and have the ledgers,
+     *       fallback to inboundLedgers to download the finishLedger.
+     *       Depending on timing, some of the ledgers between have
+     *       and want may also be downloaded.
+     *
+     * @note when fallback to inboundLedgers to download the finishLedger,
+     *       we waste one round trip for acquiring a skipList
      */
     void
     replay(
         InboundLedger::Reason r,
         uint256 const& finishLedgerHash,
         std::uint32_t totalNumLedgers);
+
+    /**
+     * Replay a range of ledgers
+     *
+     * @param r  reason for the replay request
+     * @param startLedgerHash  hash of the first ledger
+     * @param finishLedgerHash  hash of the last ledger
+     *
+     * @note try to replay, but in case of failures or lack of peers
+     *       with forward ledger replay enabled and have the ledgers,
+     *       fallback to inboundLedgers to download the finishLedger.
+     *       Depending on timing, some of the ledgers between have
+     *       and want may also be downloaded.
+     *
+     * @note when fallback to inboundLedgers to download the finishLedger,
+     *       we waste one round trip for acquiring a skipList
+     */
+    void
+    replay(
+        InboundLedger::Reason r,
+        uint256 const& startLedgerHash,
+        uint256 const& finishLedgerHash);
 
     /** Create LedgerDeltaAcquire subtasks for the LedgerReplayTask task */
     void
@@ -126,6 +159,9 @@ public:
     stop();
 
 private:
+    void
+    replayInternal(LedgerReplayTask::TaskParameter&& parameter);
+
     mutable std::mutex mtx_;
     std::vector<std::shared_ptr<LedgerReplayTask>> tasks_;
     hash_map<uint256, std::weak_ptr<LedgerDeltaAcquire>> deltas_;

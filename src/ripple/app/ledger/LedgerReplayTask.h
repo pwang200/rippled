@@ -46,15 +46,18 @@ public:
     class TaskParameter
     {
     public:
+        enum Type { hasCount, hasStart };
+
         // set on construct
         InboundLedger::Reason reason_;
+        Type type_;
+        uint256 startHash_;
         uint256 finishHash_;
         std::uint32_t totalLedgers_;  // including the start and the finish
 
         // to be updated
         std::uint32_t finishSeq_ = 0;
         std::vector<uint256> skipList_ = {};  // including the finishHash
-        uint256 startHash_ = {};
         std::uint32_t startSeq_ = 0;
         bool full_ = false;
 
@@ -68,6 +71,11 @@ public:
             InboundLedger::Reason r,
             uint256 const& finishLedgerHash,
             std::uint32_t totalNumLedgers);
+
+        TaskParameter(
+            InboundLedger::Reason r,
+            uint256 const& startLedgerHash,
+            uint256 const& finishLedgerHash);
 
         /**
          * fill all the fields that was not filled during construction

@@ -129,15 +129,28 @@ RCLValidationsAdaptor::acquire(LedgerHash const& hash)
     auto ledger = app_.getLedgerMaster().getLedgerByHash(hash);
     if (!ledger)
     {
-        JLOG(j_.debug())
-            << "Need validated ledger for preferred ledger analysis " << hash;
+        JLOG(j_.debug()) << "RCLValidationsAdaptor::acquire needs validated "
+                            "ledger for preferred ledger analysis "
+                         << hash;
 
         Application* pApp = &app_;
 
         app_.getJobQueue().addJob(
             jtADVANCE, "getConsensusLedger", [pApp, hash](Job&) {
-                pApp->getInboundLedgers().acquire(
-                    hash, 0, InboundLedger::Reason::CONSENSUS);
+                if (auto const validatedLedger =
+                        pApp->getLedgerMaster().getValidatedLedger();
+                    pApp->config().LEDGER_REPLAY && validatedLedger)
+                {
+                    pApp->getLedgerReplayer().replay(
+                        InboundLedger::Reason::CONSENSUS,
+                        validatedLedger->info().hash,
+                        hash);
+                }
+                else
+                {
+                    pApp->getInboundLedgers().acquire(
+                        hash, 0, InboundLedger::Reason::CONSENSUS);
+                }
             });
         return std::nullopt;
     }
