@@ -729,24 +729,28 @@ public:
     asExpected(
         std::shared_ptr<LedgerReplayTask> const& task,
         TaskStatus taskExpect,
-        TaskStatus skiplistExpect,
+        std::vector<TaskStatus> const& skiplistExpects,
         std::vector<TaskStatus> const& deltaExpects)
     {
         if (taskStatus(task) == taskExpect)
         {
-            if (taskStatus(task->skipListAcquirer_) == skiplistExpect)
+            if (task->skipLists_.size() == skiplistExpects.size() &&
+                task->deltas_.size() == deltaExpects.size())
             {
-                if (task->deltas_.size() == deltaExpects.size())
+                for (int i = 0; i < skiplistExpects.size(); ++i)
                 {
-                    for (int i = 0; i < deltaExpects.size(); ++i)
-                    {
-                        if (taskStatus(task->deltas_[i]) != deltaExpects[i])
-                            return false;
-                    }
-                    return true;
+                    if (taskStatus(task->skipLists_[i]) != skiplistExpects[i])
+                        return false;
                 }
+                for (int i = 0; i < deltaExpects.size(); ++i)
+                {
+                    if (taskStatus(task->deltas_[i]) != deltaExpects[i])
+                        return false;
+                }
+                return true;
             }
         }
+
         return false;
     }
 
@@ -755,7 +759,7 @@ public:
         uint256 const& hash,
         int totalReplay,
         TaskStatus taskExpect,
-        TaskStatus skiplistExpect,
+        std::vector<TaskStatus> const& skiplistExpects,
         std::vector<TaskStatus> const& deltaExpects)
     {
         auto t = findTask(hash, totalReplay);
@@ -766,7 +770,7 @@ public:
             return false;
         }
 
-        return asExpected(t, taskExpect, skiplistExpect, deltaExpects);
+        return asExpected(t, taskExpect, skiplistExpects, deltaExpects);
     }
 
     bool
@@ -774,7 +778,7 @@ public:
         uint256 const& hash,
         int totalReplay,
         TaskStatus taskExpect,
-        TaskStatus skiplistExpect,
+        std::vector<TaskStatus> const& skiplistExpects,
         std::vector<TaskStatus> const& deltaExpects)
     {
         auto t = findTask(hash, totalReplay);
@@ -785,7 +789,7 @@ public:
             return false;
         }
 
-        return asExpected(t, taskExpect, skiplistExpect, deltaExpects);
+        return asExpected(t, taskExpect, skiplistExpects, deltaExpects);
     }
 
     bool
@@ -793,14 +797,14 @@ public:
         uint256 const& hash,
         int totalReplay,
         TaskStatus taskExpect,
-        TaskStatus skiplistExpect,
+        std::vector<TaskStatus> const& skiplistExpects,
         std::vector<TaskStatus> const& deltaExpects)
     {
         if (!waitForDone())
             return false;
 
         return checkStatus(
-            hash, totalReplay, taskExpect, skiplistExpect, deltaExpects);
+            hash, totalReplay, taskExpect, skiplistExpects, deltaExpects);
     }
 
     jtx::Env env;
@@ -988,6 +992,9 @@ struct LedgerReplayer_test : public beast::unit_test::suite
         }
     }
 
+    /**
+     * return [1,...,count]
+     */
     void
     testTaskParameter()
     {
@@ -1005,12 +1012,26 @@ struct LedgerReplayer_test : public beast::unit_test::suite
          */
         LedgerReplayTask::TaskParameter tp10_10(
             InboundLedger::Reason::GENERIC, uint256(10), 10);
-        BEAST_EXPECT(!tp10_10.update(uint256(777), 10, makeSkipList(9)));
-        BEAST_EXPECT(!tp10_10.update(uint256(10), 5, makeSkipList(9)));
-        BEAST_EXPECT(!tp10_10.update(uint256(10), 10, makeSkipList(8)));
-        BEAST_EXPECT(tp10_10.update(uint256(10), 10, makeSkipList(9)));
-        BEAST_EXPECT(tp10_10.startHash_ == makeSkipList(10)[0]);
-        BEAST_EXPECT(!tp10_10.update(uint256(10), 11, makeSkipList(10)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::bad ==
+            tp10_10.update(uint256(777), 10, makeSkipList(9)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::bad ==
+            tp10_10.update(uint256(10), 5, makeSkipList(9)));
+        {
+            std::vector<uint256> sl;
+            sl.push_back(uint256(9));
+            BEAST_EXPECT(
+                LedgerReplayTask::TaskParameter::moreSkiplists ==
+                tp10_10.update(uint256(10), 10, sl));
+        }
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::good ==
+            tp10_10.update(uint256(9), 9, makeSkipList(8)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::bad ==
+            tp10_10.update(uint256(10), 11, makeSkipList(10)));
+        BEAST_EXPECT(tp10_10.full_);
 
         // can merge to self
         BEAST_EXPECT(tp10_10.canMergeInto(tp10_10));
@@ -1027,33 +1048,63 @@ struct LedgerReplayer_test : public beast::unit_test::suite
         tp9_9.totalLedgers_--;
         BEAST_EXPECT(tp9_9.canMergeInto(tp10_10));
 
-        tp9_9.reason_ = InboundLedger::Reason::CONSENSUS;
-        BEAST_EXPECT(!tp9_9.canMergeInto(tp10_10));
-        tp9_9.reason_ = InboundLedger::Reason::GENERIC;
-        BEAST_EXPECT(tp9_9.canMergeInto(tp10_10));
+        LedgerReplayTask::TaskParameter tp9_9_diffReason(
+            InboundLedger::Reason::CONSENSUS,
+            tp9_9.finishHash_,
+            tp9_9.totalLedgers_);
+        BEAST_EXPECT(!tp9_9_diffReason.canMergeInto(tp10_10));
 
-        tp9_9.finishHash_ = uint256(1234);
-        BEAST_EXPECT(!tp9_9.canMergeInto(tp10_10));
-        tp9_9.finishHash_ = uint256(9);
-        BEAST_EXPECT(tp9_9.canMergeInto(tp10_10));
+        LedgerReplayTask::TaskParameter tp9_9_diffFinish(
+            InboundLedger::Reason::CONSENSUS,
+            uint256(1234),
+            tp9_9.totalLedgers_);
+        BEAST_EXPECT(!tp9_9_diffFinish.canMergeInto(tp10_10));
 
         // larger task
         LedgerReplayTask::TaskParameter tp20_20(
             InboundLedger::Reason::GENERIC, uint256(20), 20);
-        BEAST_EXPECT(tp20_20.update(uint256(20), 20, makeSkipList(19)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::good ==
+            tp20_20.update(uint256(20), 20, makeSkipList(19)));
         BEAST_EXPECT(tp10_10.canMergeInto(tp20_20));
         BEAST_EXPECT(tp9_9.canMergeInto(tp20_20));
         BEAST_EXPECT(!tp20_20.canMergeInto(tp10_10));
         BEAST_EXPECT(!tp20_20.canMergeInto(tp9_9));
+
+        {
+            // update too many times
+            auto total = LedgerReplayParameters::MAX_TASK_SKIPLISTS + 2;
+            LedgerReplayTask::TaskParameter tp_many(
+                InboundLedger::Reason::GENERIC, uint256(total), total);
+            for (auto i = 0; i < LedgerReplayParameters::MAX_TASK_SKIPLISTS;
+                 ++i)
+            {
+                std::vector<uint256> sl;
+                sl.push_back(uint256(total - 1 - i));
+                auto r =
+                    tp_many.update(tp_many.skipList_.back(), total - i, sl);
+                if (i < LedgerReplayParameters::MAX_TASK_SKIPLISTS - 1)
+                    BEAST_EXPECT(
+                        LedgerReplayTask::TaskParameter::moreSkiplists == r);
+                else
+                    BEAST_EXPECT(LedgerReplayTask::TaskParameter::bad == r);
+            }
+        }
 
         /*
          * type = hasStart
          */
         LedgerReplayTask::TaskParameter tp11_1(
             InboundLedger::Reason::CONSENSUS, uint256(11), uint256(11));
-        BEAST_EXPECT(!tp11_1.update(uint256(777), 11, makeSkipList(10)));
-        BEAST_EXPECT(!tp11_1.update(uint256(11), 5, makeSkipList(10)));
-        BEAST_EXPECT(tp11_1.update(uint256(11), 11, makeSkipList(10)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::bad ==
+            tp11_1.update(uint256(777), 11, makeSkipList(10)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::bad ==
+            tp11_1.update(uint256(11), 5, makeSkipList(10)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::good ==
+            tp11_1.update(uint256(11), 11, makeSkipList(10)));
 
         // can merge to self
         BEAST_EXPECT(tp11_1.canMergeInto(tp11_1));
@@ -1063,7 +1114,9 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             InboundLedger::Reason::CONSENSUS, uint256(9), uint256(11));
         BEAST_EXPECT(!tp11_3.canMergeInto(tp11_1));
         BEAST_EXPECT(!tp11_1.canMergeInto(tp11_3));
-        BEAST_EXPECT(tp11_3.update(uint256(11), 11, makeSkipList(10)));
+        BEAST_EXPECT(
+            LedgerReplayTask::TaskParameter::good ==
+            tp11_3.update(uint256(11), 11, makeSkipList(10)));
         BEAST_EXPECT(tp11_1.canMergeInto(tp11_3));
 
         LedgerReplayTask::TaskParameter tp10_3(
@@ -1079,6 +1132,26 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             InboundLedger::Reason::CONSENSUS, uint256(4), uint256(5));
         BEAST_EXPECT(!tp5_2.canMergeInto(tp11_3));
         BEAST_EXPECT(!tp11_3.canMergeInto(tp5_2));
+
+        {
+            // update too many times
+            auto total = LedgerReplayParameters::MAX_TASK_SKIPLISTS + 2;
+            LedgerReplayTask::TaskParameter tp_many(
+                InboundLedger::Reason::GENERIC, uint256(total), uint256(1));
+            for (auto i = 0; i < LedgerReplayParameters::MAX_TASK_SKIPLISTS;
+                 ++i)
+            {
+                std::vector<uint256> sl;
+                sl.push_back(uint256(total - 1 - i));
+                auto r =
+                    tp_many.update(tp_many.skipList_.back(), total - i, sl);
+                if (i < LedgerReplayParameters::MAX_TASK_SKIPLISTS - 1)
+                    BEAST_EXPECT(
+                        LedgerReplayTask::TaskParameter::moreSkiplists == r);
+                else
+                    BEAST_EXPECT(LedgerReplayTask::TaskParameter::bad == r);
+            }
+        }
     }
 
     void
@@ -1192,11 +1265,12 @@ struct LedgerReplayer_test : public beast::unit_test::suite
 
         std::vector<TaskStatus> deltaStatuses(
             totalReplay - 1, TaskStatus::Completed);
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Completed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));
 
         // sweep
@@ -1245,11 +1319,12 @@ struct LedgerReplayer_test : public beast::unit_test::suite
 
         std::vector<TaskStatus> deltaStatuses(
             totalReplay - 1, TaskStatus::Completed);
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Completed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));
 
         // sweep
@@ -1308,11 +1383,12 @@ struct LedgerReplayer_test : public beast::unit_test::suite
 
         std::vector<TaskStatus> deltaStatuses(
             totalReplay - 1, TaskStatus::Completed);
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Completed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));
         BEAST_EXPECT(net.client.waitForLedgers(finalHash, totalReplay));
 
@@ -1339,11 +1415,12 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             InboundLedger::Reason::GENERIC, finalHash, totalReplay);
 
         std::vector<TaskStatus> deltaStatuses;
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::NotDone);
         BEAST_EXPECT(net.client.checkStatus(
             finalHash,
             totalReplay,
             TaskStatus::NotDone,
-            TaskStatus::NotDone,
+            skiplistStatuses,
             deltaStatuses));
 
         BEAST_EXPECT(net.client.countsAsExpected(1, 1, 0));
@@ -1377,11 +1454,12 @@ struct LedgerReplayer_test : public beast::unit_test::suite
         skipList->processData(l->seq(), item);
 
         std::vector<TaskStatus> deltaStatuses;
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Failed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Failed,
-            TaskStatus::Failed,
+            skiplistStatuses,
             deltaStatuses));
 
         // add another task
@@ -1391,7 +1469,7 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             finalHash,
             totalReplay,
             TaskStatus::Failed,
-            TaskStatus::Failed,
+            skiplistStatuses,
             deltaStatuses));
         BEAST_EXPECT(net.client.countsAsExpected(2, 1, 0));
     }
@@ -1448,11 +1526,12 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             InboundLedger::Reason::GENERIC, finalHash, totalReplay);
         std::vector<TaskStatus> deltaStatuses(
             totalReplay - 1, TaskStatus::Completed);
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Completed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));
         BEAST_EXPECT(net.client.waitForLedgers(finalHash, totalReplay));
 
@@ -1477,7 +1556,7 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             finalHash_early,
             totalReplay,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));  // deltaStatuses no change
         BEAST_EXPECT(net.client.waitForLedgers(finalHash_early, totalReplay));
         BEAST_EXPECT(net.client.countsAsExpected(3, 2, 2 * (totalReplay - 1)));
@@ -1491,7 +1570,7 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             finalHash_moreEarly,
             totalReplay,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));  // deltaStatuses no change
         BEAST_EXPECT(
             net.client.waitForLedgers(finalHash_moreEarly, totalReplay));
@@ -1507,7 +1586,7 @@ struct LedgerReplayer_test : public beast::unit_test::suite
             finalHash,
             totalReplay * 3,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));  // deltaStatuses changed
         BEAST_EXPECT(net.client.waitForLedgers(finalHash, totalReplay * 3));
         BEAST_EXPECT(net.client.countsAsExpected(5, 3, totalReplay * 3 - 1));
@@ -1556,11 +1635,12 @@ struct LedgerReplayer_test : public beast::unit_test::suite
 
         std::vector<TaskStatus> deltaStatuses(
             totalReplay - 1, TaskStatus::Completed);
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Completed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Completed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));
         BEAST_EXPECT(net.client.waitForLedgers(finalHash, totalReplay));
 
@@ -1650,11 +1730,12 @@ struct LedgerReplayerTimeout_test : public beast::unit_test::suite
             InboundLedger::Reason::GENERIC, finalHash, totalReplay);
 
         std::vector<TaskStatus> deltaStatuses;
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Failed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Failed,
-            TaskStatus::Failed,
+            skiplistStatuses,
             deltaStatuses));
 
         // sweep
@@ -1684,11 +1765,12 @@ struct LedgerReplayerTimeout_test : public beast::unit_test::suite
         std::vector<TaskStatus> deltaStatuses(
             totalReplay - 1, TaskStatus::Failed);
         deltaStatuses.back() = TaskStatus::Completed;  // in client ledgerMaster
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Completed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             finalHash,
             totalReplay,
             TaskStatus::Failed,
-            TaskStatus::Completed,
+            skiplistStatuses,
             deltaStatuses));
 
         // sweep
@@ -1719,11 +1801,12 @@ struct LedgerReplayerTimeout_test : public beast::unit_test::suite
         }
 
         std::vector<TaskStatus> deltaStatuses;
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Failed);
         BEAST_EXPECT(net.client.waitAndCheckStatus(
             badFinish,
             type == LedgerReplayTask::TaskParameter::hasCount ? totalReplay : 0,
             TaskStatus::Failed,
-            TaskStatus::Failed,
+            skiplistStatuses,
             deltaStatuses));
 
         // sweep
@@ -1778,13 +1861,14 @@ struct LedgerReplayerLong_test : public beast::unit_test::suite
 
         std::vector<TaskStatus> deltaStatuses(
             totalReplay - 1, TaskStatus::Completed);
+        std::vector<TaskStatus> skiplistStatuses(1, TaskStatus::Completed);
         for (int i = 0; i < rounds; ++i)
         {
             BEAST_EXPECT(net.client.waitAndCheckStatus(
                 finishHashes[i],
                 totalReplay,
                 TaskStatus::Completed,
-                TaskStatus::Completed,
+                skiplistStatuses,
                 deltaStatuses));
         }
 

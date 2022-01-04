@@ -79,7 +79,7 @@ LedgerReplayer::replayInternal(LedgerReplayTask::TaskParameter&& parameter)
 {
     std::shared_ptr<LedgerReplayTask> task;
     std::shared_ptr<SkipListAcquire> skipList;
-    bool newSkipList = false;
+    auto finishHash = parameter.finishHash_;
     {
         std::lock_guard<std::mutex> lock(mtx_);
         if (app_.isStopping())
@@ -111,63 +111,56 @@ LedgerReplayer::replayInternal(LedgerReplayTask::TaskParameter&& parameter)
         JLOG(j_.info()) << "Replay ledgers. Finish ledger hash "
                         << parameter.finishHash_;
 
-        auto i = skipLists_.find(parameter.finishHash_);
+        task = std::make_shared<LedgerReplayTask>(
+            app_, inboundLedgers_, *this, std::move(parameter));
+        tasks_.push_back(task);
+    }
+
+    createSkipList(finishHash, task);
+    task->init();
+}
+
+void
+LedgerReplayer::createSkipList(
+    uint256 const& target,
+    std::shared_ptr<LedgerReplayTask> task)
+{
+    std::shared_ptr<SkipListAcquire> skipList;
+    bool newSkipList = false;
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        auto i = skipLists_.find(target);
         if (i != skipLists_.end())
             skipList = i->second.lock();
 
         if (!skipList)  // cannot find, or found but cannot lock
         {
             skipList = std::make_shared<SkipListAcquire>(
-                app_,
-                inboundLedgers_,
-                parameter.finishHash_,
-                peerSetBuilder_->build());
-            skipLists_[parameter.finishHash_] = skipList;
+                app_, inboundLedgers_, target, peerSetBuilder_->build());
+            skipLists_[target] = skipList;
             newSkipList = true;
         }
-
-        task = std::make_shared<LedgerReplayTask>(
-            app_, inboundLedgers_, *this, skipList, std::move(parameter));
-        tasks_.push_back(task);
     }
 
     if (newSkipList)
         skipList->init(1);
-    // task init after skipList init, could save a timeout
-    task->init();
+    task->addSkipList(skipList);
 }
 
 void
 LedgerReplayer::createDeltas(std::shared_ptr<LedgerReplayTask> task)
 {
-    {
-        // TODO for use cases like Consensus (i.e. totalLedgers = 1 or small):
-        // check if the last closed or validated ledger l the local node has
-        // is in the skip list and is an ancestor of parameter.startLedger
-        // that has to be downloaded, if so expand the task to start with l.
-    }
-
     auto const& parameter = task->getTaskParameter();
     JLOG(j_.trace()) << "Creating " << parameter.totalLedgers_ - 1 << " deltas";
     if (parameter.totalLedgers_ > 1)
     {
-        auto skipListItem = std::find(
-            parameter.skipList_.begin(),
-            parameter.skipList_.end(),
-            parameter.startHash_);
-        if (skipListItem == parameter.skipList_.end() ||
-            ++skipListItem == parameter.skipList_.end())
-        {
-            JLOG(j_.error()) << "Task parameter error when creating deltas "
-                             << parameter.finishHash_;
-            return;
-        }
-
+        assert(parameter.skipList_.size() > 1);
+        auto skipListItem = parameter.skipList_.crbegin() + 1;
         for (std::uint32_t seq = parameter.startSeq_ + 1;
-             seq <= parameter.finishSeq_ &&
-             skipListItem != parameter.skipList_.end();
+             seq <= parameter.finishSeq_;
              ++seq, ++skipListItem)
         {
+            assert(skipListItem != parameter.skipList_.crend());
             std::shared_ptr<LedgerDeltaAcquire> delta;
             bool newDelta = false;
             {

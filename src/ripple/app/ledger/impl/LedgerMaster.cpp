@@ -1009,6 +1009,8 @@ LedgerMaster::checkAccept(uint256 const& hash, std::uint32_t seq)
 
         // FIXME: We may not want to fetch a ledger with just one
         // trusted validation
+        JLOG(m_journal.debug())
+            << "LedgerMaster::checkAccept acquires ledger " << hash;
         if (auto const validatedLedger = getValidatedLedger();
             app_.config().LEDGER_REPLAY && validatedLedger)
         {

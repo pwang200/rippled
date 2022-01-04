@@ -47,17 +47,19 @@ public:
     {
     public:
         enum Type { hasCount, hasStart };
+        enum UpdateResult { good, bad, moreSkiplists };
 
         // set on construct
-        InboundLedger::Reason reason_;
-        Type type_;
+        InboundLedger::Reason const reason_;
+        Type const type_;
         uint256 startHash_;
-        uint256 finishHash_;
+        uint256 const finishHash_;
         std::uint32_t totalLedgers_;  // including the start and the finish
 
         // to be updated
         std::uint32_t finishSeq_ = 0;
         std::vector<uint256> skipList_ = {};  // including the finishHash
+        int skipListCount_ = 0;
         std::uint32_t startSeq_ = 0;
         bool full_ = false;
 
@@ -86,7 +88,7 @@ public:
          * @return false if error (e.g. hash mismatch)
          *         true on success
          */
-        bool
+        UpdateResult
         update(
             uint256 const& hash,
             std::uint32_t seq,
@@ -110,7 +112,7 @@ public:
         Application& app,
         InboundLedgers& inboundLedgers,
         LedgerReplayer& replayer,
-        std::shared_ptr<SkipListAcquire>& skipListAcquirer,
+        // std::shared_ptr<SkipListAcquire>& skipListAcquirer,
         TaskParameter&& parameter);
 
     ~LedgerReplayTask();
@@ -118,6 +120,9 @@ public:
     /** Start the task */
     void
     init();
+
+    void
+    addSkipList(std::shared_ptr<SkipListAcquire> skipList);
 
     /**
      * add a new LedgerDeltaAcquire subtask
@@ -181,7 +186,7 @@ private:
     LedgerReplayer& replayer_;
     TaskParameter parameter_;
     uint32_t maxTimeouts_;
-    std::shared_ptr<SkipListAcquire> skipListAcquirer_;
+    std::vector<std::shared_ptr<SkipListAcquire>> skipLists_;
     std::shared_ptr<Ledger const> parent_ = {};
     uint32_t deltaToBuild_ = 0;  // should not build until have parent
     std::vector<std::shared_ptr<LedgerDeltaAcquire>> deltas_;

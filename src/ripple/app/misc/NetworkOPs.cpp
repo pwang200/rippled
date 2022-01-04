@@ -1700,6 +1700,9 @@ NetworkOPsImp::checkLastClosedLedger(
         }
         else
         {
+            JLOG(m_journal.debug())
+                << "NetworkOPsImp::checkLastClosedLedger acquires ledger "
+                << closedLedger;
             if (auto const validatedLedger =
                     app_.getLedgerMaster().getValidatedLedger();
                 app_.config().LEDGER_REPLAY && validatedLedger)

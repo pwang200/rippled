@@ -59,8 +59,11 @@ auto constexpr SUB_TASK_FALLBACK_TIMEOUT = std::chrono::milliseconds{1000};
 // for LedgerReplayer to limit the number of LedgerReplayTask and sub-tasks
 std::uint32_t constexpr MAX_TASKS = 1000;
 
+// for LedgerReplayer to limit the number of skiplists to retrieve in one task
+std::uint32_t constexpr MAX_TASK_SKIPLISTS = 8;
+
 // for LedgerReplayer to limit the number of ledgers to replay in one task
-std::uint32_t constexpr MAX_TASK_SIZE = 256;
+std::uint32_t constexpr MAX_TASK_SIZE = 256 * MAX_TASK_SKIPLISTS;
 
 // to limit the number of LedgerReplay related jobs in JobQueue
 std::uint32_t constexpr MAX_QUEUED_TASKS = 100;
@@ -128,6 +131,12 @@ public:
     /** Create LedgerDeltaAcquire subtasks for the LedgerReplayTask task */
     void
     createDeltas(std::shared_ptr<LedgerReplayTask> task);
+
+    /** Create a SkipListAcquire subtask for the LedgerReplayTask task */
+    void
+    createSkipList(
+        uint256 const& target,
+        std::shared_ptr<LedgerReplayTask> task);
 
     /**
      * Process a skip list (extracted from a TMProofPathResponse message)
