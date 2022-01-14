@@ -1,0 +1,93 @@
+@startuml negativeUNL_highLevel_sequence
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+skinparam maxmessagesize 160
+
+actor "Rippled Start" as RS
+participant "NetworkOPs" as NOP 
+participant "Consensus\nRCLConsensus" as C
+participant "Validations\nRCLValidationsAdaptor" as V 
+participant "LedgerMaster" as LM
+participant "InboundLedgers" as IL #lightgreen
+actor "Network" as N
+
+== Case: consensus start ==
+
+RS -> RS: load ledger or\nstart genesis ledger
+RS -> NOP: beginConsensus 
+hnote over NOP: later beginConsensus call will be by\nendConsensus when rounds end
+activate NOP
+NOP -> C: startRound 
+activate C
+alt network closed ledger != our previous ledger
+C -[#green]> IL: <font color=green>acquire network closed ledger if don't have
+hnote over C: the network closed ledger\ncould be the preferred ledger\nas in **Case: consensus end** 
+end
+deactivate C
+deactivate NOP
+
+== Case: new validation message ==
+
+N -> NOP: recvValidation
+activate NOP
+NOP -> V: handleNewValidation
+deactivate NOP
+
+activate V
+V -> V: add to validations
+alt current and trusted
+V -> V: updateTrie
+'alt don't have the ledger
+hnote over V #Red: **acquire ledger header instead of ledger**
+V -[#green]> IL: <font color=green>acquire ledger if don't have
+'end
+hnote over V #Red: **reduce calls to checkAccept, by check Validations::numTrustedForLedger >= 20%**
+V -> LM: checkAccept
+activate LM
+deactivate V
+alt check seq
+'alt don't have the ledger
+LM -[#green]> IL: <font color=green>acquire ledger if don't have
+end
+hnote over LM: checkAccept is also called by\nLedgerMaster::consensusBuilt in\n**Case: consensus build ledger**
+end
+deactivate LM 
+
+== Case: consensus build ledger ==
+
+C -> LM: consensusBuilt
+activate LM
+alt ledger built cannot be fully validated
+hnote over LM: maybe we saved up validations for some\nother ledger that can be fully validated
+LM -> V: get currentTrusted
+V -> LM: Validations
+alt validations of a ledger >= quorum
+LM -> LM: checkAccept
+alt check seq
+'alt don't have the ledger
+LM -[#green]> IL: <font color=green>acquire ledger if don't have
+'end
+end
+end
+end
+deactivate LM
+== Case: consensus end ==
+
+'activate C
+'hnote over C: consensus round\ndone, ledger built
+C -> NOP: endConsensus
+'deactivate C
+
+activate NOP
+NOP -> NOP: checkLastClosedLedger
+NOP -> V: getPreferredLCL
+activate V
+V -> NOP: preferred ledger hash if any
+deactivate V
+alt preferred ledger != our ledger
+NOP -[#green]> IL: <font color=green>acquire preferred ledger if don't have
+end
+deactivate NOP
+
+@enduml
