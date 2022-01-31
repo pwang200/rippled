@@ -1,13 +1,5 @@
 @startuml
 
-'note bottom of Application : "LedgerMaster is omited in the classes. But the\nlocal ledger cache is queried before any downloads." as N1
-
-'note as N1 
-'  LedgerMaster is omited in the classes. 
-'  But the local ledger cache is queried before any downloads.
-'  InboundLedgers is omited in the classes. 
-'  But it is the fallback mechanism of all downloads.
-'end node
 
 class TimeoutCounter {
 '  #app_ : Application&
@@ -15,7 +7,6 @@ class TimeoutCounter {
 
 'TimeoutCounter o-- "1" Application 
 ': app_
-
 
 class Application {
   -m_ledgerReplayer : uptr<LedgerReplayer>
@@ -40,22 +31,27 @@ Application *-- "1" LedgerReplayer
 'Application "1" --o LedgerReplayer 
 ': app_
 
-note "LedgerMaster is omited in the classes.\nBut the local ledger cache is queried before any downloads.\nInboundLedgers is omited in the classes.\nBut it is the fallback mechanism of all downloads." as N1
+note "LedgerMaster is omited in the classes.\nBut the local ledger is queried before any downloads.\nInboundLedgers is omited in the classes.\nBut it is the fallback mechanism of all downloads." as N1
 
 class LedgerReplayer {
-  +replayTo(finishLedgerHash, numLedgers, reason)
-  +replayFromTo(startLedgerHash, finishLedgerHash, reason)
-  +acquireExtendedHeader(ledgerHash) 
-  -app_ : Application&
+  +replay(startLedgerHash, finishLedgerHash, reason)
+  +replay(finishLedgerHash, numLedgers, reason)
+  +optional<RCLValidatedLedger> acquireExtendedHeader(ledgerHash) 
+  +sweep()
+'  -app_ : Application&
 '  -inboundLedgers_ : InboundLedgers&
   -tasks_ : vector<sptr<LedgerReplayTask>>
   -deltas_ : hash_map<u256, wptr<LedgerDeltaAcquire>>
   -skipLists_ : hash_map<u256, wptr<SkipListAcquire>>
-  -extendedHeaders_ : hash_map<u256, sptr<ExtendedHeader>
+  -extendedHeaders_ : aged_hash_map<u256, sptr<ExtendedHeader>
 }
 'note top of SkipListAcquire : Extend SkipListAcquire to ExtendedHeader.
 
-note left of LedgerReplayer::replayFromTo
+note left of LedgerReplayer::extendedHeaders_
+  extendedHeader cache
+end note
+
+note left of LedgerReplayer::replay
   ConsensusSync calls it
   after get start ledger
 end note
@@ -65,7 +61,7 @@ note left of LedgerReplayer::acquireExtendedHeader
   for preferred branch algo
 end note
 
-LedgerReplayer *-- LedgerReplayTask 
+LedgerReplayer *-- "n" LedgerReplayTask 
 ': tasks_
 'LedgerReplayer o-- LedgerDeltaAcquire 
 ': deltas_
@@ -81,15 +77,22 @@ TimeoutCounter <.. LedgerReplayTask
 class LedgerReplayTask {
 '  -inboundLedgers_ : InboundLedgers&
 '  -replayer_ : LedgerReplayer&
-  -skipListAcquirer_ : vector<sptr<SkipListAcquire>>
+  -skipListAcquirers_ : vector<sptr<SkipListAcquire>>
   -deltas_ : vector<sptr<LedgerDeltaAcquire>>
 '  +addDelta(sptr<LedgerDeltaAcquire>)
   +init()
+  +canMergeInto()
 }
 
-LedgerReplayTask *-- "n" SkipListAcquire 
+LedgerReplayTask "n" *-- "n" SkipListAcquire 
 ': skipListAcquirer_
-LedgerReplayTask *-- "n" LedgerDeltaAcquire 
+
+note left of LedgerReplayTask::skipListAcquirers_
+  extened to support
+  skiplist concatenation
+end note
+
+LedgerReplayTask "n" *-- "n" LedgerDeltaAcquire 
 ': deltas_
 
 TimeoutCounter <.. SkipListAcquire
@@ -139,8 +142,8 @@ class CDNLatestFlagLedgers #lightGreen {
 }
 
 TimeoutCounter <.. ExtendedHeaderTask
-LedgerReplayer *-- ExtendedHeaderTask
-ExtendedHeaderTask *-- "1" SkipListAcquire 
+LedgerReplayer *-- "n" ExtendedHeaderTask
+ExtendedHeaderTask "1" *-- "1" SkipListAcquire 
 class ExtendedHeaderTask #lightGreen {
   -data_ : sptr<SkipListAcquire>  
   +init()

@@ -1,0 +1,61 @@
+@startuml
+
+class TimeoutCounter  #lightBlue {
+}
+
+class Application {
+  -m_ledgerReplayer : uptr<LedgerReplayer>
+}
+
+Application *-- "1" LedgerReplayer 
+
+note "LedgerMaster is omited in the classes.\nBut the local ledger is queried before any downloads.\nInboundLedgers is omited in the classes.\nBut it is the fallback mechanism of all downloads." as N1
+
+class LedgerReplayer #lightGreen {
+  +replay(finishLedgerHash, numLedgers, reason)
+  +sweep()
+  -tasks_ : vector<sptr<LedgerReplayTask>>
+  -deltas_ : hash_map<u256, wptr<LedgerDeltaAcquire>>
+  -skipLists_ : hash_map<u256, wptr<SkipListAcquire>>
+}
+
+note left of LedgerReplayer::replayFromTo
+  ConsensusSync calls it
+  after get start ledger
+end note
+
+note left of LedgerReplayer::acquireExtendedHeader
+  RCLValidations calls it
+  for preferred branch algo
+end note
+
+LedgerReplayer *-- "0..*" LedgerReplayTask 
+TimeoutCounter <.. LedgerReplayTask
+
+class LedgerReplayTask  #lightGreen{
+  -skipListAcquirer_ : vector<sptr<SkipListAcquire>>
+  -deltas_ : vector<sptr<LedgerDeltaAcquire>>
+  +init()
+  +canMergeInto()
+}
+
+LedgerReplayTask "1..* (via callbacks)" *-- "1" SkipListAcquire 
+LedgerReplayTask "1..* (via callbacks)" *-- "0..256" LedgerDeltaAcquire 
+
+TimeoutCounter <.. SkipListAcquire
+
+class SkipListAcquire  #lightGreen{
+  +addDataCallback(callback)
+  +init()
+  -dataReadyCallbacks_ : vector<callback>
+}
+
+TimeoutCounter <.. LedgerDeltaAcquire
+
+class LedgerDeltaAcquire  #lightGreen {
+  +addDataCallback(callback)
+  +init()
+  -dataReadyCallbacks_ : vector<callback>
+}
+
+@enduml

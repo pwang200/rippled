@@ -10,6 +10,7 @@ participant "Consensus\nRCLConsensus" as C
 participant "Validations\nRCLValidationsAdaptor" as V 
 participant "LedgerMaster" as LM
 participant "InboundLedgers" as IL #lightgreen
+actor "Timer" as T
 actor "Network" as N
 
 == Case: consensus start ==
@@ -27,6 +28,19 @@ end
 deactivate C
 deactivate NOP
 
+== Case: every second ==
+
+T -> C: checkLedger
+activate C
+C -> V: getPreferred
+activate V
+V -> C: preferred ledger hash if any
+deactivate V 
+alt network closed ledger != our previous ledger
+C -[#green]> IL: <font color=green>acquire network closed ledger if don't have
+end
+deactivate C 
+
 == Case: new validation message ==
 
 N -> NOP: recvValidation
@@ -42,13 +56,13 @@ V -> V: updateTrie
 hnote over V #Red: **acquire ledger header instead of ledger**
 V -[#green]> IL: <font color=green>acquire ledger if don't have
 'end
-hnote over V #Red: **reduce calls to checkAccept, by check Validations::numTrustedForLedger >= 20%**
 V -> LM: checkAccept
 activate LM
 deactivate V
 alt check seq
 'alt don't have the ledger
 LM -[#green]> IL: <font color=green>acquire ledger if don't have
+hnote over LM #Red: **This case can be removed.**\nTo be safe, only acquire if\nnumTrustedForLedger >= X%
 end
 hnote over LM: checkAccept is also called by\nLedgerMaster::consensusBuilt in\n**Case: consensus build ledger**
 end
@@ -67,6 +81,7 @@ LM -> LM: checkAccept
 alt check seq
 'alt don't have the ledger
 LM -[#green]> IL: <font color=green>acquire ledger if don't have
+hnote over LM #Red: **This case can be removed.**\nTo be safe, only acquire if\nnumTrustedForLedger >= X%
 'end
 end
 end
