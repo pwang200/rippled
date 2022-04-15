@@ -1857,10 +1857,10 @@ Federator::sendTxns()
                 jv("lastSent", lastSent),
                 jv("lastConfirmed", lastConfirmed),
                 jv("onFly", onFly));
-            if (onFly >= 8)
+            if (onFly >= 100)
                 return 0;
             else
-                return 8 - onFly;
+                return 100 - onFly;
         }();
 
         for (int seq = lastTxnSeqSent_[chain] + 1;
