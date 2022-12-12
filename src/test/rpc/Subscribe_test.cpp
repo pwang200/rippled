@@ -1077,8 +1077,7 @@ public:
                 return;
 
             // check boundary tags
-            if (!BEAST_EXPECT(checkBoundary(accountVec, true)))
-                return;
+            // only account_history_tx_stream has ledger boundary information.
             if (!BEAST_EXPECT(checkBoundary(txHistoryVec, false)))
                 return;
 
@@ -1101,8 +1100,7 @@ public:
                 return;
 
             // check boundary tags
-            if (!BEAST_EXPECT(checkBoundary(accountVec, true)))
-                return;
+            // only account_history_tx_stream has ledger boundary information.
             if (!BEAST_EXPECT(checkBoundary(txHistoryVec, false)))
                 return;
 

@@ -3228,11 +3228,11 @@ NetworkOPsImp::pubAccountTransaction(
             RPC::insertDeliveredAmount(jvObj[jss::meta], *ledger, stTxn, meta);
         }
 
-        if (last)
-            jvObj[jss::account_history_ledger_boundary] = true;
-
         for (InfoSub::ref isrListener : notify)
             isrListener->send(jvObj, true);
+
+        if (last)
+            jvObj[jss::account_history_ledger_boundary] = true;
 
         assert(!jvObj.isMember(jss::account_history_tx_stream));
         for (auto& info : accountHistoryNotify)
