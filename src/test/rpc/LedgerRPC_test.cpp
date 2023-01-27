@@ -68,6 +68,7 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
 
         std::string const ledgerHash{to_string(mcEnv.closed()->info().hash)};
         std::string bridge_index;
+        Json::Value mcBridge;
         {
             // request the bridge via RPC
             Json::Value jvParams;
@@ -97,6 +98,17 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
 
             BEAST_EXPECT(r.isMember(jss::index));
             bridge_index = r[jss::index].asString();
+            mcBridge = r;
+        }
+        {
+            // request the bridge via RPC by index
+            Json::Value jvParams;
+            jvParams[jss::index] = bridge_index;
+            Json::Value const jrr = mcEnv.rpc(
+                "json", "ledger_entry", to_string(jvParams))[jss::result];
+
+            BEAST_EXPECT(jrr.isMember(jss::node));
+            BEAST_EXPECT(jrr[jss::node] == mcBridge);
         }
         {
             // swap door accounts and make sure we get an error value

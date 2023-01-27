@@ -117,6 +117,12 @@ struct SEnv
         return env_.balance(account).value();
     }
 
+    STAmount
+    balance(jtx::Account const& account, Issue const& issue) const
+    {
+        return env_.balance(account, issue).value();
+    }
+
     XRPAmount
     reserve(std::uint32_t count)
     {
@@ -533,6 +539,85 @@ struct XChain_test : public beast::unit_test::suite,
                 }
             }
         }
+    }
+
+    void
+    testXChainOneBridgePerAccount()
+    {
+        /**
+         * One bridge per door account tests. Some related cases are
+         * tested previously.
+         *
+         * Create bridges:
+         * Note we only test one side, since one side does not know what
+         * bridges the other side has. We pick the sidechain.
+         *        | bridge spec | result
+         *        | main   side |
+         * case 1 | A  ->  B    | tesSUCCESS
+         * case 2 | B  <-  A    | tecDUPLICATE
+         * case 3 | B  ->  A    | tecDUPLICATE
+         * case 4 | C  <-  B    | tecDUPLICATE
+         * case 5 | C  <-  A    | tesSUCCESS
+         * where A -> B, means A is the locking door and B is the issuing door.
+         *
+         * Note that, now from sidechain's point of view, A is both
+         * a local locking door and a foreign locking door on different
+         * bridges. Txns such as commits specify bridge spec, but not the
+         * local door account. So we test the transactors can figure out
+         * the correct local door account from bridge spec.
+         *
+         * Commit to sidechain door accounts:
+         *        | bridge spec | result
+         * case 6 | A -> B      | B's balance increase
+         * case 7 | C <- A      | A's balance increase
+         *
+         * We also test ModifyBridge txns modify correct bridges.
+         */
+
+        using namespace jtx;
+        testcase("One bridge per account");
+        XEnv env(*this, true);
+        auto& A = scAlice;
+        auto& B = scBob;
+        auto& C = scCarol;
+        auto AUSD = A["USD"];
+        auto BUSD = B["USD"];
+        auto CUSD = C["USD"];
+
+        // Test case 1 ~ 5, create bridges
+        // Issuing doors use USDs issued by them in bridge spec.
+        // The two tesSUCCESS create_bridges both use BUSD at sidechain.
+        auto const goodBridge1 = bridge(A, AUSD, B, BUSD);
+        auto const goodBridge2 = bridge(A, BUSD, C, CUSD);
+        env.tx(create_bridge(B, goodBridge1), ter(tesSUCCESS)).close();
+        env.tx(create_bridge(A, bridge(A, AUSD, B, BUSD)), ter(tecDUPLICATE))
+            .close();
+        env.tx(create_bridge(A, bridge(B, BUSD, A, AUSD)), ter(tecDUPLICATE))
+            .close();
+        env.tx(create_bridge(B, bridge(B, BUSD, C, CUSD)), ter(tecDUPLICATE))
+            .close();
+        env.tx(create_bridge(A, goodBridge2), ter(tesSUCCESS)).close();
+
+        // Test case 6 and 7, commits
+        env.tx(trust(C, BUSD(1000)))
+            .tx(trust(A, BUSD(1000)))
+            .close()
+            .tx(pay(B, C, BUSD(1000)))
+            .close();
+        auto const aBalanceStart = env.balance(A, BUSD);
+        auto const cBalanceStart = env.balance(C, BUSD);
+        env.tx(xchain_commit(C, goodBridge1, 1, BUSD(50))).close();
+        BEAST_EXPECT(env.balance(A, BUSD) - aBalanceStart == BUSD(0));
+        BEAST_EXPECT(env.balance(C, BUSD) - cBalanceStart == BUSD(-50));
+        env.tx(xchain_commit(C, goodBridge2, 1, BUSD(60))).close();
+        BEAST_EXPECT(env.balance(A, BUSD) - aBalanceStart == BUSD(60));
+        BEAST_EXPECT(env.balance(C, BUSD) - cBalanceStart == BUSD(-50 - 60));
+
+        // bridge modify test cases
+        env.tx(bridge_modify(B, goodBridge1, XRP(33), std::nullopt)).close();
+        BEAST_EXPECT((*env.bridge(goodBridge1))[sfSignatureReward] == XRP(33));
+        env.tx(bridge_modify(A, goodBridge2, XRP(44), std::nullopt)).close();
+        BEAST_EXPECT((*env.bridge(goodBridge2))[sfSignatureReward] == XRP(44));
     }
 
     void
@@ -5612,10 +5697,10 @@ public:
 
         // create 10 accounts + door funded on both chains, and store
         // in ChainStateTracker the initial amount of these accounts
-        Account doorA, doorB;
+        Account doorXRPLocking, doorUSDLocking, doorUSDIssuing;
 
         constexpr size_t num_acct = 10;
-        auto a = [&doorA, &doorB]() {
+        auto a = [&doorXRPLocking, &doorUSDLocking, &doorUSDIssuing]() {
             using namespace std::literals;
             std::vector<Account> result;
             result.reserve(num_acct);
@@ -5623,10 +5708,12 @@ public:
                 result.emplace_back(
                     "a"s + std::to_string(i),
                     (i % 2) ? KeyType::ed25519 : KeyType::secp256k1);
-            result.emplace_back("doorA");
-            doorA = result.back();
-            result.emplace_back("doorB");
-            doorB = result.back();
+            result.emplace_back("doorXRPLocking");
+            doorXRPLocking = result.back();
+            result.emplace_back("doorUSDLocking");
+            doorUSDLocking = result.back();
+            result.emplace_back("doorUSDIssuing");
+            doorUSDIssuing = result.back();
             return result;
         }();
 
@@ -5638,16 +5725,16 @@ public:
             scEnv.fund(amt, acct);
         }
 
-        IOU usdA{doorA["USD"]};
-        IOU usdB{doorB["USD"]};
+        IOU usdLocking{doorUSDLocking["USD"]};
+        IOU usdIssuing{doorUSDIssuing["USD"]};
 
         for (int i = 0; i < a.size(); ++i)
         {
             auto& acct{a[i]};
             if (i < num_acct)
             {
-                mcEnv.tx(trust(acct, usdA(100000)));
-                scEnv.tx(trust(acct, usdB(100000)));
+                mcEnv.tx(trust(acct, usdLocking(100000)));
+                scEnv.tx(trust(acct, usdIssuing(100000)));
             }
             st->init(acct);
         }
@@ -5679,7 +5766,7 @@ public:
         // create XRP -> XRP bridge
         // ------------------------
         BridgeDef xrp_b{
-            doorA,
+            doorXRPLocking,
             xrpIssue(),
             Account::master,
             xrpIssue(),
@@ -5694,10 +5781,10 @@ public:
         // create USD -> USD bridge
         // ------------------------
         BridgeDef usd_b{
-            doorA,
-            usdA,
-            doorB,
-            usdB,
+            doorUSDLocking,
+            usdLocking,
+            doorUSDIssuing,
+            usdIssuing,
             XRP(1),
             XRP(20),
             quorum,
@@ -5734,34 +5821,34 @@ public:
 
         // run one USD transfer
         // --------------------
-        xfer(0, st, usd_b, {a[0], a[1], a[2], usdA(3), true});
+        xfer(0, st, usd_b, {a[0], a[1], a[2], usdLocking(3), true});
         runSimulation(st);
 
         // run multiple USD transfers
         // --------------------------
-        xfer(0, st, usd_b, {a[0], a[0], a[1], usdA(6), true});
-        xfer(1, st, usd_b, {a[0], a[0], a[1], usdB(8), false});
-        xfer(1, st, usd_b, {a[1], a[1], a[1], usdA(1), true});
-        xfer(2, st, usd_b, {a[0], a[0], a[1], usdB(3), false});
-        xfer(2, st, usd_b, {a[1], a[1], a[1], usdB(5), false});
-        xfer(2, st, usd_b, {a[0], a[0], a[1], usdB(7), false});
-        xfer(2, st, usd_b, {a[1], a[1], a[1], usdA(9), true});
+        xfer(0, st, usd_b, {a[0], a[0], a[1], usdLocking(6), true});
+        xfer(1, st, usd_b, {a[0], a[0], a[1], usdIssuing(8), false});
+        xfer(1, st, usd_b, {a[1], a[1], a[1], usdLocking(1), true});
+        xfer(2, st, usd_b, {a[0], a[0], a[1], usdIssuing(3), false});
+        xfer(2, st, usd_b, {a[1], a[1], a[1], usdIssuing(5), false});
+        xfer(2, st, usd_b, {a[0], a[0], a[1], usdIssuing(7), false});
+        xfer(2, st, usd_b, {a[1], a[1], a[1], usdLocking(9), true});
         runSimulation(st);
 
         // run mixed transfers
         // -------------------
         xfer(0, st, xrp_b, {a[0], a[0], a[0], XRP(1), true});
-        xfer(0, st, usd_b, {a[1], a[3], a[3], usdB(3), false});
-        xfer(0, st, usd_b, {a[3], a[2], a[1], usdB(5), false});
+        xfer(0, st, usd_b, {a[1], a[3], a[3], usdIssuing(3), false});
+        xfer(0, st, usd_b, {a[3], a[2], a[1], usdIssuing(5), false});
 
         xfer(1, st, xrp_b, {a[0], a[0], a[0], XRP(4), false});
         xfer(1, st, xrp_b, {a[1], a[1], a[0], XRP(8), true});
-        xfer(1, st, usd_b, {a[4], a[1], a[1], usdA(7), true});
+        xfer(1, st, usd_b, {a[4], a[1], a[1], usdLocking(7), true});
 
         xfer(3, st, xrp_b, {a[1], a[1], a[0], XRP(7), true});
         xfer(3, st, xrp_b, {a[0], a[4], a[3], XRP(2), false});
         xfer(3, st, xrp_b, {a[1], a[1], a[0], XRP(9), true});
-        xfer(3, st, usd_b, {a[3], a[1], a[1], usdB(11), false});
+        xfer(3, st, usd_b, {a[3], a[1], a[1], usdIssuing(11), false});
         runSimulation(st);
 
         // run multiple account create to stress attestation batching
@@ -5915,8 +6002,7 @@ struct XChainCoverage_test : public beast::unit_test::suite,
 };
 
 BEAST_DEFINE_TESTSUITE(XChain, app, ripple);
-// TBD: Re-enable this test after Peng fixes
-BEAST_DEFINE_TESTSUITE_MANUAL(XChainSim, app, ripple);
+BEAST_DEFINE_TESTSUITE(XChainSim, app, ripple);
 BEAST_DEFINE_TESTSUITE(XChainCoverage, app, ripple);
 
 }  // namespace ripple::test
