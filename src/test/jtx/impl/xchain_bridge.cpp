@@ -313,6 +313,72 @@ create_account_attestation(
     return result;
 }
 
+JValueVec
+claim_attestations(
+    jtx::Account const& submittingAccount,
+    Json::Value const& jvBridge,
+    jtx::Account const& sendingAccount,
+    jtx::AnyAmount const& sendingAmount,
+    std::vector<jtx::Account> const& rewardAccounts,
+    bool wasLockingChainSend,
+    std::uint64_t claimID,
+    std::optional<jtx::Account> const& dst,
+    std::vector<jtx::signer> const& signers,
+    std::size_t const numAtts,
+    std::size_t const fromIdx)
+{
+    assert(fromIdx + numAtts <= rewardAccounts.size());
+    assert(fromIdx + numAtts <= signers.size());
+    JValueVec vec;
+    vec.reserve(numAtts);
+    for (auto i = fromIdx; i < fromIdx + numAtts; ++i)
+        vec.emplace_back(claim_attestation(
+            submittingAccount,
+            jvBridge,
+            sendingAccount,
+            sendingAmount,
+            rewardAccounts[i],
+            wasLockingChainSend,
+            claimID,
+            dst,
+            signers[i]));
+    return vec;
+}
+
+JValueVec
+create_account_attestations(
+    jtx::Account const& submittingAccount,
+    Json::Value const& jvBridge,
+    jtx::Account const& sendingAccount,
+    jtx::AnyAmount const& sendingAmount,
+    jtx::AnyAmount const& rewardAmount,
+    std::vector<jtx::Account> const& rewardAccounts,
+    bool wasLockingChainSend,
+    std::uint64_t createCount,
+    jtx::Account const& dst,
+    std::vector<jtx::signer> const& signers,
+    std::size_t const numAtts,
+    std::size_t const fromIdx)
+{
+    assert(fromIdx + numAtts <= rewardAccounts.size());
+    assert(fromIdx + numAtts <= signers.size());
+    JValueVec vec;
+    vec.reserve(numAtts);
+    for (auto i = fromIdx; i < fromIdx + numAtts; ++i)
+        vec.emplace_back(create_account_attestation(
+            submittingAccount,
+            jvBridge,
+            sendingAccount,
+            sendingAmount,
+            rewardAmount,
+            rewardAccounts[i],
+            wasLockingChainSend,
+            createCount,
+            dst,
+            signers[i]));
+    return vec;
+}
+
 void
 attestation_add_batch_to_vector(
     std::vector<AttestationBatch::AttestationClaim>& claims,
@@ -537,7 +603,7 @@ XChainBridgeObjects::XChainBridgeObjects()
     , jvub(bridge(mcuDoor, xrpIssue(), Account::master, xrpIssue()))
     , features(supported_amendments() | FeatureBitset{featureXChainBridge})
     , signers([] {
-        constexpr int numSigners = 5;
+        constexpr int numSigners = UT_XCHAIN_DEFAULT_NUM_SIGNERS;
         std::vector<signer> result;
         result.reserve(numSigners);
         for (int i = 0; i < numSigners; ++i)
@@ -551,7 +617,7 @@ XChainBridgeObjects::XChainBridgeObjects()
         return result;
     }())
     , alt_signers([] {
-        constexpr int numSigners = 5;
+        constexpr int numSigners = UT_XCHAIN_DEFAULT_NUM_SIGNERS;
         std::vector<signer> result;
         result.reserve(numSigners);
         for (int i = 0; i < numSigners; ++i)
@@ -584,17 +650,24 @@ XChainBridgeObjects::XChainBridgeObjects()
         }
         return r;
     }())
-    , quorum(static_cast<std::uint32_t>(signers.size()) - 1)
+    , quorum(UT_XCHAIN_DEFAULT_QUORUM)
     , reward(XRP(1))
-    , split_reward(divide(reward, STAmount(payees.size()), reward.issue()))
+    , split_reward_quorum(
+          divide(reward, STAmount(UT_XCHAIN_DEFAULT_QUORUM), reward.issue()))
+    , split_reward_everyone(divide(
+          reward,
+          STAmount(UT_XCHAIN_DEFAULT_NUM_SIGNERS),
+          reward.issue()))
     , tiny_reward(drops(37))
-    , tiny_reward_split(
-          (divide(tiny_reward, STAmount(payees.size()), tiny_reward.issue())))
+    , tiny_reward_split((divide(
+          tiny_reward,
+          STAmount(UT_XCHAIN_DEFAULT_QUORUM),
+          tiny_reward.issue())))
     , tiny_reward_remainder(
           tiny_reward -
           multiply(
               tiny_reward_split,
-              STAmount(payees.size()),
+              STAmount(UT_XCHAIN_DEFAULT_QUORUM),
               tiny_reward.issue()))
     , one_xrp(XRP(1))
     , xrp_dust(divide(one_xrp, STAmount(10000), one_xrp.issue()))

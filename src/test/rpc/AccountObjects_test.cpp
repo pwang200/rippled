@@ -505,7 +505,17 @@ public:
             // xchain_create_account_claim_id should be present on the door
             // account (Account::master) to collect the signatures until a
             // quorum is reached
-            scEnv(x.att_create_acct_batch1(1, amt, x.scuAlice));
+            scEnv(test::jtx::create_account_attestation(
+                x.scAttester,
+                x.jvb,
+                x.mcCarol,
+                amt,
+                x.reward,
+                x.payees[0],
+                true,
+                1,
+                x.scuAlice,
+                x.signers[0]));
             scEnv.close();
 
             auto scenv_acct_objs = [&](Account const& acct, char const* type) {

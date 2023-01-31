@@ -31,6 +31,11 @@ namespace ripple {
 namespace test {
 namespace jtx {
 
+using JValueVec = std::vector<Json::Value>;
+
+constexpr std::size_t UT_XCHAIN_DEFAULT_NUM_SIGNERS = 5;
+constexpr std::size_t UT_XCHAIN_DEFAULT_QUORUM = 4;
+
 Json::Value
 bridge(
     Account const& lockingChainDoor,
@@ -162,6 +167,35 @@ create_account_attestation(
     jtx::Account const& dst,
     jtx::signer const& signer);
 
+JValueVec
+claim_attestations(
+    jtx::Account const& submittingAccount,
+    Json::Value const& jvBridge,
+    jtx::Account const& sendingAccount,
+    jtx::AnyAmount const& sendingAmount,
+    std::vector<jtx::Account> const& rewardAccounts,
+    bool wasLockingChainSend,
+    std::uint64_t claimID,
+    std::optional<jtx::Account> const& dst,
+    std::vector<jtx::signer> const& signers,
+    std::size_t const numAtts = UT_XCHAIN_DEFAULT_QUORUM,
+    std::size_t const fromIdx = 0);
+
+JValueVec
+create_account_attestations(
+    jtx::Account const& submittingAccount,
+    Json::Value const& jvBridge,
+    jtx::Account const& sendingAccount,
+    jtx::AnyAmount const& sendingAmount,
+    jtx::AnyAmount const& rewardAmount,
+    std::vector<jtx::Account> const& rewardAccounts,
+    bool wasLockingChainSend,
+    std::uint64_t createCount,
+    jtx::Account const& dst,
+    std::vector<jtx::signer> const& signers,
+    std::size_t const numAtts = UT_XCHAIN_DEFAULT_QUORUM,
+    std::size_t const fromIdx = 0);
+
 void
 create_account_batch_add_to_vector(
     std::vector<AttestationBatch::AttestationCreateAccount>& atts,
@@ -231,12 +265,13 @@ struct XChainBridgeObjects
     std::vector<Account> const payees;
     std::uint32_t const quorum;
 
-    STAmount const reward;        // 1 xrp
-    STAmount const split_reward;  // 200,000 drops
+    STAmount const reward;                 // 1 xrp
+    STAmount const split_reward_quorum;    // 250,000 drops
+    STAmount const split_reward_everyone;  // 200,000 drops
 
     const STAmount tiny_reward;            // 37 drops
-    const STAmount tiny_reward_split;      // 7 drops
-    const STAmount tiny_reward_remainder;  // 2 drops
+    const STAmount tiny_reward_split;      // 9 drops
+    const STAmount tiny_reward_remainder;  // 1 drops
 
     const STAmount one_xrp;
     const STAmount xrp_dust;
@@ -345,6 +380,29 @@ struct XChainBridgeObjects
                 dst,
                 &signers[2],
                 3));
+    }
+
+    JValueVec
+    att_create_acct_vec(
+        std::uint64_t createCount,
+        jtx::AnyAmount const& amt,
+        jtx::Account const& dst,
+        std::size_t const numAtts,
+        std::size_t const fromIdx = 0)
+    {
+        return create_account_attestations(
+            scAttester,
+            jvb,
+            mcCarol,
+            amt,
+            reward,
+            payees,
+            true,
+            createCount,
+            dst,
+            signers,
+            numAtts,
+            fromIdx);
     }
 
     void

@@ -210,6 +210,7 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
         Env mcEnv{*this, features};
         Env scEnv(*this, envconfig(port_increment, 3), features);
 
+        // note: signers.size() and quorum are both 5 in createBridgeObjects
         createBridgeObjects(mcEnv, scEnv);
 
         auto scCarol =
@@ -223,18 +224,22 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
         // send less than quorum of attestations (otherwise funds are
         // immediately transferred and no "claim" object is created)
         size_t constexpr num_attest = 3;
-        Json::Value batch = attestation_create_account_batch(
+        auto attestations = create_account_attestations(
+            scAttester,
             jvb,
             mcAlice,
             amt,
             reward,
-            &payee[0],
+            payee,
             /*wasLockingChainSend*/ true,
             1,
             scCarol,
-            &signers[0],
-            num_attest);
-        scEnv(xchain_add_attestation_batch(scAttester, batch));
+            signers,
+            UT_XCHAIN_DEFAULT_NUM_SIGNERS);
+        for(size_t i = 0; i < num_attest; ++i )
+        {
+            scEnv(attestations[i]);
+        }
         scEnv.close();
 
         {
@@ -303,21 +308,11 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
 
         // complete attestations quorum - CreateAccountClaimID should not be
         // present anymore
-        Json::Value batch2 = attestation_create_account_batch(
-            jvb,
-            mcAlice,
-            amt,
-            reward,
-            &payee[0],
-            /*wasLockingChainSend*/ true,
-            1,
-            scCarol,
-            &signers[0],
-            signers.size());
-
-        scEnv(xchain_add_attestation_batch(scAttester, batch2));
+        for(size_t i = num_attest; i < UT_XCHAIN_DEFAULT_NUM_SIGNERS; ++i )
+        {
+            scEnv(attestations[i]);
+        }
         scEnv.close();
-
         {
             // request the create account claim_id via RPC
             Json::Value jvParams;
