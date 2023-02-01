@@ -166,27 +166,6 @@ public:
 // quorum is reached, the new signature set is used and some of the currently
 // collected signatures may be removed. Also note the reward is only sent to
 // accounts that have keys on the current list.
-class XChainAddAttestationBatch : public Transactor
-{
-public:
-    // "Normal" isn't right - as rewards are paid, but we don't know if the
-    // account submitting this transaction will pay some of the rewards or not
-    static constexpr ConsequencesFactoryType ConsequencesFactory{Normal};
-
-    explicit XChainAddAttestationBatch(ApplyContext& ctx) : Transactor(ctx)
-    {
-    }
-
-    static NotTEC
-    preflight(PreflightContext const& ctx);
-
-    static TER
-    preclaim(PreclaimContext const& ctx);
-
-    TER
-    doApply() override;
-};
-
 class XChainAddClaimAttestation : public Transactor
 {
 public:

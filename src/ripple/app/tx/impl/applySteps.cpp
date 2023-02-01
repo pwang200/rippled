@@ -159,8 +159,6 @@ invoke_preflight(PreflightContext const& ctx)
             return invoke_preflight_helper<XChainCommit>(ctx);
         case ttXCHAIN_CLAIM:
             return invoke_preflight_helper<XChainClaim>(ctx);
-        case ttXCHAIN_ADD_ATTESTATION_BATCH:
-            return invoke_preflight_helper<XChainAddAttestationBatch>(ctx);
         case ttXCHAIN_ADD_CLAIM_ATTESTATION:
             return invoke_preflight_helper<XChainAddClaimAttestation>(ctx);
         case ttXCHAIN_ADD_ACCOUNT_CREATE_ATTESTATION:
@@ -279,11 +277,7 @@ invoke_preclaim(PreclaimContext const& ctx)
             return invoke_preclaim<XChainCommit>(ctx);
         case ttXCHAIN_CLAIM:
             return invoke_preclaim<XChainClaim>(ctx);
-        case ttXCHAIN_ADD_ATTESTATION_BATCH:
-            return invoke_preclaim<XChainAddAttestationBatch>(ctx);
         case ttXCHAIN_ADD_CLAIM_ATTESTATION:
-            return invoke_preclaim<XChainAddClaimAttestation>(ctx);
-        case ttXCHAIN_ADD_ACCOUNT_CREATE_ATTESTATION:
             return invoke_preclaim<XChainAddAccountCreateAttestation>(ctx);
         case ttXCHAIN_ACCOUNT_CREATE_COMMIT:
             return invoke_preclaim<XChainCreateAccountCommit>(ctx);
@@ -360,8 +354,6 @@ invoke_calculateBaseFee(ReadView const& view, STTx const& tx)
             return XChainCommit::calculateBaseFee(view, tx);
         case ttXCHAIN_CLAIM:
             return XChainClaim::calculateBaseFee(view, tx);
-        case ttXCHAIN_ADD_ATTESTATION_BATCH:
-            return XChainAddAttestationBatch::calculateBaseFee(view, tx);
         case ttXCHAIN_ADD_CLAIM_ATTESTATION:
             return XChainAddClaimAttestation::calculateBaseFee(view, tx);
         case ttXCHAIN_ADD_ACCOUNT_CREATE_ATTESTATION:
@@ -539,10 +531,6 @@ invoke_apply(ApplyContext& ctx)
         }
         case ttXCHAIN_CLAIM: {
             XChainClaim p(ctx);
-            return p();
-        }
-        case ttXCHAIN_ADD_ATTESTATION_BATCH: {
-            XChainAddAttestationBatch p(ctx);
             return p();
         }
         case ttXCHAIN_ADD_CLAIM_ATTESTATION: {

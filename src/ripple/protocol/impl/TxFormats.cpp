@@ -374,13 +374,6 @@ TxFormats::TxFormats()
         },
         commonFields);
 
-    add(jss::XChainAddAttestationBatch,
-        ttXCHAIN_ADD_ATTESTATION_BATCH,
-        {
-            {sfXChainAttestationBatch, soeREQUIRED},
-        },
-        commonFields);
-
     add(jss::XChainAddClaimAttestation,
         ttXCHAIN_ADD_CLAIM_ATTESTATION,
         {

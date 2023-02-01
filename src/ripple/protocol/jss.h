@@ -110,7 +110,6 @@ JSS(XChainModifyBridge);                 // transaction type.
 JSS(XChainCreateClaimID);                // transaction type.
 JSS(XChainCommit);                       // transaction type.
 JSS(XChainClaim);                        // transaction type.
-JSS(XChainAddAttestationBatch);          // transaction type.
 JSS(XChainAddClaimAttestation);          // transaction type.
 JSS(XChainAddAccountCreateAttestation);  // transaction type.
 JSS(XChainAccountCreateCommit);          // transaction type.

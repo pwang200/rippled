@@ -468,18 +468,6 @@ ValidNewAccountRoot::finalize(
     if (accountSeqs_.size() != accountsCreated_)
         return false;
 
-    if (tx.getTxnType() == ttXCHAIN_ADD_ATTESTATION_BATCH &&
-        result == tesSUCCESS)
-    {
-        // attestations can create more than one account
-        std::uint32_t const startingSeq{
-            view.rules().enabled(featureDeletableAccounts) ? view.seq() : 1};
-        return std::all_of(
-            accountSeqs_.begin(), accountSeqs_.end(), [&startingSeq](auto seq) {
-                return seq == startingSeq;
-            });
-    }
-
     if (accountsCreated_ == 0)
         return true;
 
