@@ -277,10 +277,12 @@ invoke_preclaim(PreclaimContext const& ctx)
             return invoke_preclaim<XChainCommit>(ctx);
         case ttXCHAIN_CLAIM:
             return invoke_preclaim<XChainClaim>(ctx);
-        case ttXCHAIN_ADD_CLAIM_ATTESTATION:
-            return invoke_preclaim<XChainAddAccountCreateAttestation>(ctx);
         case ttXCHAIN_ACCOUNT_CREATE_COMMIT:
             return invoke_preclaim<XChainCreateAccountCommit>(ctx);
+        case ttXCHAIN_ADD_CLAIM_ATTESTATION:
+            return invoke_preclaim<XChainAddClaimAttestation>(ctx);
+        case ttXCHAIN_ADD_ACCOUNT_CREATE_ATTESTATION:
+            return invoke_preclaim<XChainAddAccountCreateAttestation>(ctx);
         default:
             assert(false);
             return temUNKNOWN;
