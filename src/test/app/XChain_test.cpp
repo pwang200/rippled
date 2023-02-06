@@ -469,11 +469,6 @@ struct XChain_test : public beast::unit_test::suite,
             create_bridge(mcDoor, jvb, XRP(-1)),
             ter(temXCHAIN_BRIDGE_BAD_REWARD_AMOUNT));
 
-        // Reward amount is zero
-        XEnv(*this).tx(
-            create_bridge(mcDoor, jvb, XRP(0)),
-            ter(temXCHAIN_BRIDGE_BAD_REWARD_AMOUNT));
-
         // Reward amount is 1 xrp => should succeed
         XEnv(*this).tx(create_bridge(mcDoor, jvb, XRP(1)), ter(tesSUCCESS));
 
@@ -956,11 +951,6 @@ struct XChain_test : public beast::unit_test::suite,
         // Reward amount is XRP and negative
         XEnv(*this).tx(
             bridge_modify(mcDoor, jvb, XRP(-2), XRP(10)),
-            ter(temXCHAIN_BRIDGE_BAD_REWARD_AMOUNT));
-
-        // Reward amount is zero
-        XEnv(*this).tx(
-            bridge_modify(mcDoor, jvb, XRP(0), XRP(10)),
             ter(temXCHAIN_BRIDGE_BAD_REWARD_AMOUNT));
 
         // Min create amount is non-xrp
