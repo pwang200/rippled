@@ -961,6 +961,13 @@ XChainCreateBridge::preflight(PreflightContext const& ctx)
         }
     }
 
+    if (bridgeSpec.lockingChainDoor() == bridgeSpec.lockingChainIssue().account)
+    {
+        // If the locking chain door is locking their own asset, in some sense
+        // nothing is being locked. Disallow this.
+        return temSIDECHAIN_BAD_ISSUES;
+    }
+
     return preflight2(ctx);
 }
 
