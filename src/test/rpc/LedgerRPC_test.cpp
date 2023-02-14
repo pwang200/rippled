@@ -165,7 +165,7 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
             // request the xchain_claim_id via RPC
             Json::Value jvParams;
             jvParams[jss::xchain_claim_id] = jvXRPBridgeRPC;
-            jvParams[jss::xchain_claim_id][jss::xchain_claim_id] = 1;
+            jvParams[jss::xchain_claim_id][jss::xchain_claim_id] = 0;
             // std::cout << to_string(jvParams) << '\n';
             Json::Value const jrr = scEnv.rpc(
                 "json", "ledger_entry", to_string(jvParams))[jss::result];
@@ -178,7 +178,7 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
             BEAST_EXPECT(r[jss::Account] == scAlice.human());
             BEAST_EXPECT(
                 r[sfLedgerEntryType.jsonName] == jss::XChainOwnedClaimID);
-            BEAST_EXPECT(r[sfXChainClaimID.jsonName].asInt() == 1);
+            BEAST_EXPECT(r[sfXChainClaimID.jsonName].asInt() == 0);
             BEAST_EXPECT(r[sfOwnerNode.jsonName].asInt() == 0);
         }
 
@@ -186,7 +186,7 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
             // request the xchain_claim_id via RPC
             Json::Value jvParams;
             jvParams[jss::xchain_claim_id] = jvXRPBridgeRPC;
-            jvParams[jss::xchain_claim_id][jss::xchain_claim_id] = 2;
+            jvParams[jss::xchain_claim_id][jss::xchain_claim_id] = 1;
             Json::Value const jrr = scEnv.rpc(
                 "json", "ledger_entry", to_string(jvParams))[jss::result];
 
@@ -198,7 +198,7 @@ class LedgerRPC_XChain_test : public beast::unit_test::suite,
             BEAST_EXPECT(r[jss::Account] == scBob.human());
             BEAST_EXPECT(
                 r[sfLedgerEntryType.jsonName] == jss::XChainOwnedClaimID);
-            BEAST_EXPECT(r[sfXChainClaimID.jsonName].asInt() == 2);
+            BEAST_EXPECT(r[sfXChainClaimID.jsonName].asInt() == 1);
             BEAST_EXPECT(r[sfOwnerNode.jsonName].asInt() == 0);
         }
     }
