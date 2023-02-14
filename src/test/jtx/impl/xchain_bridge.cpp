@@ -227,6 +227,7 @@ claim_attestation(
     result[sfAccount.getJsonName()] = submittingAccount.human();
     result[sfXChainBridge.getJsonName()] = jvBridge;
 
+    result[sfAttestationSignerAccount.getJsonName()] = signer.account.human();
     result[sfPublicKey.getJsonName()] = strHex(pk.slice());
     result[sfSignature.getJsonName()] = strHex(sig);
     result[sfOtherChainSource.getJsonName()] = toBase58(sendingAccount);
@@ -280,6 +281,7 @@ create_account_attestation(
     result[sfAccount.getJsonName()] = submittingAccount.human();
     result[sfXChainBridge.getJsonName()] = jvBridge;
 
+    result[sfAttestationSignerAccount.getJsonName()] = signer.account.human();
     result[sfPublicKey.getJsonName()] = strHex(pk.slice());
     result[sfSignature.getJsonName()] = strHex(sig);
     result[sfOtherChainSource.getJsonName()] = toBase58(sendingAccount);

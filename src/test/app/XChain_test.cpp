@@ -1132,7 +1132,7 @@ struct XChain_test : public beast::unit_test::suite,
                         claimID,
                         dst,
                         signers),
-                    ter(tecXCHAIN_PROOF_UNKNOWN_KEY))
+                    ter(tecNO_PERMISSION))
                 .close();
             if (withClaim)
             {

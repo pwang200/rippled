@@ -103,6 +103,7 @@ transResults()
         MAKE_ERROR(tecXCHAIN_ACCOUNT_CREATE_TOO_MANY, "xchain account create too many"),
         MAKE_ERROR(tecXCHAIN_PAYMENT_FAILED,       "xchain payment failed"),
         MAKE_ERROR(tecXCHAIN_SELF_COMMIT,          "xchain self commit"),
+        MAKE_ERROR(tecXCHAIN_BAD_PUBLIC_KEY_ACCOUNT_PAIR, "xchain bad public key account pair"),
 
         MAKE_ERROR(tefALREADY,                     "The exact transaction was already in this ledger."),
         MAKE_ERROR(tefBAD_ADD_AUTH,                "Not authorized to add account."),

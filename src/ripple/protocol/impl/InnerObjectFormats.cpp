@@ -65,6 +65,7 @@ InnerObjectFormats::InnerObjectFormats()
     add(sfXChainClaimAttestationBatchElement.jsonName.c_str(),
         sfXChainClaimAttestationBatchElement.getCode(),
         {
+            {sfAttestationSignerAccount, soeREQUIRED},
             {sfPublicKey, soeREQUIRED},
             {sfSignature, soeREQUIRED},
             {sfAmount, soeREQUIRED},
@@ -78,6 +79,7 @@ InnerObjectFormats::InnerObjectFormats()
     add(sfXChainCreateAccountAttestationBatchElement.jsonName.c_str(),
         sfXChainCreateAccountAttestationBatchElement.getCode(),
         {
+            {sfAttestationSignerAccount, soeREQUIRED},
             {sfPublicKey, soeREQUIRED},
             {sfSignature, soeREQUIRED},
             {sfAmount, soeREQUIRED},
@@ -93,6 +95,7 @@ InnerObjectFormats::InnerObjectFormats()
         sfXChainClaimProofSig.getCode(),
         {
             {sfAttestationSignerAccount, soeREQUIRED},
+            {sfPublicKey, soeREQUIRED},
             {sfAmount, soeREQUIRED},
             {sfAttestationRewardAccount, soeREQUIRED},
             {sfWasLockingChainSend, soeREQUIRED},
@@ -103,6 +106,7 @@ InnerObjectFormats::InnerObjectFormats()
         sfXChainCreateAccountProofSig.getCode(),
         {
             {sfAttestationSignerAccount, soeREQUIRED},
+            {sfPublicKey, soeREQUIRED},
             {sfAmount, soeREQUIRED},
             {sfSignatureReward, soeREQUIRED},
             {sfAttestationRewardAccount, soeREQUIRED},

@@ -44,11 +44,13 @@ SField const& XChainCreateAccountAttestation::ArrayFieldName{
 
 XChainClaimAttestation::XChainClaimAttestation(
     AccountID const& keyAccount_,
+    PublicKey const& publicKey_,
     STAmount const& amount_,
     AccountID const& rewardAccount_,
     bool wasLockingChainSend_,
     std::optional<AccountID> const& dst_)
     : keyAccount(keyAccount_)
+    , publicKey(publicKey_)
     , amount(sfAmount, amount_)
     , rewardAccount(rewardAccount_)
     , wasLockingChainSend(wasLockingChainSend_)
@@ -58,12 +60,14 @@ XChainClaimAttestation::XChainClaimAttestation(
 
 XChainClaimAttestation::XChainClaimAttestation(
     STAccount const& keyAccount_,
+    PublicKey const& publicKey_,
     STAmount const& amount_,
     STAccount const& rewardAccount_,
     bool wasLockingChainSend_,
     std::optional<STAccount> const& dst_)
     : XChainClaimAttestation{
           keyAccount_.value(),
+          publicKey_,
           amount_,
           rewardAccount_.value(),
           wasLockingChainSend_,
@@ -74,6 +78,7 @@ XChainClaimAttestation::XChainClaimAttestation(
 XChainClaimAttestation::XChainClaimAttestation(STObject const& o)
     : XChainClaimAttestation{
           o[sfAttestationSignerAccount],
+          PublicKey{o[sfPublicKey]},
           o[sfAmount],
           o[sfAttestationRewardAccount],
           o[sfWasLockingChainSend] != 0,
@@ -82,6 +87,7 @@ XChainClaimAttestation::XChainClaimAttestation(STObject const& o)
 XChainClaimAttestation::XChainClaimAttestation(Json::Value const& v)
     : XChainClaimAttestation{
           Json::getOrThrow<AccountID>(v, sfAttestationSignerAccount),
+          Json::getOrThrow<PublicKey>(v, sfPublicKey),
           Json::getOrThrow<STAmount>(v, sfAmount),
           Json::getOrThrow<AccountID>(v, sfAttestationRewardAccount),
           Json::getOrThrow<bool>(v, sfWasLockingChainSend),
@@ -94,7 +100,8 @@ XChainClaimAttestation::XChainClaimAttestation(Json::Value const& v)
 XChainClaimAttestation::XChainClaimAttestation(
     XChainClaimAttestation::TBatchAttestation const& claimAtt)
     : XChainClaimAttestation{
-          calcAccountID(claimAtt.publicKey),
+          claimAtt.attestationSignerAccount,
+          claimAtt.publicKey,
           claimAtt.sendingAmount,
           claimAtt.rewardAccount,
           claimAtt.wasLockingChainSend,
@@ -108,6 +115,7 @@ XChainClaimAttestation::toSTObject() const
     STObject o{sfXChainClaimProofSig};
     o[sfAttestationSignerAccount] =
         STAccount{sfAttestationSignerAccount, keyAccount};
+    o[sfPublicKey] = publicKey;
     o[sfAmount] = STAmount{sfAmount, amount};
     o[sfAttestationRewardAccount] =
         STAccount{sfAttestationRewardAccount, rewardAccount};
@@ -122,22 +130,18 @@ operator==(XChainClaimAttestation const& lhs, XChainClaimAttestation const& rhs)
 {
     return std::tie(
                lhs.keyAccount,
+               lhs.publicKey,
                lhs.amount,
                lhs.rewardAccount,
                lhs.wasLockingChainSend,
                lhs.dst) ==
         std::tie(
                rhs.keyAccount,
+               rhs.publicKey,
                rhs.amount,
                rhs.rewardAccount,
                rhs.wasLockingChainSend,
                rhs.dst);
-}
-
-bool
-operator!=(XChainClaimAttestation const& lhs, XChainClaimAttestation const& rhs)
-{
-    return !operator==(lhs, rhs);
 }
 
 XChainClaimAttestation::MatchFields::MatchFields(
@@ -164,12 +168,14 @@ XChainClaimAttestation::match(
 
 XChainCreateAccountAttestation::XChainCreateAccountAttestation(
     AccountID const& keyAccount_,
+    PublicKey const& publicKey_,
     STAmount const& amount_,
     STAmount const& rewardAmount_,
     AccountID const& rewardAccount_,
     bool wasLockingChainSend_,
     AccountID const& dst_)
     : keyAccount(keyAccount_)
+    , publicKey(publicKey_)
     , amount(sfAmount, amount_)
     , rewardAmount(sfSignatureReward, rewardAmount_)
     , rewardAccount(rewardAccount_)
@@ -182,6 +188,7 @@ XChainCreateAccountAttestation::XChainCreateAccountAttestation(
     STObject const& o)
     : XChainCreateAccountAttestation{
           o[sfAttestationSignerAccount],
+          PublicKey{o[sfPublicKey]},
           o[sfAmount],
           o[sfSignatureReward],
           o[sfAttestationRewardAccount],
@@ -192,6 +199,7 @@ XChainCreateAccountAttestation ::XChainCreateAccountAttestation(
     Json::Value const& v)
     : XChainCreateAccountAttestation{
           Json::getOrThrow<AccountID>(v, sfAttestationSignerAccount),
+          Json::getOrThrow<PublicKey>(v, sfPublicKey),
           Json::getOrThrow<STAmount>(v, sfAmount),
           Json::getOrThrow<STAmount>(v, sfSignatureReward),
           Json::getOrThrow<AccountID>(v, sfAttestationRewardAccount),
@@ -203,7 +211,8 @@ XChainCreateAccountAttestation ::XChainCreateAccountAttestation(
 XChainCreateAccountAttestation::XChainCreateAccountAttestation(
     XChainCreateAccountAttestation::TBatchAttestation const& createAtt)
     : XChainCreateAccountAttestation{
-          calcAccountID(createAtt.publicKey),
+          createAtt.attestationSignerAccount,
+          createAtt.publicKey,
           createAtt.sendingAmount,
           createAtt.rewardAmount,
           createAtt.rewardAccount,
@@ -219,6 +228,7 @@ XChainCreateAccountAttestation::toSTObject() const
 
     o[sfAttestationSignerAccount] =
         STAccount{sfAttestationSignerAccount, keyAccount};
+    o[sfPublicKey] = publicKey;
     o[sfAmount] = STAmount{sfAmount, amount};
     o[sfSignatureReward] = STAmount{sfSignatureReward, rewardAmount};
     o[sfAttestationRewardAccount] =
@@ -257,6 +267,7 @@ operator==(
 {
     return std::tie(
                lhs.keyAccount,
+               lhs.publicKey,
                lhs.amount,
                lhs.rewardAmount,
                lhs.rewardAccount,
@@ -264,19 +275,12 @@ operator==(
                lhs.dst) ==
         std::tie(
                rhs.keyAccount,
+               rhs.publicKey,
                rhs.amount,
                rhs.rewardAmount,
                rhs.rewardAccount,
                rhs.wasLockingChainSend,
                rhs.dst);
-}
-
-bool
-operator!=(
-    XChainCreateAccountAttestation const& lhs,
-    XChainCreateAccountAttestation const& rhs)
-{
-    return !operator==(lhs, rhs);
 }
 
 //------------------------------------------------------------------------------
@@ -356,17 +360,33 @@ XChainAttestationsBase<TAttestation>::toSTArray() const
 template <class TAttestation>
 std::optional<std::vector<AccountID>>
 XChainAttestationsBase<TAttestation>::onNewAttestations(
+    ReadView const& view,
     typename TAttestation::TBatchAttestation const* attBegin,
     typename TAttestation::TBatchAttestation const* attEnd,
     std::uint32_t quorum,
-    std::unordered_map<AccountID, std::uint32_t> const& signersList)
+    std::unordered_map<AccountID, std::uint32_t> const& signersList,
+    beast::Journal j)
 {
     if (attBegin == attEnd)
         return {};
 
     for (auto att = attBegin; att != attEnd; ++att)
     {
-        auto const claimSigningAccount = calcAccountID(att->publicKey);
+        if (Attestations::checkAttestationPublicKey(
+                view,
+                signersList,
+                att->attestationSignerAccount,
+                att->publicKey,
+                j) != tesSUCCESS)
+        {
+            // The checkAttestationPublicKey is not strictly nessisary here (it
+            // should be checked in a preclaim step), but it would be bad to let
+            // on slip through if that changes, and the check is relatively
+            // cheap, so we check again
+            continue;
+        }
+
+        auto const& claimSigningAccount = att->attestationSignerAccount;
         if (auto i = std::find_if(
                 attestations_.begin(),
                 attestations_.end(),
@@ -386,10 +406,12 @@ XChainAttestationsBase<TAttestation>::onNewAttestations(
     }
 
     auto r = claimHelper(
+        view,
         typename TAttestation::MatchFields{*attBegin},
         CheckDst::check,
         quorum,
-        signersList);
+        signersList,
+        j);
 
     if (!r.has_value())
         return std::nullopt;
@@ -400,16 +422,22 @@ XChainAttestationsBase<TAttestation>::onNewAttestations(
 template <class TAttestation>
 Expected<std::vector<AccountID>, TER>
 XChainAttestationsBase<TAttestation>::claimHelper(
+    ReadView const& view,
     typename TAttestation::MatchFields const& toMatch,
     CheckDst checkDst,
     std::uint32_t quorum,
-    std::unordered_map<AccountID, std::uint32_t> const& signersList)
+    std::unordered_map<AccountID, std::uint32_t> const& signersList,
+    beast::Journal j)
 {
     {
-        // Remove attestations that are no longer part of the signers list
+        // Remove attestations that are valid signers. They may be no longer
+        // part of the signers list, or their master key may have been disabled,
+        // or their regular may have changed
         auto i = std::remove_if(
             attestations_.begin(), attestations_.end(), [&](auto const& a) {
-                return !signersList.count(a.keyAccount);
+                return Attestations::checkAttestationPublicKey(
+                           view, signersList, a.keyAccount, a.publicKey, j) !=
+                    tesSUCCESS;
             });
         attestations_.erase(i, attestations_.end());
     }
@@ -446,14 +474,16 @@ XChainAttestationsBase<TAttestation>::claimHelper(
 
 Expected<std::vector<AccountID>, TER>
 XChainClaimAttestations::onClaim(
+    ReadView const& view,
     STAmount const& sendingAmount,
     bool wasLockingChainSend,
     std::uint32_t quorum,
-    std::unordered_map<AccountID, std::uint32_t> const& signersList)
+    std::unordered_map<AccountID, std::uint32_t> const& signersList,
+    beast::Journal j)
 {
     XChainClaimAttestation::MatchFields toMatch{
         sendingAmount, wasLockingChainSend, std::nullopt};
-    return claimHelper(toMatch, CheckDst::ignore, quorum, signersList);
+    return claimHelper(view, toMatch, CheckDst::ignore, quorum, signersList, j);
 }
 
 template class XChainAttestationsBase<XChainClaimAttestation>;

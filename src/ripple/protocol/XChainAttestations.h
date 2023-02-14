@@ -56,6 +56,7 @@ struct XChainClaimAttestation
     static SField const& ArrayFieldName;
 
     AccountID keyAccount;
+    PublicKey publicKey;
     STAmount amount;
     AccountID rewardAccount;
     bool wasLockingChainSend;
@@ -78,6 +79,7 @@ struct XChainClaimAttestation
 
     explicit XChainClaimAttestation(
         AccountID const& keyAccount_,
+        PublicKey const& publicKey_,
         STAmount const& amount_,
         AccountID const& rewardAccount_,
         bool wasLockingChainSend_,
@@ -85,6 +87,7 @@ struct XChainClaimAttestation
 
     explicit XChainClaimAttestation(
         STAccount const& keyAccount_,
+        PublicKey const& publicKey_,
         STAmount const& amount_,
         STAccount const& rewardAccount_,
         bool wasLockingChainSend_,
@@ -118,6 +121,7 @@ struct XChainCreateAccountAttestation
     static SField const& ArrayFieldName;
 
     AccountID keyAccount;
+    PublicKey publicKey;
     STAmount amount;
     STAmount rewardAmount;
     AccountID rewardAccount;
@@ -136,6 +140,7 @@ struct XChainCreateAccountAttestation
 
     explicit XChainCreateAccountAttestation(
         AccountID const& keyAccount_,
+        PublicKey const& publicKey_,
         STAmount const& amount_,
         STAmount const& rewardAmount_,
         AccountID const& rewardAccount_,
@@ -165,8 +170,7 @@ struct XChainCreateAccountAttestation
 };
 
 // Attestations from witness servers for a particular claimid and bridge.
-// Only one attestation per signature is allowed. If more than one is added, the
-// attestation with the larger amount is kept.
+// Only one attestation per signature is allowed.
 template <class TAttestation>
 class XChainAttestationsBase
 {
@@ -232,10 +236,12 @@ public:
      */
     std::optional<std::vector<AccountID>>
     onNewAttestations(
+        ReadView const& view,
         typename TAttestation::TBatchAttestation const* attBegin,
         typename TAttestation::TBatchAttestation const* attEnd,
         std::uint32_t quorum,
-        std::unordered_map<AccountID, std::uint32_t> const& signersList);
+        std::unordered_map<AccountID, std::uint32_t> const& signersList,
+        beast::Journal j);
 
     typename AttCollection::const_iterator
     begin() const;
@@ -271,10 +277,12 @@ protected:
     enum class CheckDst { check, ignore };
     Expected<std::vector<AccountID>, TER>
     claimHelper(
+        ReadView const& view,
         typename TAttestation::MatchFields const& toMatch,
         CheckDst checkDst,
         std::uint32_t quorum,
-        std::unordered_map<AccountID, std::uint32_t> const& signersList);
+        std::unordered_map<AccountID, std::uint32_t> const& signersList,
+        beast::Journal j);
 
     // Return the message that was expected to be signed by the attesters given
     // the data to be proved.
@@ -333,10 +341,12 @@ public:
     // likely tecXCHAIN_CLAIM_NO_QUORUM)
     Expected<std::vector<AccountID>, TER>
     onClaim(
+        ReadView const& view,
         STAmount const& sendingAmount,
         bool wasLockingChainSend,
         std::uint32_t quorum,
-        std::unordered_map<AccountID, std::uint32_t> const& signersList);
+        std::unordered_map<AccountID, std::uint32_t> const& signersList,
+        beast::Journal j);
 };
 
 class XChainCreateAccountAttestations final

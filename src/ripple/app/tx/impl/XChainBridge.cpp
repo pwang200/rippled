@@ -513,7 +513,7 @@ applyClaimAttestations(
     atts.reserve(std::distance(attBegin, attEnd));
     for (auto att = attBegin; att != attEnd; ++att)
     {
-        if (!signersList.count(calcAccountID(att->publicKey)))
+        if (!signersList.contains(att->attestationSignerAccount))
             continue;
         atts.push_back(*att);
     }
@@ -546,7 +546,7 @@ applyClaimAttestations(
         sleClaimID->getFieldArray(sfXChainClaimAttestations)};
 
     auto const rewardAccounts = curAtts.onNewAttestations(
-        &atts[0], &atts[0] + atts.size(), quorum, signersList);
+        view, &atts[0], &atts[0] + atts.size(), quorum, signersList, j);
 
     // update the claim id
     sleClaimID->setFieldArray(sfXChainClaimAttestations, curAtts.toSTArray());
@@ -656,7 +656,7 @@ applyCreateAccountAttestations(
     atts.reserve(std::distance(attBegin, attEnd));
     for (auto att = attBegin; att != attEnd; ++att)
     {
-        if (!signersList.count(calcAccountID(att->publicKey)))
+        if (!signersList.contains(att->attestationSignerAccount))
             continue;
         atts.push_back(*att);
     }
@@ -673,7 +673,7 @@ applyCreateAccountAttestations(
     }();
 
     auto const rewardAccounts = curAtts.onNewAttestations(
-        &atts[0], &atts[0] + atts.size(), quorum, signersList);
+        view, &atts[0], &atts[0] + atts.size(), quorum, signersList, j);
 
     if (!createCID)
     {
@@ -798,6 +798,36 @@ attestationPreflight(PreflightContext const& ctx)
         return temBAD_XCHAIN_PROOF;
 
     return preflight2(ctx);
+}
+
+template <class TAttestation>
+TER
+attestationPreclaim(PreclaimContext const& ctx)
+{
+    auto const att = toClaim<TAttestation>(ctx.tx);
+    if (!att)
+        return tecINTERNAL;  // checked in preflight
+
+    STXChainBridge const bridgeSpec = ctx.tx[sfXChainBridge];
+    auto const sleBridge = readBridge(ctx.view, bridgeSpec);
+    if (!sleBridge)
+    {
+        return tecNO_ENTRY;
+    }
+
+    AccountID const attestationSignerAccount{
+        ctx.tx[sfAttestationSignerAccount]};
+    PublicKey const pk{ctx.tx[sfPublicKey]};
+
+    // signersList is a map from account id to weights
+    auto const [signersList, quorum, slTer] =
+        getSignersListAndQuorum(ctx.view, *sleBridge, ctx.j);
+
+    if (!isTesSuccess(slTer))
+        return slTer;
+
+    return Attestations::checkAttestationPublicKey(
+        ctx.view, signersList, attestationSignerAccount, pk, ctx.j);
 }
 
 template <class TAttestation>
@@ -1319,10 +1349,12 @@ XChainClaim::doApply()
         sleClaimID->getFieldArray(sfXChainClaimAttestations)};
 
     auto const claimR = curAtts.onClaim(
+        psb,
         sendingAmount,
         /*wasLockingChainSend*/ srcChain == STXChainBridge::ChainType::locking,
         quorum,
-        signersList);
+        signersList,
+        ctx_.journal);
     if (!claimR.has_value())
         return claimR.error();
 
@@ -1600,7 +1632,7 @@ XChainAddClaimAttestation::preflight(PreflightContext const& ctx)
 TER
 XChainAddClaimAttestation::preclaim(PreclaimContext const& ctx)
 {
-    return tesSUCCESS;
+    return attestationPreclaim<Attestations::AttestationClaim>(ctx);
 }
 
 TER
@@ -1620,7 +1652,7 @@ XChainAddAccountCreateAttestation::preflight(PreflightContext const& ctx)
 TER
 XChainAddAccountCreateAttestation::preclaim(PreclaimContext const& ctx)
 {
-    return tesSUCCESS;
+    return attestationPreclaim<Attestations::AttestationCreateAccount>(ctx);
 }
 
 TER

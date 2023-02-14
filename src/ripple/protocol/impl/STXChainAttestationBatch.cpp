@@ -19,6 +19,7 @@
 
 #include <ripple/protocol/STXChainAttestationBatch.h>
 
+#include <ripple/basics/Log.h>
 #include <ripple/basics/StringUtilities.h>
 #include <ripple/json/json_get_or_throw.h>
 #include <ripple/protocol/Indexes.h>
@@ -37,14 +38,83 @@ namespace ripple {
 
 namespace Attestations {
 
+TER
+checkAttestationPublicKey(
+    ReadView const& view,
+    std::unordered_map<AccountID, std::uint32_t> const& signersList,
+    AccountID const& attestationSignerAccount,
+    PublicKey const& pk,
+    beast::Journal j)
+{
+    if (!signersList.contains(attestationSignerAccount))
+    {
+        return tecNO_PERMISSION;
+    }
+
+    AccountID const accountFromPK = calcAccountID(pk);
+
+    if (auto const sleAttestationSigningAccount =
+            view.read(keylet::account(attestationSignerAccount)))
+    {
+        if (accountFromPK == attestationSignerAccount)
+        {
+            // master key
+            if (sleAttestationSigningAccount->getFieldU32(sfFlags) &
+                lsfDisableMaster)
+            {
+                JLOG(j.trace()) << "Attempt to add an attestation with "
+                                   "disabled master key.";
+                return tecXCHAIN_BAD_PUBLIC_KEY_ACCOUNT_PAIR;
+            }
+        }
+        else
+        {
+            // regular key
+            if (std::optional<AccountID> regularKey =
+                    (*sleAttestationSigningAccount)[~sfRegularKey];
+                regularKey != accountFromPK)
+            {
+                if (!regularKey)
+                {
+                    JLOG(j.trace())
+                        << "Attempt to add an attestation with "
+                           "account present and non-present regular key.";
+                }
+                else
+                {
+                    JLOG(j.trace()) << "Attempt to add an attestation with "
+                                       "account present and mismatched "
+                                       "regular key/public key.";
+                }
+                return tecXCHAIN_BAD_PUBLIC_KEY_ACCOUNT_PAIR;
+            }
+        }
+    }
+    else
+    {
+        // account does not exist.
+        if (calcAccountID(pk) != attestationSignerAccount)
+        {
+            JLOG(j.trace())
+                << "Attempt to add an attestation with non-existant account "
+                   "and mismatched pk/account pair.";
+            return tecXCHAIN_BAD_PUBLIC_KEY_ACCOUNT_PAIR;
+        }
+    }
+
+    return tesSUCCESS;
+}
+
 AttestationBase::AttestationBase(
+    AccountID attestationSignerAccount_,
     PublicKey const& publicKey_,
     Buffer signature_,
     AccountID const& sendingAccount_,
     STAmount const& sendingAmount_,
     AccountID const& rewardAccount_,
     bool wasLockingChainSend_)
-    : publicKey{publicKey_}
+    : attestationSignerAccount{attestationSignerAccount_}
+    , publicKey{publicKey_}
     , signature{std::move(signature_)}
     , sendingAccount{sendingAccount_}
     , sendingAmount{sendingAmount_}
@@ -59,6 +129,7 @@ AttestationBase::equalHelper(
     AttestationBase const& rhs)
 {
     return std::tie(
+               lhs.attestationSignerAccount,
                lhs.publicKey,
                lhs.signature,
                lhs.sendingAccount,
@@ -66,6 +137,7 @@ AttestationBase::equalHelper(
                lhs.rewardAccount,
                lhs.wasLockingChainSend) ==
         std::tie(
+               rhs.attestationSignerAccount,
                rhs.publicKey,
                rhs.signature,
                rhs.sendingAccount,
@@ -95,7 +167,8 @@ AttestationBase::verify(STXChainBridge const& bridge) const
 }
 
 AttestationBase::AttestationBase(STObject const& o)
-    : publicKey{o[sfPublicKey]}
+    : attestationSignerAccount{o[sfAttestationSignerAccount]}
+    , publicKey{o[sfPublicKey]}
     , signature{o[sfSignature]}
     , sendingAccount{o[sfAccount]}
     , sendingAmount{o[sfAmount]}
@@ -105,7 +178,10 @@ AttestationBase::AttestationBase(STObject const& o)
 }
 
 AttestationBase::AttestationBase(Json::Value const& v)
-    : publicKey{Json::getOrThrow<PublicKey>(v, sfPublicKey)}
+    : attestationSignerAccount{Json::getOrThrow<AccountID>(
+          v,
+          sfAttestationSignerAccount)}
+    , publicKey{Json::getOrThrow<PublicKey>(v, sfPublicKey)}
     , signature{Json::getOrThrow<Buffer>(v, sfSignature)}
     , sendingAccount{Json::getOrThrow<AccountID>(v, sfAccount)}
     , sendingAmount{Json::getOrThrow<STAmount>(v, sfAmount)}
@@ -117,6 +193,7 @@ AttestationBase::AttestationBase(Json::Value const& v)
 void
 AttestationBase::addHelper(STObject& o) const
 {
+    o[sfAttestationSignerAccount] = attestationSignerAccount;
     o[sfPublicKey] = publicKey;
     o[sfSignature] = signature;
     o[sfAmount] = sendingAmount;
@@ -126,6 +203,7 @@ AttestationBase::addHelper(STObject& o) const
 }
 
 AttestationClaim::AttestationClaim(
+    AccountID attestationSignerAccount_,
     PublicKey const& publicKey_,
     Buffer signature_,
     AccountID const& sendingAccount_,
@@ -135,6 +213,7 @@ AttestationClaim::AttestationClaim(
     std::uint64_t claimID_,
     std::optional<AccountID> const& dst_)
     : AttestationBase(
+          attestationSignerAccount_,
           publicKey_,
           std::move(signature_),
           sendingAccount_,
@@ -148,6 +227,7 @@ AttestationClaim::AttestationClaim(
 
 AttestationClaim::AttestationClaim(
     STXChainBridge const& bridge,
+    AccountID attestationSignerAccount_,
     PublicKey const& publicKey_,
     SecretKey const& secretKey_,
     AccountID const& sendingAccount_,
@@ -157,6 +237,7 @@ AttestationClaim::AttestationClaim(
     std::uint64_t claimID_,
     std::optional<AccountID> const& dst_)
     : AttestationClaim{
+          attestationSignerAccount_,
           publicKey_,
           Buffer{},
           sendingAccount_,
@@ -272,6 +353,7 @@ AttestationCreateAccount::AttestationCreateAccount(Json::Value const& v)
 }
 
 AttestationCreateAccount::AttestationCreateAccount(
+    AccountID attestationSignerAccount_,
     PublicKey const& publicKey_,
     Buffer signature_,
     AccountID const& sendingAccount_,
@@ -282,6 +364,7 @@ AttestationCreateAccount::AttestationCreateAccount(
     std::uint64_t createCount_,
     AccountID const& toCreate_)
     : AttestationBase(
+          attestationSignerAccount_,
           publicKey_,
           std::move(signature_),
           sendingAccount_,
@@ -296,6 +379,7 @@ AttestationCreateAccount::AttestationCreateAccount(
 
 AttestationCreateAccount::AttestationCreateAccount(
     STXChainBridge const& bridge,
+    AccountID attestationSignerAccount_,
     PublicKey const& publicKey_,
     SecretKey const& secretKey_,
     AccountID const& sendingAccount_,
@@ -306,6 +390,7 @@ AttestationCreateAccount::AttestationCreateAccount(
     std::uint64_t createCount_,
     AccountID const& toCreate_)
     : AttestationCreateAccount{
+          attestationSignerAccount_,
           publicKey_,
           Buffer{},
           sendingAccount_,

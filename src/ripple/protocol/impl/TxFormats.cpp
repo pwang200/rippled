@@ -379,6 +379,7 @@ TxFormats::TxFormats()
         {
             {sfXChainBridge, soeREQUIRED},
 
+            {sfAttestationSignerAccount, soeREQUIRED},
             {sfPublicKey, soeREQUIRED},
             {sfSignature, soeREQUIRED},
             {sfOtherChainSource, soeREQUIRED},
@@ -396,6 +397,7 @@ TxFormats::TxFormats()
         {
             {sfXChainBridge, soeREQUIRED},
 
+            {sfAttestationSignerAccount, soeREQUIRED},
             {sfPublicKey, soeREQUIRED},
             {sfSignature, soeREQUIRED},
             {sfOtherChainSource, soeREQUIRED},

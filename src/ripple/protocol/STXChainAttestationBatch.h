@@ -21,6 +21,7 @@
 #define RIPPLE_PROTOCOL_STXATTESTATION_BATCH_H_INCLUDED
 
 #include <ripple/basics/Buffer.h>
+#include <ripple/ledger/ReadView.h>
 #include <ripple/protocol/AccountID.h>
 #include <ripple/protocol/Issue.h>
 #include <ripple/protocol/PublicKey.h>
@@ -28,6 +29,7 @@
 #include <ripple/protocol/STBase.h>
 #include <ripple/protocol/STXChainBridge.h>
 #include <ripple/protocol/SecretKey.h>
+#include <ripple/protocol/TER.h>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/container/vector.hpp>
@@ -39,8 +41,22 @@ namespace ripple {
 
 namespace Attestations {
 
+// Check that the public key is allowed to sign for the given account. If the
+// account does not exist on the ledger, then the public key must be the master
+// key for the given account if it existed. Otherwise the key must be an enabled
+// master key or a regular key for the existing account.
+TER
+checkAttestationPublicKey(
+    ReadView const& view,
+    std::unordered_map<AccountID, std::uint32_t> const& signersList,
+    AccountID const& attestationSignerAccount,
+    PublicKey const& pk,
+    beast::Journal j);
+
 struct AttestationBase
 {
+    // Account associated with the public key
+    AccountID attestationSignerAccount;
     // Public key from the witness server attesting to the event
     PublicKey publicKey;
     // Signature from the witness server attesting to the event
@@ -57,6 +73,7 @@ struct AttestationBase
     bool wasLockingChainSend;
 
     explicit AttestationBase(
+        AccountID attestationSignerAccount_,
         PublicKey const& publicKey_,
         Buffer signature_,
         AccountID const& sendingAccount_,
@@ -100,6 +117,7 @@ struct AttestationClaim : AttestationBase
     std::optional<AccountID> dst;
 
     explicit AttestationClaim(
+        AccountID attestationSignerAccount_,
         PublicKey const& publicKey_,
         Buffer signature_,
         AccountID const& sendingAccount_,
@@ -111,6 +129,7 @@ struct AttestationClaim : AttestationBase
 
     explicit AttestationClaim(
         STXChainBridge const& bridge,
+        AccountID attestationSignerAccount_,
         PublicKey const& publicKey_,
         SecretKey const& secretKey_,
         AccountID const& sendingAccount_,
@@ -177,6 +196,7 @@ struct AttestationCreateAccount : AttestationBase
     explicit AttestationCreateAccount(Json::Value const& v);
 
     explicit AttestationCreateAccount(
+        AccountID attestationSignerAccount_,
         PublicKey const& publicKey_,
         Buffer signature_,
         AccountID const& sendingAccount_,
@@ -189,6 +209,7 @@ struct AttestationCreateAccount : AttestationBase
 
     explicit AttestationCreateAccount(
         STXChainBridge const& bridge,
+        AccountID attestationSignerAccount_,
         PublicKey const& publicKey_,
         SecretKey const& secretKey_,
         AccountID const& sendingAccount_,
