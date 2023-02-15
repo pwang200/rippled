@@ -1197,6 +1197,30 @@ struct XChain_test : public beast::unit_test::suite,
             .close()
             .tx(bridge_modify(mcAlice, jvb, XRP(1), XRP(2)),
                 ter(temSIDECHAIN_NONDOOR_OWNER));
+
+        /**
+         * test tfClearAccountCreateAmount flag in BridgeModify tx
+         * -- tx has both minAccountCreateAmount and the flag, temMALFORMED
+         * -- tx has the flag and also modifies signature reward, tesSUCCESS
+         * -- XChainCreateAccountCommit tx fail after previous step
+         */
+        XEnv(*this)
+            .tx(create_bridge(mcDoor, jvb, XRP(1), XRP(20)))
+            .close()
+            .tx(sidechain_xchain_account_create(
+                mcAlice, jvb, scuAlice, XRP(100), reward))
+            .close()
+            .tx(bridge_modify(mcDoor, jvb, {}, XRP(2)),
+                txflags(tfClearAccountCreateAmount),
+                ter(temMALFORMED))
+            .close()
+            .tx(bridge_modify(mcDoor, jvb, XRP(3), {}),
+                txflags(tfClearAccountCreateAmount))
+            .close()
+            .tx(sidechain_xchain_account_create(
+                    mcAlice, jvb, scuBob, XRP(100), XRP(3)),
+                ter(tecXCHAIN_INSUFF_CREATE_AMOUNT))
+            .close();
     }
 
     void
@@ -2301,55 +2325,227 @@ struct XChain_test : public beast::unit_test::suite,
         using namespace jtx;
 
         testcase("Add Non Batch Claim Attestation");
-        XRPAmount tx_fee = txFee();
-        STAmount tx_fee_2 = multiply(tx_fee, STAmount(2), xrpIssue());
 
-        XEnv mcEnv(*this);
-        XEnv scEnv(*this, true);
-        std::uint32_t const claimID = 1;
-
-        mcEnv.tx(create_bridge(mcDoor, jvb)).close();
-
-        scEnv.tx(create_bridge(Account::master, jvb))
-            .tx(jtx::signers(Account::master, quorum, signers))
-            .close()
-            .tx(xchain_create_claim_id(scAlice, jvb, reward, mcAlice))
-            .close();
-
-        BEAST_EXPECT(!!scEnv.claimID(jvb, claimID));  // claim id present
-
-        Account const dst{scBob};
-        auto const amt = XRP(1000);
-        mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
-
-        auto const dstStartBalance = scEnv.env_.balance(dst);
-
-        for (int i = 0; i < signers.size(); ++i)
         {
-            auto const att = claim_attestation(
-                scAttester,
-                jvb,
-                mcAlice,
-                amt,
-                payees[i],
-                true,
-                claimID,
-                dst,
-                signers[i]);
+            XEnv mcEnv(*this);
+            XEnv scEnv(*this, true);
+            std::uint32_t const claimID = 1;
 
-            TER const expectedTER =
-                i < quorum ? tesSUCCESS : TER{tecXCHAIN_NO_CLAIM_ID};
-            if (i + 1 == quorum)
-                scEnv.tx(att, ter(expectedTER)).close();
-            else
-                scEnv.tx(att, ter(expectedTER)).close();
+            mcEnv.tx(create_bridge(mcDoor, jvb)).close();
 
-            if (i + 1 < quorum)
-                BEAST_EXPECT(dstStartBalance == scEnv.env_.balance(dst));
-            else
-                BEAST_EXPECT(dstStartBalance + amt == scEnv.env_.balance(dst));
+            scEnv.tx(create_bridge(Account::master, jvb))
+                .tx(jtx::signers(Account::master, quorum, signers))
+                .close()
+                .tx(xchain_create_claim_id(scAlice, jvb, reward, mcAlice))
+                .close();
+
+            BEAST_EXPECT(!!scEnv.claimID(jvb, claimID));  // claim id present
+
+            Account const dst{scBob};
+            auto const amt = XRP(1000);
+            mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
+
+            auto const dstStartBalance = scEnv.env_.balance(dst);
+
+            for (int i = 0; i < signers.size(); ++i)
+            {
+                auto const att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[i],
+                    true,
+                    claimID,
+                    dst,
+                    signers[i]);
+
+                TER const expectedTER =
+                    i < quorum ? tesSUCCESS : TER{tecXCHAIN_NO_CLAIM_ID};
+                if (i + 1 == quorum)
+                    scEnv.tx(att, ter(expectedTER)).close();
+                else
+                    scEnv.tx(att, ter(expectedTER)).close();
+
+                if (i + 1 < quorum)
+                    BEAST_EXPECT(dstStartBalance == scEnv.env_.balance(dst));
+                else
+                    BEAST_EXPECT(
+                        dstStartBalance + amt == scEnv.env_.balance(dst));
+            }
+            BEAST_EXPECT(dstStartBalance + amt == scEnv.env_.balance(dst));
         }
-        BEAST_EXPECT(dstStartBalance + amt == scEnv.env_.balance(dst));
+
+        {
+            /**
+             * sfAttestationSignerAccount related cases.
+             *
+             * Good cases:
+             * --G1: master key
+             * --G2: regular key
+             * --G3: public key and non-exist (unfunded) account match
+             *
+             * Bad cases:
+             * --B1: disabled master key
+             * --B2: single item signer list
+             * --B3: public key and non-exist (unfunded) account mismatch
+             * --B4: not on signer list
+             * --B5: missing sfAttestationSignerAccount field
+             */
+
+            XEnv mcEnv(*this);
+            XEnv scEnv(*this, true);
+            auto const amt = XRP(1000);
+            std::uint32_t const claimID = 1;
+
+            for (auto i = 0; i < UT_XCHAIN_DEFAULT_NUM_SIGNERS - 2; ++i)
+                scEnv.fund(amt, alt_signers[i].account);
+
+            mcEnv.tx(create_bridge(mcDoor, jvb)).close();
+
+            scEnv.tx(create_bridge(Account::master, jvb))
+                .tx(jtx::signers(Account::master, quorum, alt_signers))
+                .close()
+                .tx(xchain_create_claim_id(scAlice, jvb, reward, mcAlice))
+                .close();
+
+            Account const dst{scBob};
+            mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
+            auto const dstStartBalance = scEnv.env_.balance(dst);
+
+            {
+                // G1: master key
+                auto att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[0],
+                    true,
+                    claimID,
+                    dst,
+                    alt_signers[0]);
+                scEnv.tx(att).close();
+            }
+            {
+                // G2: regular key
+                // alt_signers[0] is the regular key of alt_signers[1]
+                // There should be 2 attestations after the transaction
+                scEnv
+                    .tx(jtx::regkey(
+                        alt_signers[1].account, alt_signers[0].account))
+                    .close();
+                auto att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[1],
+                    true,
+                    claimID,
+                    dst,
+                    alt_signers[0]);
+                att[sfAttestationSignerAccount.getJsonName()] =
+                    alt_signers[1].account.human();
+                scEnv.tx(att).close();
+            }
+            {
+                // B3: public key and non-exist (unfunded) account mismatch
+                // G3: public key and non-exist (unfunded) account match
+                auto const unfundedSigner1 =
+                    alt_signers[UT_XCHAIN_DEFAULT_NUM_SIGNERS - 1];
+                auto const unfundedSigner2 =
+                    alt_signers[UT_XCHAIN_DEFAULT_NUM_SIGNERS - 2];
+                auto att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[UT_XCHAIN_DEFAULT_NUM_SIGNERS - 1],
+                    true,
+                    claimID,
+                    dst,
+                    unfundedSigner1);
+                att[sfAttestationSignerAccount.getJsonName()] =
+                    unfundedSigner2.account.human();
+                scEnv.tx(att, ter(tecXCHAIN_BAD_PUBLIC_KEY_ACCOUNT_PAIR))
+                    .close();
+                att[sfAttestationSignerAccount.getJsonName()] =
+                    unfundedSigner1.account.human();
+                scEnv.tx(att).close();
+            }
+            {
+                // B2: single item signer list
+                std::vector<signer> tempSignerList = {signers[0]};
+                scEnv.tx(
+                    jtx::signers(alt_signers[2].account, 1, tempSignerList));
+                auto att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[2],
+                    true,
+                    claimID,
+                    dst,
+                    tempSignerList.front());
+                att[sfAttestationSignerAccount.getJsonName()] =
+                    alt_signers[2].account.human();
+                scEnv.tx(att, ter(tecXCHAIN_BAD_PUBLIC_KEY_ACCOUNT_PAIR))
+                    .close();
+            }
+            {
+                // B1: disabled master key
+                scEnv.tx(fset(alt_signers[2].account, asfDisableMaster, 0));
+                auto att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[2],
+                    true,
+                    claimID,
+                    dst,
+                    alt_signers[2]);
+                scEnv.tx(att, ter(tecXCHAIN_BAD_PUBLIC_KEY_ACCOUNT_PAIR))
+                    .close();
+            }
+            {
+                // --B4: not on signer list
+                auto att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[0],
+                    true,
+                    claimID,
+                    dst,
+                    signers[0]);
+                scEnv.tx(att, ter(tecNO_PERMISSION)).close();
+            }
+            {
+                // --B5: missing sfAttestationSignerAccount field
+                // Then submit the one with the field. Should rearch quorum.
+                auto att = claim_attestation(
+                    scAttester,
+                    jvb,
+                    mcAlice,
+                    amt,
+                    payees[3],
+                    true,
+                    claimID,
+                    dst,
+                    alt_signers[3]);
+                att.removeMember(sfAttestationSignerAccount.getJsonName());
+                scEnv.tx(att, ter(temMALFORMED)).close();
+                BEAST_EXPECT(dstStartBalance == scEnv.env_.balance(dst));
+                att[sfAttestationSignerAccount.getJsonName()] =
+                    alt_signers[3].account.human();
+                scEnv.tx(att).close();
+                BEAST_EXPECT(dstStartBalance + amt == scEnv.env_.balance(dst));
+            }
+        }
     }
 
     void
