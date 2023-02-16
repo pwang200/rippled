@@ -449,6 +449,46 @@ public:
             BEAST_EXPECT(escrow[sfAmount.jsonName].asUInt() == 100'000'000);
         }
         {
+            // Create a bridge
+            test::jtx::XChainBridgeObjects x;
+            Env scEnv(*this, envconfig(port_increment, 3), features);
+            x.createScBridgeObjects(scEnv);
+
+            auto scenv_acct_objs = [&](Account const& acct, char const* type) {
+                Json::Value params;
+                params[jss::account] = acct.human();
+                params[jss::type] = type;
+                params[jss::ledger_index] = "validated";
+                return scEnv.rpc("json", "account_objects", to_string(params));
+            };
+
+            Json::Value const resp =
+                scenv_acct_objs(Account::master, jss::bridge);
+
+            BEAST_EXPECT(acct_objs_is_size(resp, 1));
+            auto const& acct_bridge =
+                resp[jss::result][jss::account_objects][0u];
+            BEAST_EXPECT(
+                acct_bridge[sfAccount.jsonName] == Account::master.human());
+            BEAST_EXPECT(
+                acct_bridge[sfLedgerEntryType.getJsonName()] == "Bridge");
+            BEAST_EXPECT(
+                acct_bridge[sfXChainClaimID.getJsonName()].asUInt() == 0);
+            BEAST_EXPECT(
+                acct_bridge[sfXChainAccountClaimCount.getJsonName()].asUInt() ==
+                0);
+            BEAST_EXPECT(
+                acct_bridge[sfXChainAccountCreateCount.getJsonName()]
+                    .asUInt() == 0);
+            BEAST_EXPECT(
+                acct_bridge[sfMinAccountCreateAmount.getJsonName()].asUInt() ==
+                20000000);
+            BEAST_EXPECT(
+                acct_bridge[sfSignatureReward.getJsonName()].asUInt() ==
+                1000000);
+            BEAST_EXPECT(acct_bridge[sfXChainBridge.getJsonName()] == x.jvb);
+        }
+        {
             // Alice and Bob create a xchain sequence number that we can look
             // for in the ledger.
             test::jtx::XChainBridgeObjects x;
