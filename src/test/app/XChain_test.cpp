@@ -1022,7 +1022,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -1077,7 +1077,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             // Now modify the reward on the bridge
@@ -1140,7 +1140,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             // change signers - claim should not be processed is the batch
@@ -1486,7 +1486,7 @@ struct XChain_test : public beast::unit_test::suite,
         {
             XEnv mcEnv(*this);
             XEnv scEnv(*this, true);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
 
             mcEnv.tx(create_bridge(mcDoor, jvb)).close();
 
@@ -1539,7 +1539,7 @@ struct XChain_test : public beast::unit_test::suite,
                 scEnv.tx(xchain_claim(scAlice, jvb, claimID, amt, scBob))
                     .close();
                 BEAST_EXPECT(!scEnv.claimID(jvb, claimID));  // claim id deleted
-                BEAST_EXPECT(scEnv.claimID(jvb) == claimID + 1);
+                BEAST_EXPECT(scEnv.claimID(jvb) == claimID);
             }
 
             BEAST_EXPECT(transfer.has_happened(amt, split_reward_everyone));
@@ -1579,7 +1579,7 @@ struct XChain_test : public beast::unit_test::suite,
                 .close()
                 .tx(xchain_create_claim_id(scAlice, jvb, reward, mcAlice))
                 .close();
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             BEAST_EXPECT(!!scEnv.claimID(jvb, claimID));  // claim id present
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
@@ -1619,7 +1619,7 @@ struct XChain_test : public beast::unit_test::suite,
                     .close();
             }
 
-            BEAST_EXPECT(!scEnv.claimID(jvb, 0));  // claim id deleted
+            BEAST_EXPECT(!scEnv.claimID(jvb, 1));  // claim id deleted
 
             BEAST_EXPECT(transfer.has_happened(
                 amt, divide(reward, STAmount(3), reward.issue())));
@@ -1656,7 +1656,7 @@ struct XChain_test : public beast::unit_test::suite,
                 .close()
                 .tx(xchain_create_claim_id(scAlice, jvb, reward, mcAlice))
                 .close();
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             BEAST_EXPECT(!!scEnv.claimID(jvb, claimID));  // claim id present
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
@@ -1733,7 +1733,7 @@ struct XChain_test : public beast::unit_test::suite,
                 .tx(xchain_create_claim_id(scAlice, jvb, reward, mcAlice))
                 .close();
 
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             BEAST_EXPECT(!!scEnv.claimID(jvb, claimID));  // claim id present
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
@@ -1808,7 +1808,7 @@ struct XChain_test : public beast::unit_test::suite,
                 .tx(xchain_create_claim_id(scAlice, jvb, reward, mcAlice))
                 .close();
 
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             BEAST_EXPECT(!!scEnv.claimID(jvb, claimID));  // claim id present
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
@@ -2347,7 +2347,7 @@ struct XChain_test : public beast::unit_test::suite,
 
         XEnv mcEnv(*this);
         XEnv scEnv(*this, true);
-        std::uint32_t const claimID = 0;
+        std::uint32_t const claimID = 1;
 
         mcEnv.tx(create_bridge(mcDoor, jvb)).close();
 
@@ -2497,7 +2497,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2555,7 +2555,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(std::optional<Account>{scBob});
             auto const amt = mcIssue(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2597,7 +2597,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2656,7 +2656,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2716,7 +2716,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv
                 .tx(xchain_commit(mcAlice, jvb_unknown, claimID, amt, dst),
                     ter(tecNO_ENTRY))
@@ -2769,7 +2769,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2820,7 +2820,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2879,7 +2879,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2919,7 +2919,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -2953,7 +2953,7 @@ struct XChain_test : public beast::unit_test::suite,
             BEAST_EXPECT(transfer.has_not_happened());
         }
 
-        // Claim id of zero => should succeed
+        // Claim id of zero
         // ----------------
         for (auto withClaim : {false, true})
         {
@@ -2970,17 +2970,11 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
-                scEnv,
-                Account::master,
-                scBob,
-                scAlice,
-                &payees[0],
-                UT_XCHAIN_DEFAULT_QUORUM,
-                withClaim);
+                scEnv, Account::master, scBob, scAlice, payees, withClaim);
 
             scEnv
                 .multiTx(
@@ -2994,7 +2988,7 @@ struct XChain_test : public beast::unit_test::suite,
                         0,
                         dst,
                         signers),
-                    ter(tesSUCCESS))
+                    ter(tecXCHAIN_NO_CLAIM_ID))
                 .close();
             if (withClaim)
             {
@@ -3003,11 +2997,11 @@ struct XChain_test : public beast::unit_test::suite,
                 // need to submit a claim transactions
                 scEnv
                     .tx(xchain_claim(scAlice, jvb, 0, amt, scBob),
-                        ter(tesSUCCESS))
+                        ter(tecXCHAIN_NO_CLAIM_ID))
                     .close();
             }
 
-            BEAST_EXPECT(transfer.has_happened(amt, split_reward_quorum));
+            BEAST_EXPECT(transfer.has_not_happened());
         }
 
         // Claim issue that does not match the expected issue on the bridge
@@ -3030,7 +3024,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3086,7 +3080,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scuBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3144,7 +3138,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3222,7 +3216,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3273,7 +3267,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3352,7 +3346,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3437,7 +3431,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             auto batch = attestation_claim_batch(
@@ -3476,7 +3470,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3529,7 +3523,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3587,7 +3581,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3649,7 +3643,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             BalanceTransfer transfer(
@@ -3702,7 +3696,7 @@ struct XChain_test : public beast::unit_test::suite,
 
             auto dst(withClaim ? std::nullopt : std::optional<Account>{scBob});
             auto const amt = XRP(1000);
-            std::uint32_t const claimID = 0;
+            std::uint32_t const claimID = 1;
             mcEnv.tx(xchain_commit(mcAlice, jvb, claimID, amt, dst)).close();
 
             // balance of last signer should not change (has deposit auth)
@@ -4513,7 +4507,7 @@ private:
                 .close();  // needed for claim_id sequence to be
                            // correct'
             st.spendFee(xfer.to);
-            return st.counters[&bridge_].claim_id++;
+            return ++st.counters[&bridge_].claim_id;
         }
 
         void

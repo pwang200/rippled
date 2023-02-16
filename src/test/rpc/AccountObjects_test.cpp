@@ -480,7 +480,7 @@ public:
                 BEAST_EXPECT(
                     xchain_seq[sfAccount.jsonName] == x.scAlice.human());
                 BEAST_EXPECT(
-                    xchain_seq[sfXChainClaimID.getJsonName()].asUInt() == 0);
+                    xchain_seq[sfXChainClaimID.getJsonName()].asUInt() == 1);
             }
             {
                 // and the one for Bob
@@ -492,7 +492,7 @@ public:
                     resp[jss::result][jss::account_objects][0u];
                 BEAST_EXPECT(xchain_seq[sfAccount.jsonName] == x.scBob.human());
                 BEAST_EXPECT(
-                    xchain_seq[sfXChainClaimID.getJsonName()].asUInt() == 1);
+                    xchain_seq[sfXChainClaimID.getJsonName()].asUInt() == 2);
             }
         }
         {
