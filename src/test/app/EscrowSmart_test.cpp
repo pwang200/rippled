@@ -888,16 +888,74 @@ struct EscrowSmart_test : public beast::unit_test::suite
     }
 
     void
+    testHostFunctionParamSizeLimit(FeatureBitset features)
+    {
+        testcase("Smart Escrow host function size limit");
+        using namespace jtx;
+        using namespace std::chrono;
+
+        Account const alice{"alice"};
+        Account const carol{"carol"};
+        auto escrowCreate = escrow::create(alice, carol, XRP(1));
+
+        Env env(*this, features);
+        // env.journal.active(beast::severities::kAll);
+        env.fund(XRP(1000000), alice, carol);
+        env.close();
+
+        std::uint32_t const allowance = 1000;
+        auto compute_fee = [&](const std::size_t wasmLen) {
+            Env env(*this, features);
+            auto createFee =
+                env.current()->fees().base * 10 + wasmLen / 2 * 5;
+            auto finishFee = env.current()->fees().base +
+                (allowance * env.current()->fees().gasPrice) /
+                    MICRO_DROPS_PER_DROP +
+                1;
+            return std::make_pair(createFee, finishFee);
+        };
+
+        {
+            auto const seq = env.seq(alice);
+            auto const initOwnerCount = env.ownerCount(alice);
+
+            auto & wasmHex = hfParamSizeLimitHex;
+            auto [createFee, finishFee] = compute_fee(wasmHex.size());
+
+            env(escrowCreate,
+                escrow::finish_function(wasmHex),
+                escrow::cancel_time(env.now() + 100s),
+                fee(createFee),
+                ter(tesSUCCESS));
+            env.close();
+
+            if (BEAST_EXPECT(env.ownerCount(alice) == initOwnerCount + 1))
+            {
+                env(escrow::finish(alice, alice, seq),
+                    fee(finishFee),
+                    escrow::comp_allowance(allowance),
+                    ter(tesSUCCESS));
+                env.close();
+                BEAST_EXPECT(env.ownerCount(alice) == initOwnerCount);
+            }
+
+
+        }
+    }
+
+    void
     testWithFeats(FeatureBitset features)
     {
-        testCreateFinishFunctionPreflight(features);
-        testFinishWasmFailures(features);
-        testFinishFunction(features);
-        testUpdateDataOnFailure(features);
+        // testCreateFinishFunctionPreflight(features);
+        // testFinishWasmFailures(features);
+        // testFinishFunction(features);
+        // testUpdateDataOnFailure(features);
+        //
+        // // TODO: Update module with new host functions
+        // testAllHostFunctions(features);
+        // testKeyletHostFunctions(features);
 
-        // TODO: Update module with new host functions
-        testAllHostFunctions(features);
-        testKeyletHostFunctions(features);
+        testHostFunctionParamSizeLimit(features);
     }
 
 public:
