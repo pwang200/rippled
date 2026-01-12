@@ -1,0 +1,15 @@
+[package]
+name = "wasm-fuzzer-lib"
+version = "0.1.0"
+edition = "2024"
+
+[lib] 
+name = "fuzzer_smith"
+crate-type = ["cdylib"]
+
+
+[dependencies]
+arbitrary = "1.4.2"
+wasm-smith = { path = "./wasm-smith", features = ["wasmparser"] }
+wat = "1.243.0"
+tree-sitter = "0.25.10"
