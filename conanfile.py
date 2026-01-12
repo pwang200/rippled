@@ -18,6 +18,7 @@ class Xrpl(ConanFile):
         "assertions": [True, False],
         "coverage": [True, False],
         "fPIC": [True, False],
+        "fuzzer": [True, False],
         "jemalloc": [True, False],
         "rocksdb": [True, False],
         "shared": [True, False],
@@ -51,6 +52,7 @@ class Xrpl(ConanFile):
         "assertions": False,
         "coverage": False,
         "fPIC": True,
+        "fuzzer": False,
         "jemalloc": False,
         "rocksdb": True,
         "shared": False,
@@ -142,6 +144,7 @@ class Xrpl(ConanFile):
         "cfg/*",
         "cmake/*",
         "external/*",
+        "fuzz/*",
         "include/*",
         "src/*",
     )
@@ -159,6 +162,7 @@ class Xrpl(ConanFile):
         tc.variables["tests"] = self.options.tests
         tc.variables["assert"] = self.options.assertions
         tc.variables["coverage"] = self.options.coverage
+        tc.variables["fuzzer"] = self.options.fuzzer
         tc.variables["jemalloc"] = self.options.jemalloc
         tc.variables["rocksdb"] = self.options.rocksdb
         tc.variables["BUILD_SHARED_LIBS"] = self.options.shared

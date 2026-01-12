@@ -107,11 +107,13 @@ else ()
       # tweak gcc optimization for debug
       $<$<AND:$<BOOL:${is_gcc}>,$<CONFIG:Debug>>:-O0>
       # Add debug symbols to release config
-      $<$<CONFIG:Release>:-g>)
+      $<$<CONFIG:Release>:-g>
+      $<$<BOOL:${fuzzer}>:-fsanitize=fuzzer-no-link>)
   target_link_libraries (common
     INTERFACE
       -rdynamic
       $<$<BOOL:${is_linux}>:-Wl,-z,relro,-z,now,--build-id>
+      $<$<BOOL:${fuzzer}>:-fsanitize=fuzzer-no-link>
       # link to static libc/c++ iff:
       #   * static option set and
       #   * NOT APPLE (AppleClang does not support static libc/c++) and

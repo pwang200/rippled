@@ -1,0 +1,9 @@
+[package]
+name = "autarkie-fuzzer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+autarkie = { git = "https://github.com/R9295/autarkie", version = "0.7.0", features = ["afl", "derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
+wabt = { git = "https://github.com/R9295/wabt-rs", version = "0.10.0" }

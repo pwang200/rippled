@@ -87,6 +87,14 @@ target_link_libraries(xrpl.libxrpl.json PUBLIC xrpl.libxrpl.basics)
 add_module(xrpl crypto)
 target_link_libraries(xrpl.libxrpl.crypto PUBLIC xrpl.libxrpl.basics)
 
+# Level 03.5
+add_module(xrpl core)
+target_link_libraries(xrpl.libxrpl.core PUBLIC
+  xrpl.libxrpl.basics
+  xrpl.libxrpl.beast
+  xrpl.libxrpl.json
+)
+
 # Level 04
 add_module(xrpl protocol)
 target_link_libraries(xrpl.libxrpl.protocol PUBLIC
@@ -95,18 +103,10 @@ target_link_libraries(xrpl.libxrpl.protocol PUBLIC
 )
 
 # Level 05
-add_module(xrpl core)
-target_link_libraries(xrpl.libxrpl.core PUBLIC
-  xrpl.libxrpl.basics
-  xrpl.libxrpl.json
-  xrpl.libxrpl.protocol
-)
-
-# Level 06
 add_module(xrpl resource)
 target_link_libraries(xrpl.libxrpl.resource PUBLIC xrpl.libxrpl.protocol)
 
-# Level 07
+# Level 06
 add_module(xrpl net)
 target_link_libraries(xrpl.libxrpl.net PUBLIC
   xrpl.libxrpl.basics
@@ -175,7 +175,39 @@ target_link_modules(xrpl PUBLIC
 #     $<INSTALL_INTERFACE:include>)
 
 if(xrpld)
+  add_library(xrpld_core OBJECT)
+  target_include_directories(xrpld_core
+    PUBLIC
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+  )
+
+  file(GLOB_RECURSE xrpld_sources CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/xrpld/*.cpp"
+  )
+  list(FILTER xrpld_sources EXCLUDE REGEX "/Main\\.cpp$")
+  target_sources(xrpld_core PRIVATE ${xrpld_sources})
+
+  if(tests)
+    target_compile_definitions(xrpld_core PUBLIC ENABLE_TESTS)
+    target_compile_definitions(xrpld_core PRIVATE
+                                       UNIT_TEST_REFERENCE_FEE=${UNIT_TEST_REFERENCE_FEE}
+    )
+    file(GLOB_RECURSE xrpld_test_sources CONFIGURE_DEPENDS
+      "${CMAKE_CURRENT_SOURCE_DIR}/src/test/*.cpp"
+    )
+    target_sources(xrpld_core PRIVATE ${xrpld_test_sources})
+  endif()
+
+  target_link_libraries(xrpld_core
+    PUBLIC
+      Xrpl::boost
+      Xrpl::opts
+      Xrpl::libs
+      xrpl.libxrpl
+  )
+
   add_executable(xrpld)
+  target_sources(xrpld PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/xrpld/app/main/Main.cpp")
   if(tests)
     target_compile_definitions(xrpld PUBLIC ENABLE_TESTS)
     target_compile_definitions(xrpld PRIVATE
@@ -186,28 +218,10 @@ if(xrpld)
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
   )
-
-  file(GLOB_RECURSE sources CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/xrpld/*.cpp"
-  )
-  target_sources(xrpld PRIVATE ${sources})
-
-  if(tests)
-    file(GLOB_RECURSE sources CONFIGURE_DEPENDS
-      "${CMAKE_CURRENT_SOURCE_DIR}/src/test/*.cpp"
-    )
-    target_sources(xrpld PRIVATE ${sources})
-  endif()
-
-  target_link_libraries(xrpld
-    Xrpl::boost
-    Xrpl::opts
-    Xrpl::libs
-    xrpl.libxrpl
-  )
+  target_link_libraries(xrpld PRIVATE xrpld_core)
   exclude_if_included(xrpld)
   # define a macro for tests that might need to
-  # be excluded or run differently in CI environment
+  # be exluded or run differently in CI environment
   if(is_ci)
     target_compile_definitions(xrpld PRIVATE XRPL_RUNNING_IN_CI)
   endif ()
@@ -233,4 +247,6 @@ if(xrpld)
       src/test/ledger/Invariants_test.cpp
       PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
   endif()
+  # For the time being, we will keep the name of the binary as it was.
+  set_target_properties(xrpld PROPERTIES OUTPUT_NAME "rippled")
 endif()
