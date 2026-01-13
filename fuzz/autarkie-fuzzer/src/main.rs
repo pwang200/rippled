@@ -1520,7 +1520,7 @@ impl FuzzData {
 
         // Main function that calls all host functions
         wat.push_str("  ;; Main fuzz function\n");
-        wat.push_str("  (func (export \"1\") (result i32)\n");
+        wat.push_str("  (func (export \"fuzz\") (result i32)\n");
 
         for call in &self.calls {
             wat.push_str("    ");

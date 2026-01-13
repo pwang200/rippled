@@ -73,25 +73,35 @@ xrpl::ApplyContext createFuzzerApplyContext(
 
 }  // namespace
 
+// Reset and populate ledger environment
+void
+fundEnv(xrpl::test::jtx::Env& env);
+
 extern "C" int
 LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     using namespace xrpl::test::jtx;
     auto& state = getGlobalState();
     state.env = createFuzzerEnv();
+    fundEnv(*state.env);
+    return 0;
+}
+
+// Reset and populate ledger environment
+void fundEnv(xrpl::test::jtx::Env& env) {
+    using namespace xrpl::test::jtx;
     // Pre-populate with accounts
     Account const alice("alice");
     Account const bob("bob");
     Account const carol("carol");
 
-    state.env->fund(XRP(1000000000000000000), alice, bob, carol);
-    state.env->close();
-    // Create escrows for testing
-    auto const finishTime = state.env->now() + std::chrono::seconds(1);
-    state.env->apply(
+    env.fund(XRP(10000), alice, bob, carol);
+    env.close();
+     // Create escrows for testing
+    auto const finishTime = env.now() + std::chrono::seconds(1);
+    env.apply(
         escrow::create(alice, bob, XRP(100)), escrow::finish_time(finishTime));
-    state.env->close();
-    return 0;
+    env.close();
 }
 
 struct Slice
@@ -121,6 +131,7 @@ LLVMFuzzerTestOneInput(uint8_t const* ptr, size_t size)
     std::vector<uint8_t> wasm(module.ptr, module.ptr + module.len);
 #endif
     auto& state = getGlobalState();
+    fundEnv(*state.env);
     auto const dummyEscrow =
             xrpl::keylet::escrow(state.env->master, state.env->seq(state.env->master));
     xrpl::OpenView ov{*state.env->current()};
