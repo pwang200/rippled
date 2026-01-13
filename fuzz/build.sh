@@ -3,10 +3,11 @@ set -euo pipefail
 
 usage() {
   cat <<USAGE
-Usage: $0 [host] [afl|asan|coverage]
+Usage: $0 [host] [afl|ubsan|asan|coverage]
   host      Build with FUZZ_HOST enabled
   afl       Build with afl-clang-fast instrumentation (default)
-  asan      Build with clang + AddressSanitizer
+  asan      Build with afl-clang-fast + AddressSanitizer
+  ubsan     Build with afl-clang-fast + UndefinedBehaviorSanitizer
   coverage  Build with clang + LLVM coverage (-fprofile-instr-generate -fcoverage-mapping)
 USAGE
 }
@@ -19,7 +20,7 @@ fi
 
 variant=${1:-afl}
 case "$variant" in
-  afl|asan|coverage) ;;
+  afl|asan|ubsan|coverage) ;;
   -h|--help) usage; exit 0 ;;
   *) echo "Unknown variant '$variant'" >&2; usage; exit 1 ;;
 esac
@@ -75,6 +76,21 @@ case "$variant" in
     AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
     ;;
   asan)
+    cxx_flags="-fsanitize=address"
+    if $host_build; then
+      cxx_flags+=" -DFUZZ_HOST"
+    fi
+    build_dir=build-fuzz-asan
+    if $host_build; then
+      build_dir=build-fuzz-host-asan
+    fi
+    setup "$build_dir" Debug afl-clang-fast afl-clang-fast++ \
+      "-DCMAKE_CXX_FLAGS=${cxx_flags}" \
+      -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
+      -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld
+      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
+    ;;
+  ubsan)
     cxx_flags="-fsanitize=undefined"
     if $host_build; then
       cxx_flags+=" -DFUZZ_HOST"
