@@ -64,32 +64,44 @@ case "$variant" in
     if $host_build; then
       extra_cxx_flags+=("-DCMAKE_CXX_FLAGS=-DFUZZ_HOST")
     fi
-    setup build-afl Release afl-clang-fast afl-clang-fast++ \
+    build_dir=build-fuzz-afl
+    if $host_build; then
+      build_dir=build-fuzz-host-afl
+    fi
+    setup "$build_dir" Debug afl-clang-fast afl-clang-fast++ \
       -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
       -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
       "${extra_cxx_flags[@]}"
-    AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build build-afl --target wasm_fuzzer -j"$(nproc)"
+    AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
     ;;
   asan)
     cxx_flags="-fsanitize=undefined"
     if $host_build; then
       cxx_flags+=" -DFUZZ_HOST"
     fi
-    setup build-ubsan Debug afl-clang-fast afl-clang-fast++ \
+    build_dir=build-fuzz-ubsan
+    if $host_build; then
+      build_dir=build-fuzz-host-ubsan
+    fi
+    setup "$build_dir" Debug afl-clang-fast afl-clang-fast++ \
       "-DCMAKE_CXX_FLAGS=${cxx_flags}" \
       -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
       -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld
-      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build build-ubsan --target wasm_fuzzer -j"$(nproc)"
+      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
     ;;
   coverage)
     extra_cxx_flags=()
     if $host_build; then
       extra_cxx_flags+=("-DCMAKE_CXX_FLAGS=-DFUZZ_HOST")
     fi
-    setup build-cov-release Release clang clang++ \
+    build_dir=build-fuzz-cov-release
+    if $host_build; then
+      build_dir=build-fuzz-host-cov-release
+    fi
+    setup "$build_dir" Release clang clang++ \
       -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
       -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
       "${extra_cxx_flags[@]}"
-    cmake --build build-cov-release --target wasm_fuzzer -j"$(nproc)"
+    cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
     ;;
 esac
