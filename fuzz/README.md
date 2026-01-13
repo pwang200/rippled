@@ -76,7 +76,7 @@ Here are the steps to fetch coverage:
 ```
 ./build.sh coverage
 ../build-fuzz-coverage/fuzz/wasm/wasm_fuzzer -runs=0 -print-coverage=1 <afl output directory>/mainaflfuzzer/queue/
-llvm-profdata-21 merge -sprase default.profraw -o ./default.profdata
+llvm-profdata-21 merge default.profraw -o ./default.profdata
 llvm-cov-21 show -format=html -instr-profile ./default.profdata ../build-fuzz-coverage/fuzz/wasm/wasm_fuzzer -o ./coverage-out
 cd coverage-out
 python3 -m http.server
@@ -86,7 +86,7 @@ python3 -m http.server
 ```
 ./build.sh coverage
 ../build-fuzz-coverage/fuzz/wasm/wasm_fuzzer -runs=0 -print-coverage=1 <grammar output directory>/0/rendered_corpus/
-llvm-profdata-21 merge -sprase default.profraw -o ./default.profdata
+llvm-profdata-21 merge default.profraw -o ./default.profdata
 llvm-cov-21 show -format=html -instr-profile ./default.profdata ../build-fuzz-coverage/fuzz/wasm/wasm_fuzzer -o ./coverage-out
 cd coverage-out
 python3 -m http.server

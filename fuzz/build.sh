@@ -115,6 +115,7 @@ case "$variant" in
       build_dir=build-fuzz-host-coverage
     fi
     setup "$build_dir" Release clang clang++ \
+      "-DCMAKE_CXX_FLAGS=-fprofile-instr-generate -fcoverage-mapping" \
       -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
       -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
       "${extra_cxx_flags[@]}"
