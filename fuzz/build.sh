@@ -110,9 +110,9 @@ case "$variant" in
     if $host_build; then
       extra_cxx_flags+=("-DCMAKE_CXX_FLAGS=-DFUZZ_HOST")
     fi
-    build_dir=build-fuzz-cov-release
+    build_dir=build-fuzz-coverage
     if $host_build; then
-      build_dir=build-fuzz-host-cov-release
+      build_dir=build-fuzz-host-coverage
     fi
     setup "$build_dir" Release clang clang++ \
       -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
