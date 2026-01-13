@@ -76,8 +76,21 @@ xrpl::ApplyContext createFuzzerApplyContext(
 extern "C" int
 LLVMFuzzerInitialize(int* argc, char*** argv)
 {
+    using namespace xrpl::test::jtx;
     auto& state = getGlobalState();
     state.env = createFuzzerEnv();
+    // Pre-populate with accounts
+    Account const alice("alice");
+    Account const bob("bob");
+    Account const carol("carol");
+
+    state.env->fund(XRP(1000000000000000000), alice, bob, carol);
+    state.env->close();
+    // Create escrows for testing
+    auto const finishTime = state.env->now() + std::chrono::seconds(1);
+    state.env->apply(
+        escrow::create(alice, bob, XRP(100)), escrow::finish_time(finishTime));
+    state.env->close();
     return 0;
 }
 
