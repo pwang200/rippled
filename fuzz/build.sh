@@ -35,7 +35,6 @@ setup() {
   if ! conan remote list | grep -q '^xrplf'; then
     conan remote add xrplf https://conan.ripplex.io --force
   fi
-  conan export external/wasmi --version=0.42.1
   conan install . \
     --output-folder="$build_dir" \
     -o fuzzer=True \
@@ -46,6 +45,9 @@ setup() {
     -s compiler.cppstd=20 \
     -s compiler.libcxx=libstdc++11 \
     -s build_type=$build_type
+  cd ./fuzz/wasm-smith-lib
+  cargo build --release
+  cd ../..
   cmake -S . -B "$build_dir" \
     -DCMAKE_TOOLCHAIN_FILE="$build_dir/build/generators/conan_toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=$build_type \
