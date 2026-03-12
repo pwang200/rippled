@@ -9,8 +9,15 @@ add_executable(wasm_fuzzer
 target_link_libraries(wasm_fuzzer PRIVATE xrpld_core)
 
 add_library(fuzzer_smith SHARED IMPORTED)
+if(APPLE)
+    set(FUZZER_SMITH_EXT "dylib")
+elseif(WIN32)
+    set(FUZZER_SMITH_EXT "dll")
+else()
+    set(FUZZER_SMITH_EXT "so")
+endif()
 set_target_properties(fuzzer_smith PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/../wasm-smith-lib/target/release/libfuzzer_smith.so" # or dylib / dll
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/../wasm-smith-lib/target/release/libfuzzer_smith.${FUZZER_SMITH_EXT}"
 )
 target_link_libraries(wasm_fuzzer PRIVATE fuzzer_smith)
 

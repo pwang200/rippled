@@ -12,6 +12,36 @@ Usage: $0 [host] [afl|ubsan|asan|coverage]
 USAGE
 }
 
+# OS detection
+OS="$(uname -s)"
+case "$OS" in
+  Linux)
+    LIBCXX="libstdc++11"
+    NPROC="$(nproc)"
+    CLANG_BIN="clang-21"
+    CLANGXX_BIN="clang++-21"
+    # Tell afl-clang-fast to use clang-21 instead of its default (Ubuntu package
+    # ships with clang-17). This must match the version used to build conan deps.
+    AFL_ENV=("AFL_CC=clang-21" "AFL_CXX=clang++-21")
+    LINKER_FLAGS=("-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld-21" "-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld-21")
+    ;;
+  Darwin)
+    LIBCXX="libc++"
+    NPROC="$(sysctl -n hw.ncpu)"
+    # On macOS, brew's afl++ wraps its own clang; point it at clang-21 from llvm@21
+    LLVM21="/usr/local/opt/llvm@21/bin"
+    CLANG_BIN="${LLVM21}/clang-21"
+    CLANGXX_BIN="${LLVM21}/clang++"
+    AFL_ENV=("AFL_CC=${LLVM21}/clang-21" "AFL_CXX=${LLVM21}/clang++")
+    # macOS uses its own linker (ld64); lld is Linux-specific
+    LINKER_FLAGS=()
+    ;;
+  *)
+    echo "Unsupported OS: $OS" >&2
+    exit 1
+    ;;
+esac
+
 host_build=false
 if [[ "${1:-}" == "host" ]]; then
   host_build=true
@@ -44,7 +74,7 @@ setup() {
     -s compiler=clang \
     -s compiler.version=21 \
     -s compiler.cppstd=20 \
-    -s compiler.libcxx=libstdc++11 \
+    -s compiler.libcxx=${LIBCXX} \
     -s build_type=$build_type
   cd ./fuzz/wasm-smith-lib
   cargo build --release
@@ -56,7 +86,7 @@ setup() {
     -DCMAKE_CXX_COMPILER=$cxx_comp \
     -Dxrpld=ON \
     -Dtests=OFF \
-    "${extra_cmake[@]}"
+    "${extra_cmake[@]+"${extra_cmake[@]}"}"
 }
 cd ..
 case "$variant" in
@@ -70,10 +100,11 @@ case "$variant" in
       build_dir=build-fuzz-host-afl
     fi
     setup "$build_dir" Debug afl-clang-fast afl-clang-fast++ \
-      -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
-      -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
-      "${extra_cxx_flags[@]}"
-    AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
+      "${LINKER_FLAGS[@]+"${LINKER_FLAGS[@]}"}" \
+      "${extra_cxx_flags[@]+"${extra_cxx_flags[@]}"}"
+    env "${AFL_ENV[@]+"${AFL_ENV[@]}"}" \
+      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt \
+      cmake --build "$build_dir" --target wasm_fuzzer -j"${NPROC}"
     ;;
   asan)
     cxx_flags="-fsanitize=address"
@@ -86,9 +117,10 @@ case "$variant" in
     fi
     setup "$build_dir" Debug afl-clang-fast afl-clang-fast++ \
       "-DCMAKE_CXX_FLAGS=${cxx_flags}" \
-      -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
-      -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld
-      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
+      "${LINKER_FLAGS[@]+"${LINKER_FLAGS[@]}"}"
+    env "${AFL_ENV[@]+"${AFL_ENV[@]}"}" \
+      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt \
+      cmake --build "$build_dir" --target wasm_fuzzer -j"${NPROC}"
     ;;
   ubsan)
     cxx_flags="-fsanitize=undefined"
@@ -101,9 +133,10 @@ case "$variant" in
     fi
     setup "$build_dir" Debug afl-clang-fast afl-clang-fast++ \
       "-DCMAKE_CXX_FLAGS=${cxx_flags}" \
-      -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
-      -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld
-      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
+      "${LINKER_FLAGS[@]+"${LINKER_FLAGS[@]}"}"
+    env "${AFL_ENV[@]+"${AFL_ENV[@]}"}" \
+      AFL_LLVM_CMPLOG=1 AFL_LLVM_ALLOWLIST=$(pwd)/fuzz/wasm/afl_allowlist.txt \
+      cmake --build "$build_dir" --target wasm_fuzzer -j"${NPROC}"
     ;;
   coverage)
     extra_cxx_flags=()
@@ -114,11 +147,10 @@ case "$variant" in
     if $host_build; then
       build_dir=build-fuzz-host-coverage
     fi
-    setup "$build_dir" Release clang clang++ \
+    setup "$build_dir" Release "${CLANG_BIN}" "${CLANGXX_BIN}" \
       "-DCMAKE_CXX_FLAGS=-fprofile-instr-generate -fcoverage-mapping" \
-      -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld \
-      -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld \
-      "${extra_cxx_flags[@]}"
-    cmake --build "$build_dir" --target wasm_fuzzer -j"$(nproc)"
+      "${LINKER_FLAGS[@]+"${LINKER_FLAGS[@]}"}" \
+      "${extra_cxx_flags[@]+"${extra_cxx_flags[@]}"}"
+    cmake --build "$build_dir" --target wasm_fuzzer -j"${NPROC}"
     ;;
 esac

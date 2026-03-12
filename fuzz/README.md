@@ -19,6 +19,41 @@ our generation is more accurate.
 If this changes, you must update the ``allowed_instructions`` field in ``wasm-smith-lib/src/lib.rs`` to include other instruction kinds.
 See the available ``IntructionKind`` at ``wasm-smith``'s [documentation](https://docs.rs/wasm-smith/latest/wasm_smith/enum.InstructionKind.html).
 
+# Docker (recommended on macOS)
+
+AFL++ requires Linux. On macOS the fork-server crashes because `jtx::Env`
+spawns threads before AFL's fork point. Use the provided `Dockerfile` to get
+a ready-made Linux environment.
+
+```bash
+# 1. Build the image once (from the repo root):
+docker build -t rippled-fuzz fuzz/
+
+# 2. Create a named volume for the conan cache so packages survive restarts:
+docker volume create rippled-fuzz-conan
+
+# 3. Start an interactive container with the repo mounted at /src:
+docker run --rm -it \
+  --privileged \
+  -v "$(pwd):/src" \
+  -v rippled-fuzz-conan:/root/.conan2 \
+  rippled-fuzz
+
+# 4. Inside the container — build and fuzz:
+cd /src
+./fuzz/build.sh afl
+echo "111111111111111111111111111111111111111111111" > fuzz/in/seed
+afl-fuzz -i fuzz/in -o fuzz/out -- build-fuzz-afl/fuzz/wasm/wasm_fuzzer -t3000
+```
+
+`--privileged` is needed so that AFL can adjust `/proc/sys/kernel/core_pattern`
+and disable ASLR inside the container. Without it AFL prints warnings but still
+runs (use `AFL_SKIP_CPUFREQ=1` and `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1` if
+you want to skip the checks instead).
+
+The conan named volume (`rippled-fuzz-conan`) caches downloaded packages so
+that the `conan install` step inside `build.sh` is fast on subsequent runs.
+
 # Running
 Executing a fuzzing campaign is straightforward.
 
