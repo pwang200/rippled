@@ -43,9 +43,14 @@ target_include_directories(wasm_fuzzer
     PRIVATE
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
 )
-# Add fuzzer instrumentation
-target_compile_options(wasm_fuzzer PRIVATE -fsanitize=fuzzer)
-target_link_options(wasm_fuzzer PRIVATE -fsanitize=fuzzer)
+# Add fuzzer instrumentation, unless building for coverage replay
+option(COVERAGE_BUILD "Build for coverage replay without libFuzzer runtime" OFF)
+if(COVERAGE_BUILD)
+    target_sources(wasm_fuzzer PRIVATE coverage_runner.cc)
+else()
+    target_compile_options(wasm_fuzzer PRIVATE -fsanitize=fuzzer)
+    target_link_options(wasm_fuzzer PRIVATE -fsanitize=fuzzer)
+endif()
 if (UNIX AND NOT APPLE)
     # Protobuf's constinit globals mutate during static init; RELRO makes
     # .data.rel.ro read-only before they run, so drop RELRO for this target.

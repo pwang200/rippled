@@ -16,7 +16,14 @@ USAGE
 OS="$(uname -s)"
 case "$OS" in
   Linux)
-    LIBCXX="libstdc++11"
+    # On arm64 Linux, clang can't reliably find GCC's libstdc++ headers;
+    # use clang's own libc++ instead.
+    ARCH="$(uname -m)"
+    if [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+      LIBCXX="libc++"
+    else
+      LIBCXX="libstdc++11"
+    fi
     NPROC="$(nproc)"
     CLANG_BIN="clang-21"
     CLANGXX_BIN="clang++-21"
@@ -42,6 +49,13 @@ case "$OS" in
     ;;
 esac
 
+# When using libc++, any -DCMAKE_CXX_FLAGS we pass on the cmake command line
+# overrides the conan toolchain's -stdlib=libc++.  Include it explicitly.
+STDLIB_FLAG=""
+if [[ "${LIBCXX}" == "libc++" ]]; then
+  STDLIB_FLAG="-stdlib=libc++"
+fi
+
 host_build=false
 if [[ "${1:-}" == "host" ]]; then
   host_build=true
@@ -66,10 +80,23 @@ setup() {
   if ! conan remote list | grep -q '^xrplf'; then
     conan remote add xrplf https://conan.ripplex.io --force
   fi
+  # On arm64 Linux we use libc++ (not libstdc++). The rippled CMake adds
+  # -static-libstdc++ when static=True, which conflicts with libc++.
+  local -a libcxx_opts=()
+  if [[ "${LIBCXX}" == "libc++" ]]; then
+    libcxx_opts=(
+      -o static=False
+      # boost locale and stacktrace_backtrace/addr2line fail to build with libc++;
+      # the fuzzer does not need them.
+      -o "boost/*:without_locale=True"
+      -o "boost/*:without_stacktrace=True"
+    )
+  fi
   conan install . \
     --output-folder="$build_dir" \
     -o fuzzer=True \
     -o tests=False \
+    "${libcxx_opts[@]+"${libcxx_opts[@]}"}" \
     --build=missing \
     -s compiler=clang \
     -s compiler.version=21 \
@@ -93,7 +120,7 @@ case "$variant" in
   afl)
     extra_cxx_flags=()
     if $host_build; then
-      extra_cxx_flags+=("-DCMAKE_CXX_FLAGS=-DFUZZ_HOST")
+      extra_cxx_flags+=("-DCMAKE_CXX_FLAGS=${STDLIB_FLAG} -DFUZZ_HOST")
     fi
     build_dir=build-fuzz-afl
     if $host_build; then
@@ -107,7 +134,7 @@ case "$variant" in
       cmake --build "$build_dir" --target wasm_fuzzer -j"${NPROC}"
     ;;
   asan)
-    cxx_flags="-fsanitize=address"
+    cxx_flags="${STDLIB_FLAG} -fsanitize=address"
     if $host_build; then
       cxx_flags+=" -DFUZZ_HOST"
     fi
@@ -123,7 +150,7 @@ case "$variant" in
       cmake --build "$build_dir" --target wasm_fuzzer -j"${NPROC}"
     ;;
   ubsan)
-    cxx_flags="-fsanitize=undefined"
+    cxx_flags="${STDLIB_FLAG} -fsanitize=undefined"
     if $host_build; then
       cxx_flags+=" -DFUZZ_HOST"
     fi
@@ -141,14 +168,15 @@ case "$variant" in
   coverage)
     extra_cxx_flags=()
     if $host_build; then
-      extra_cxx_flags+=("-DCMAKE_CXX_FLAGS=-DFUZZ_HOST")
+      extra_cxx_flags+=("-DCMAKE_CXX_FLAGS=${STDLIB_FLAG} -DFUZZ_HOST")
     fi
     build_dir=build-fuzz-coverage
     if $host_build; then
       build_dir=build-fuzz-host-coverage
     fi
     setup "$build_dir" Release "${CLANG_BIN}" "${CLANGXX_BIN}" \
-      "-DCMAKE_CXX_FLAGS=-fprofile-instr-generate -fcoverage-mapping" \
+      "-DCMAKE_CXX_FLAGS=${STDLIB_FLAG} -fprofile-instr-generate -fcoverage-mapping" \
+      "-DCOVERAGE_BUILD=ON" \
       "${LINKER_FLAGS[@]+"${LINKER_FLAGS[@]}"}" \
       "${extra_cxx_flags[@]+"${extra_cxx_flags[@]}"}"
     cmake --build "$build_dir" --target wasm_fuzzer -j"${NPROC}"

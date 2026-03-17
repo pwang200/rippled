@@ -39,8 +39,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     # for conan
     python3-setuptools \
-    # lld linker (same major version as clang below)
-    lld \
     && rm -rf /var/lib/apt/lists/*
 
 # ── CMake (recent) ───────────────────────────────────────────────────────────
@@ -59,6 +57,8 @@ RUN wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key \
     apt-get update && apt-get install -y --no-install-recommends \
       clang-21 \
       lld-21 \
+      libc++-21-dev \
+      libc++abi-21-dev \
     && update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-21   100 \
     && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100 \
     && update-alternatives --install /usr/bin/cc      cc      /usr/bin/clang-21   100 \
@@ -107,7 +107,16 @@ RUN pip3 install --break-system-packages conan && \
     # Initialize conan config directories, then override default profile to clang-21.
     # conan profile detect auto-detects GCC (from build-essential) which we do not want.
     conan profile detect --force && \
-    printf '[settings]\narch=x86_64\nbuild_type=Release\ncompiler=clang\ncompiler.cppstd=20\ncompiler.libcxx=libstdc++11\ncompiler.version=21\nos=Linux\n' \
+    # Detect architecture: map dpkg arch names to Conan arch names and pick
+    # the right C++ stdlib.  On arm64 clang cannot reliably find GCC's
+    # libstdc++ headers, so we use clang's own libc++ instead.
+    DPKG_ARCH="$(dpkg --print-architecture)" && \
+    case "$DPKG_ARCH" in \
+      amd64) CONAN_ARCH="x86_64"; CONAN_LIBCXX="libstdc++11" ;; \
+      arm64) CONAN_ARCH="armv8";  CONAN_LIBCXX="libc++" ;; \
+      *) echo "Unsupported architecture: $DPKG_ARCH" >&2; exit 1 ;; \
+    esac && \
+    printf "[settings]\narch=${CONAN_ARCH}\nbuild_type=Release\ncompiler=clang\ncompiler.cppstd=20\ncompiler.libcxx=${CONAN_LIBCXX}\ncompiler.version=21\nos=Linux\n" \
       > ~/.conan2/profiles/default && \
     # Add the xrplf remote used by rippled's conanfile.py
     conan remote add xrplf https://conan.ripplex.io --force
