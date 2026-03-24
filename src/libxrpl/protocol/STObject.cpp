@@ -41,11 +41,12 @@
 
 namespace xrpl {
 
-STObject::STObject(STObject&& other) : STBase(other.getFName()), v_(std::move(other.v_)), mType(other.mType)
+STObject::STObject(STObject&& other)
+    : STBase(other.getFName()), v_(std::move(other.v_)), mType(other.mType)
 {
 }
 
-STObject::STObject(SField const& name) : STBase(name), mType(nullptr)
+STObject::STObject(SField const& name) : STBase(name)
 {
 }
 
@@ -61,7 +62,7 @@ STObject::STObject(SOTemplate const& type, SerialIter& sit, SField const& name) 
     applyTemplate(type);  // May throw
 }
 
-STObject::STObject(SerialIter& sit, SField const& name, int depth) noexcept(false) : STBase(name), mType(nullptr)
+STObject::STObject(SerialIter& sit, SField const& name, int depth) noexcept(false) : STBase(name)
 {
     if (depth > 10)
         Throw<std::runtime_error>("Maximum nesting depth of STObject exceeded");
@@ -83,7 +84,8 @@ STObject::makeInnerObject(SField const& name)
     if (!rules || (rules->enabled(fixInnerObjTemplate) && isAMMObj) ||
         (rules->enabled(fixInnerObjTemplate2) && !isAMMObj))
     {
-        if (SOTemplate const* elements = InnerObjectFormats::getInstance().findSOTemplateBySField(name))
+        if (SOTemplate const* elements =
+                InnerObjectFormats::getInstance().findSOTemplateBySField(name))
             obj.set(*elements);
     }
     return obj;
@@ -138,9 +140,13 @@ STObject::set(SOTemplate const& type)
     for (auto const& elem : type)
     {
         if (elem.style() != soeREQUIRED)
+        {
             v_.emplace_back(detail::nonPresentObject, elem.sField());
+        }
         else
+        {
             v_.emplace_back(detail::defaultObject, elem.sField());
+        }
     }
 }
 
@@ -160,8 +166,9 @@ STObject::applyTemplate(SOTemplate const& type)
     v.reserve(type.size());
     for (auto const& e : type)
     {
-        auto const iter = std::find_if(
-            v_.begin(), v_.end(), [&](detail::STVar const& b) { return b.get().getFName() == e.sField(); });
+        auto const iter = std::find_if(v_.begin(), v_.end(), [&](detail::STVar const& b) {
+            return b.get().getFName() == e.sField();
+        });
         if (iter != v_.end())
         {
             if ((e.style() == soeDEFAULT) && iter->get().isDefault())
@@ -212,8 +219,8 @@ STObject::set(SerialIter& sit, int depth)
     // Consume data in the pipe until we run out or reach the end
     while (!sit.empty())
     {
-        int type;
-        int field;
+        int type = 0;
+        int field = 0;
 
         // Get the metadata for the next field
         sit.getFieldID(type, field);
@@ -236,7 +243,8 @@ STObject::set(SerialIter& sit, int depth)
 
         if (fn.isInvalid())
         {
-            JLOG(debugLog().error()) << "Unknown field: field_type=" << type << ", field_name=" << field;
+            JLOG(debugLog().error())
+                << "Unknown field: field_type=" << type << ", field_name=" << field;
             Throw<std::runtime_error>("Unknown field");
         }
 
@@ -252,9 +260,10 @@ STObject::set(SerialIter& sit, int depth)
     // duplicate fields. This is a key invariant:
     auto const sf = getSortedFields(*this, withAllFields);
 
-    auto const dup = std::adjacent_find(sf.cbegin(), sf.cend(), [](STBase const* lhs, STBase const* rhs) {
-        return lhs->getFName() == rhs->getFName();
-    });
+    auto const dup =
+        std::adjacent_find(sf.cbegin(), sf.cend(), [](STBase const* lhs, STBase const* rhs) {
+            return lhs->getFName() == rhs->getFName();
+        });
 
     if (dup != sf.cend())
         Throw<std::runtime_error>("Duplicate field detected");
@@ -263,7 +272,7 @@ STObject::set(SerialIter& sit, int depth)
 }
 
 bool
-STObject::hasMatchingEntry(STBase const& t)
+STObject::hasMatchingEntry(STBase const& t) const
 {
     STBase const* o = peekAtPField(t.getFName());
 
@@ -285,16 +294,22 @@ STObject::getFullText() const
         ret += " = {";
     }
     else
+    {
         ret = "{";
+    }
 
     for (auto const& elem : v_)
     {
         if (elem->getSType() != STI_NOTPRESENT)
         {
             if (!first)
+            {
                 ret += ", ";
+            }
             else
+            {
                 first = false;
+            }
 
             ret += elem->getFullText();
         }
@@ -333,17 +348,19 @@ STObject::isEquivalent(STBase const& t) const
 
     if (mType != nullptr && v->mType == mType)
     {
-        return std::equal(begin(), end(), v->begin(), v->end(), [](STBase const& st1, STBase const& st2) {
-            return (st1.getSType() == st2.getSType()) && st1.isEquivalent(st2);
-        });
+        return std::equal(
+            begin(), end(), v->begin(), v->end(), [](STBase const& st1, STBase const& st2) {
+                return (st1.getSType() == st2.getSType()) && st1.isEquivalent(st2);
+            });
     }
 
     auto const sf1 = getSortedFields(*this, withAllFields);
     auto const sf2 = getSortedFields(*v, withAllFields);
 
-    return std::equal(sf1.begin(), sf1.end(), sf2.begin(), sf2.end(), [](STBase const* st1, STBase const* st2) {
-        return (st1->getSType() == st2->getSType()) && st1->isEquivalent(*st2);
-    });
+    return std::equal(
+        sf1.begin(), sf1.end(), sf2.begin(), sf2.end(), [](STBase const* st1, STBase const* st2) {
+            return (st1->getSType() == st2->getSType()) && st1->isEquivalent(*st2);
+        });
 }
 
 uint256

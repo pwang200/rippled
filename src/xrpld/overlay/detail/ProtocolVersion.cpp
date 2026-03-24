@@ -30,7 +30,8 @@ constexpr ProtocolVersion const supportedProtocolList[]
 // FIXME: With C++20 we can use std::is_sorted with an appropriate comparator
 static_assert(
     []() constexpr -> bool {
-        auto const len = std::distance(std::begin(supportedProtocolList), std::end(supportedProtocolList));
+        auto const len =
+            std::distance(std::begin(supportedProtocolList), std::end(supportedProtocolList));
 
         // There should be at least one protocol we're willing to speak.
         if (len == 0)
@@ -80,8 +81,8 @@ parseProtocolVersions(boost::beast::string_view const& value)
 
         if (boost::regex_match(s, m, re))
         {
-            std::uint16_t major;
-            std::uint16_t minor;
+            std::uint16_t major = 0;
+            std::uint16_t minor = 0;
             if (!beast::lexicalCastChecked(major, std::string(m[1])))
                 continue;
 
@@ -114,7 +115,9 @@ negotiateProtocolVersion(std::vector<ProtocolVersion> const& versions)
     // output of std::set_intersection is sorted, that item is always going
     // to be the last one. So we get a little clever and avoid the need for
     // a container:
-    std::function<void(ProtocolVersion const&)> pickVersion = [&result](ProtocolVersion const& v) { result = v; };
+    std::function<void(ProtocolVersion const&)> pickVersion = [&result](ProtocolVersion const& v) {
+        result = v;
+    };
 
     std::set_intersection(
         std::begin(versions),

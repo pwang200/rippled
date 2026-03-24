@@ -1,16 +1,15 @@
 #include <test/jtx.h>
 #include <test/jtx/PathSet.h>
 
-#include <xrpld/app/paths/AMMContext.h>
-#include <xrpld/app/paths/Flow.h>
-#include <xrpld/app/paths/detail/Steps.h>
-#include <xrpld/app/paths/detail/StrandFlow.h>
-
 #include <xrpl/basics/contract.h>
 #include <xrpl/basics/random.h>
 #include <xrpl/ledger/PaymentSandbox.h>
 #include <xrpl/protocol/Feature.h>
 #include <xrpl/protocol/jss.h>
+#include <xrpl/tx/paths/Flow.h>
+#include <xrpl/tx/paths/detail/Steps.h>
+#include <xrpl/tx/paths/detail/StrandFlow.h>
+#include <xrpl/tx/transactors/dex/AMMContext.h>
 
 namespace xrpl {
 namespace test {
@@ -26,7 +25,9 @@ struct RippleCalcTestParams
     STPathSet paths;
 
     explicit RippleCalcTestParams(Json::Value const& jv)
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         : srcAccount{*parseBase58<AccountID>(jv[jss::Account].asString())}
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         , dstAccount{*parseBase58<AccountID>(jv[jss::Destination].asString())}
         , dstAmt{amountFromJson(sfAmount, jv[jss::Amount])}
     {
@@ -46,16 +47,25 @@ struct RippleCalcTestParams
                     {
                         assert(!pe.isMember(jss::currency) && !pe.isMember(jss::issuer));
                         p.emplace_back(
-                            *parseBase58<AccountID>(pe[jss::account].asString()), std::nullopt, std::nullopt);
+                            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+                            *parseBase58<AccountID>(pe[jss::account].asString()),
+                            std::nullopt,
+                            std::nullopt);
                     }
                     else if (pe.isMember(jss::currency) && pe.isMember(jss::issuer))
                     {
                         auto const currency = to_currency(pe[jss::currency].asString());
                         std::optional<AccountID> issuer;
                         if (!isXRP(currency))
+                        {
+                            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
                             issuer = *parseBase58<AccountID>(pe[jss::issuer].asString());
+                        }
                         else
+                        {
+                            // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
                             assert(isXRP(*parseBase58<AccountID>(pe[jss::issuer].asString())));
+                        }
                         p.emplace_back(std::nullopt, currency, issuer);
                     }
                     else
@@ -110,7 +120,11 @@ class RandomAccountParams
 
     // Setup the trust amounts and in/out qualities (but not the balances)
     void
-    setupTrustLine(jtx::Env& env, jtx::Account const& acc, jtx::Account const& peer, Currency const& currency)
+    setupTrustLine(
+        jtx::Env& env,
+        jtx::Account const& acc,
+        jtx::Account const& peer,
+        Currency const& currency)
     {
         using namespace jtx;
         IOU const iou{peer, currency};
@@ -135,19 +149,29 @@ public:
 
     // Set the initial balance, taking into account the qualities
     void
-    setInitialBalance(jtx::Env& env, jtx::Account const& acc, jtx::Account const& peer, Currency const& currency)
+    setInitialBalance(
+        jtx::Env& env,
+        jtx::Account const& acc,
+        jtx::Account const& peer,
+        Currency const& currency) const
     {
         using namespace jtx;
         IOU const iou{acc, currency};
         // This payment sets the acc's balance to `initialBalance`.
         // Since input qualities complicate this payment, use `sendMax` with
         // `initialBalance` to make sure the balance is set correctly.
-        env(pay(peer, acc, iou(trustAmount_)), sendmax(iou(initialBalance_)), txflags(tfPartialPayment));
+        env(pay(peer, acc, iou(trustAmount_)),
+            sendmax(iou(initialBalance_)),
+            txflags(tfPartialPayment));
         env.close();
     }
 
     void
-    maybeSetInitialBalance(jtx::Env& env, jtx::Account const& acc, jtx::Account const& peer, Currency const& currency)
+    maybeSetInitialBalance(
+        jtx::Env& env,
+        jtx::Account const& acc,
+        jtx::Account const& peer,
+        Currency const& currency)
     {
         using namespace jtx;
         if (zeroOneDist_(engine_) > probRedeem_)
@@ -158,7 +182,11 @@ public:
     // Setup the trust amounts and in/out qualities (but not the balances) on
     // both sides of the trust line
     void
-    setupTrustLines(jtx::Env& env, jtx::Account const& acc1, jtx::Account const& acc2, Currency const& currency)
+    setupTrustLines(
+        jtx::Env& env,
+        jtx::Account const& acc1,
+        jtx::Account const& acc2,
+        Currency const& currency)
     {
         setupTrustLine(env, acc1, acc2, currency);
         setupTrustLine(env, acc2, acc1, currency);
@@ -218,9 +246,9 @@ class TheoreticalQuality_test : public beast::unit_test::suite
             std::nullopt,
             dummyJ);
 
-        BEAST_EXPECT(sr.first == tesSUCCESS);
+        BEAST_EXPECT(isTesSuccess(sr.first));
 
-        if (sr.first != tesSUCCESS)
+        if (!isTesSuccess(sr.first))
             return;
 
         // Due to the floating point calculations, theoretical and actual
@@ -236,8 +264,10 @@ class TheoreticalQuality_test : public beast::unit_test::suite
 
         for (auto const& strand : sr.second)
         {
-            Quality const theoreticalQ = *qualityUpperBound(sb, strand);
-            auto const f = flow<IOUAmount, IOUAmount>(sb, strand, IOUAmount(10, 0), IOUAmount(5, 0), dummyJ);
+            Quality const theoreticalQ =
+                *qualityUpperBound(sb, strand);  // NOLINT(bugprone-unchecked-optional-access)
+            auto const f =
+                flow<IOUAmount, IOUAmount>(sb, strand, IOUAmount(10, 0), IOUAmount(5, 0), dummyJ);
             BEAST_EXPECT(f.success);
             Quality const actualQ(f.out, f.in);
             if (actualQ != theoreticalQ && !compareClose(actualQ, theoreticalQ))
@@ -341,7 +371,9 @@ public:
             // Accounts are set up, make the payment
             IOU const iou{accounts.back(), currency};
             RippleCalcTestParams rcp{env.json(
-                pay(accounts.front(), accounts.back(), iou(paymentAmount)), accountsPath, txflags(tfNoRippleDirect))};
+                pay(accounts.front(), accounts.back(), iou(paymentAmount)),
+                accountsPath,
+                txflags(tfNoRippleDirect))};
 
             testCase(rcp, env.closed());
         }
@@ -466,7 +498,7 @@ public:
                 return std::nullopt;
             try
             {
-                std::size_t pos;
+                std::size_t pos = 0;
                 auto const r = stoi(s, &pos);
                 if (pos != s.size())
                     return std::nullopt;

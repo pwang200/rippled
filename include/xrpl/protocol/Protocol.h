@@ -114,7 +114,8 @@ namespace Lending {
 
     Valid values are between 0 and 10% inclusive.
 */
-TenthBips16 constexpr maxManagementFeeRate(unsafe_cast<std::uint16_t>(percentageToTenthBips(10).value()));
+TenthBips16 constexpr maxManagementFeeRate(
+    unsafe_cast<std::uint16_t>(percentageToTenthBips(10).value()));
 static_assert(maxManagementFeeRate == TenthBips16(std::uint16_t(10'000u)));
 
 /** The maximum coverage rate required of a loan broker in 1/10 bips.
@@ -208,7 +209,7 @@ std::size_t constexpr maxDIDDocumentLength = 256;
 std::size_t constexpr maxDIDURILength = 256;
 
 /** The maximum length of an Attestation inside a DID */
-std::size_t constexpr maxDIDAttestationLength = 256;
+std::size_t constexpr maxDIDDataLength = 256;
 
 /** The maximum length of a domain */
 std::size_t constexpr maxDomainLength = 256;
@@ -250,15 +251,24 @@ std::uint8_t constexpr vaultMaximumIOUScale = 18;
  * another vault; counted from 0 */
 std::uint8_t constexpr maxAssetCheckDepth = 5;
 
-/** The maximum length of a Data field in Escrow object that can be updated by
- * Wasm code */
-std::size_t constexpr maxWasmDataLength = 4 * 1024;
+/** Maximum length of a Data field in Escrow object that can be updated by WASM code. */
+std::size_t constexpr maxWasmDataLength = 4 * 1024;  // 4KB
 
-/** The maximum length of a parameters passed from Wasm code*/
-std::size_t constexpr maxWasmParamLength = 1024;
+/** Maximum length of parameters passed from WASM code to host functions. */
+std::size_t constexpr maxWasmParamLength = 1024;  // 1KB
 
 /** A ledger index. */
 using LedgerIndex = std::uint32_t;
+
+std::uint32_t constexpr FLAG_LEDGER_INTERVAL = 256;
+
+/** Returns true if the given ledgerIndex is a voting ledgerIndex */
+bool
+isVotingLedger(LedgerIndex seq);
+
+/** Returns true if the given ledgerIndex is a flag ledgerIndex */
+bool
+isFlagLedger(LedgerIndex seq);
 
 /** A transaction identifier.
     The value is computed as the hash of the

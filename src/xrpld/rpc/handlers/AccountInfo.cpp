@@ -6,6 +6,7 @@
 
 #include <xrpl/json/json_value.h>
 #include <xrpl/ledger/ReadView.h>
+#include <xrpl/ledger/helpers/AccountRootHelpers.h>
 #include <xrpl/protocol/ErrorCodes.h>
 #include <xrpl/protocol/Indexes.h>
 #include <xrpl/protocol/UintTypes.h>
@@ -84,7 +85,9 @@ doAccountInfo(RPC::JsonContext& context)
         strIdent = params[jss::ident].asString();
     }
     else
+    {
         return RPC::missing_field_error(jss::account);
+    }
 
     std::shared_ptr<ReadView const> ledger;
     auto result = RPC::lookupLedger(ledger, context);
@@ -112,11 +115,12 @@ doAccountInfo(RPC::JsonContext& context)
          {"requireAuthorization", lsfRequireAuth},
          {"requireDestinationTag", lsfRequireDestTag}}};
 
-    static constexpr std::array<std::pair<std::string_view, LedgerSpecificFlags>, 4> disallowIncomingFlags{
-        {{"disallowIncomingNFTokenOffer", lsfDisallowIncomingNFTokenOffer},
-         {"disallowIncomingCheck", lsfDisallowIncomingCheck},
-         {"disallowIncomingPayChan", lsfDisallowIncomingPayChan},
-         {"disallowIncomingTrustline", lsfDisallowIncomingTrustline}}};
+    static constexpr std::array<std::pair<std::string_view, LedgerSpecificFlags>, 4>
+        disallowIncomingFlags{
+            {{"disallowIncomingNFTokenOffer", lsfDisallowIncomingNFTokenOffer},
+             {"disallowIncomingCheck", lsfDisallowIncomingCheck},
+             {"disallowIncomingPayChan", lsfDisallowIncomingPayChan},
+             {"disallowIncomingTrustline", lsfDisallowIncomingTrustline}}};
 
     static constexpr std::pair<std::string_view, LedgerSpecificFlags> allowTrustLineClawbackFlag{
         "allowTrustLineClawback", lsfAllowTrustLineClawback};
@@ -149,10 +153,16 @@ doAccountInfo(RPC::JsonContext& context)
             acctFlags[lsf.first.data()] = sleAccepted->isFlag(lsf.second);
 
         if (ledger->rules().enabled(featureClawback))
-            acctFlags[allowTrustLineClawbackFlag.first.data()] = sleAccepted->isFlag(allowTrustLineClawbackFlag.second);
+        {
+            acctFlags[allowTrustLineClawbackFlag.first.data()] =
+                sleAccepted->isFlag(allowTrustLineClawbackFlag.second);
+        }
 
         if (ledger->rules().enabled(featureTokenEscrow))
-            acctFlags[allowTrustLineLockingFlag.first.data()] = sleAccepted->isFlag(allowTrustLineLockingFlag.second);
+        {
+            acctFlags[allowTrustLineLockingFlag.first.data()] =
+                sleAccepted->isFlag(allowTrustLineLockingFlag.second);
+        }
 
         result[jss::account_flags] = std::move(acctFlags);
 
@@ -179,7 +189,8 @@ doAccountInfo(RPC::JsonContext& context)
         // that signer_lists is a bool, however assigning any string value
         // works. Do not allow this. This check is for api Version 2 onwards
         // only
-        if (context.apiVersion > 1u && params.isMember(jss::signer_lists) && !params[jss::signer_lists].isBool())
+        if (context.apiVersion > 1u && params.isMember(jss::signer_lists) &&
+            !params[jss::signer_lists].isBool())
         {
             RPC::inject_error(rpcINVALID_PARAMS, result);
             return result;
@@ -242,7 +253,8 @@ doAccountInfo(RPC::JsonContext& context)
 
                     if (tx.seqProxy.isSeq())
                     {
-                        XRPL_ASSERT(prevSeqProxy < tx.seqProxy, "doAccountInfo : first sorted proxy");
+                        XRPL_ASSERT(
+                            prevSeqProxy < tx.seqProxy, "doAccountInfo : first sorted proxy");
                         prevSeqProxy = tx.seqProxy;
                         jvTx[jss::seq] = tx.seqProxy.value();
                         ++seqCount;
@@ -252,7 +264,8 @@ doAccountInfo(RPC::JsonContext& context)
                     }
                     else
                     {
-                        XRPL_ASSERT(prevSeqProxy < tx.seqProxy, "doAccountInfo : second sorted proxy");
+                        XRPL_ASSERT(
+                            prevSeqProxy < tx.seqProxy, "doAccountInfo : second sorted proxy");
                         prevSeqProxy = tx.seqProxy;
                         jvTx[jss::ticket] = tx.seqProxy.value();
                         ++ticketCount;
@@ -294,7 +307,9 @@ doAccountInfo(RPC::JsonContext& context)
                 jvQueueData[jss::max_spend_drops_total] = to_string(totalSpend);
             }
             else
+            {
                 jvQueueData[jss::txn_count] = 0u;
+            }
 
             result[jss::queue_data] = std::move(jvQueueData);
         }

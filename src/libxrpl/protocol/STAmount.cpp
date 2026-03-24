@@ -65,7 +65,9 @@ getInt64Value(STAmount const& amount, bool valid, char const* error)
 
     auto ret = static_cast<std::int64_t>(amount.mantissa());
 
-    XRPL_ASSERT(static_cast<std::uint64_t>(ret) == amount.mantissa(), "xrpl::getInt64Value : mantissa must roundtrip");
+    XRPL_ASSERT(
+        static_cast<std::uint64_t>(ret) == amount.mantissa(),
+        "xrpl::getInt64Value : mantissa must roundtrip");
 
     if (amount.negative())
         ret = -ret;
@@ -178,7 +180,8 @@ STAmount::STAmount(SerialIter& sit, SField const& name) : STBase(name)
     canonicalize();
 }
 
-STAmount::STAmount(SField const& name, std::int64_t mantissa) : STBase(name), mAsset(xrpIssue()), mOffset(0)
+STAmount::STAmount(SField const& name, std::int64_t mantissa)
+    : STBase(name), mAsset(xrpIssue()), mValue(0), mOffset(0), mIsNegative(false)
 {
     set(mantissa);
 }
@@ -193,7 +196,11 @@ STAmount::STAmount(SField const& name, std::uint64_t mantissa, bool negative)
 }
 
 STAmount::STAmount(SField const& name, STAmount const& from)
-    : STBase(name), mAsset(from.mAsset), mValue(from.mValue), mOffset(from.mOffset), mIsNegative(from.mIsNegative)
+    : STBase(name)
+    , mAsset(from.mAsset)
+    , mValue(from.mValue)
+    , mOffset(from.mOffset)
+    , mIsNegative(from.mIsNegative)
 {
     XRPL_ASSERT(
         mValue <= std::numeric_limits<std::int64_t>::max(),
@@ -212,12 +219,17 @@ STAmount::STAmount(std::uint64_t mantissa, bool negative)
         "input");
 }
 
-STAmount::STAmount(XRPAmount const& amount) : mAsset(xrpIssue()), mOffset(0), mIsNegative(amount < beast::zero)
+STAmount::STAmount(XRPAmount const& amount)
+    : mAsset(xrpIssue()), mOffset(0), mIsNegative(amount < beast::zero)
 {
     if (mIsNegative)
+    {
         mValue = unsafe_cast<std::uint64_t>(-amount.drops());
+    }
     else
+    {
         mValue = unsafe_cast<std::uint64_t>(amount.drops());
+    }
 
     canonicalize();
 }
@@ -297,9 +309,13 @@ STAmount::operator=(IOUAmount const& iou)
     mOffset = iou.exponent();
     mIsNegative = iou < beast::zero;
     if (mIsNegative)
+    {
         mValue = static_cast<std::uint64_t>(-iou.mantissa());
+    }
     else
+    {
         mValue = static_cast<std::uint64_t>(iou.mantissa());
+    }
     return *this;
 }
 
@@ -435,21 +451,23 @@ getRate(STAmount const& offerOut, STAmount const& offerIn)
 {
     if (offerOut == beast::zero)
         return 0;
+
     try
     {
         STAmount r = divide(offerIn, offerOut, noIssue());
         if (r == beast::zero)  // offer is too good
             return 0;
-        XRPL_ASSERT((r.exponent() >= -100) && (r.exponent() <= 155), "xrpl::getRate : exponent inside range");
+        XRPL_ASSERT(
+            (r.exponent() >= -100) && (r.exponent() <= 155),
+            "xrpl::getRate : exponent inside range");
         std::uint64_t ret = r.exponent() + 100;
         return (ret << (64 - 8)) | r.mantissa();
     }
-    catch (std::exception const&)
+    catch (...)
     {
+        // overflow -- very bad offer
+        return 0;
     }
-
-    // overflow -- very bad offer
-    return 0;
 }
 
 /**
@@ -487,8 +505,10 @@ canAdd(STAmount const& a, STAmount const& b)
         XRPAmount A = a.xrp();
         XRPAmount B = b.xrp();
 
-        if ((B > XRPAmount{0} && A > XRPAmount{std::numeric_limits<XRPAmount::value_type>::max()} - B) ||
-            (B < XRPAmount{0} && A < XRPAmount{std::numeric_limits<XRPAmount::value_type>::min()} - B))
+        if ((B > XRPAmount{0} &&
+             A > XRPAmount{std::numeric_limits<XRPAmount::value_type>::max()} - B) ||
+            (B < XRPAmount{0} &&
+             A < XRPAmount{std::numeric_limits<XRPAmount::value_type>::min()} - B))
         {
             return false;
         }
@@ -510,8 +530,10 @@ canAdd(STAmount const& a, STAmount const& b)
     {
         MPTAmount A = a.mpt();
         MPTAmount B = b.mpt();
-        if ((B > MPTAmount{0} && A > MPTAmount{std::numeric_limits<MPTAmount::value_type>::max()} - B) ||
-            (B < MPTAmount{0} && A < MPTAmount{std::numeric_limits<MPTAmount::value_type>::min()} - B))
+        if ((B > MPTAmount{0} &&
+             A > MPTAmount{std::numeric_limits<MPTAmount::value_type>::max()} - B) ||
+            (B < MPTAmount{0} &&
+             A < MPTAmount{std::numeric_limits<MPTAmount::value_type>::min()} - B))
         {
             return false;
         }
@@ -562,7 +584,8 @@ canSubtract(STAmount const& a, STAmount const& b)
             return false;
 
         // Check for overflow
-        if (B < XRPAmount{0} && A > XRPAmount{std::numeric_limits<XRPAmount::value_type>::max()} + B)
+        if (B < XRPAmount{0} &&
+            A > XRPAmount{std::numeric_limits<XRPAmount::value_type>::max()} + B)
             return false;
 
         return true;
@@ -585,7 +608,8 @@ canSubtract(STAmount const& a, STAmount const& b)
             return false;
 
         // Overflow check
-        if (B < MPTAmount{0} && A > MPTAmount{std::numeric_limits<MPTAmount::value_type>::max()} + B)
+        if (B < MPTAmount{0} &&
+            A > MPTAmount{std::numeric_limits<MPTAmount::value_type>::max()} + B)
             return false;
         return true;
     }
@@ -698,15 +722,21 @@ STAmount::getText() const
 
     XRPL_ASSERT(post_to >= post_from, "xrpl::STAmount::getText : second distance check");
 
-    post_to = std::find_if(std::make_reverse_iterator(post_to), std::make_reverse_iterator(post_from), [](char c) {
-                  return c != '0';
-              }).base();
+    post_to = std::find_if(
+                  std::make_reverse_iterator(post_to),
+                  std::make_reverse_iterator(post_from),
+                  [](char c) { return c != '0'; })
+                  .base();
 
     // Assemble the output:
     if (pre_from == pre_to)
+    {
         ret.append(1, '0');
+    }
     else
+    {
         ret.append(pre_from, pre_to);
+    }
 
     if (post_to != post_from)
     {
@@ -733,9 +763,13 @@ STAmount::add(Serializer& s) const
         XRPL_ASSERT(mOffset == 0, "xrpl::STAmount::add : zero offset");
 
         if (!mIsNegative)
+        {
             s.add64(mValue | cPositive);
+        }
         else
+        {
             s.add64(mValue);
+        }
     }
     else if (mAsset.holds<MPTIssue>())
     {
@@ -749,11 +783,17 @@ STAmount::add(Serializer& s) const
     else
     {
         if (*this == beast::zero)
+        {
             s.add64(cIssuedCurrency);
-        else if (mIsNegative)  // 512 = not native
+        }
+        else if (mIsNegative)
+        {  // 512 = not native
             s.add64(mValue | (static_cast<std::uint64_t>(mOffset + 512 + 97) << (64 - 10)));
-        else  // 256 = positive
+        }
+        else
+        {  // 256 = positive
             s.add64(mValue | (static_cast<std::uint64_t>(mOffset + 512 + 256 + 97) << (64 - 10)));
+        }
         s.addBitString(mAsset.get<Issue>().currency);
         s.addBitString(mAsset.get<Issue>().account);
     }
@@ -821,11 +861,17 @@ STAmount::canonicalize()
                 mValue = mIsNegative ? -value : value;
             };
             if (native())
+            {
                 set(XRPAmount{num});
+            }
             else if (mAsset.holds<MPTIssue>())
+            {
                 set(MPTAmount{num});
+            }
             else
+            {
                 Throw<std::runtime_error>("Unknown integral asset type");
+            }
             mOffset = 0;
         }
         else
@@ -841,9 +887,13 @@ STAmount::canonicalize()
                 // N.B. do not move the overflow check to after the
                 // multiplication
                 if (native() && mValue > cMaxNativeN)
+                {
                     Throw<std::runtime_error>("Native currency amount out of range");
+                }
                 else if (!native() && mValue > maxMPTokenAmount)
+                {
                     Throw<std::runtime_error>("MPT amount out of range");
+                }
 
                 mValue *= 10;
                 --mOffset;
@@ -851,9 +901,13 @@ STAmount::canonicalize()
         }
 
         if (native() && mValue > cMaxNativeN)
+        {
             Throw<std::runtime_error>("Native currency amount out of range");
+        }
         else if (!native() && mValue > maxMPTokenAmount)
+        {
             Throw<std::runtime_error>("MPT amount out of range");
+        }
 
         return;
     }
@@ -903,7 +957,8 @@ STAmount::canonicalize()
     XRPL_ASSERT(
         (mValue == 0) || ((mOffset >= cMinOffset) && (mOffset <= cMaxOffset)),
         "xrpl::STAmount::canonicalize : offset inside range");
-    XRPL_ASSERT((mValue != 0) || (mOffset != -100), "xrpl::STAmount::canonicalize : value or offset set");
+    XRPL_ASSERT(
+        (mValue != 0) || (mOffset != -100), "xrpl::STAmount::canonicalize : value or offset set");
 }
 
 void
@@ -1092,8 +1147,8 @@ amountFromJsonNoThrow(STAmount& result, Json::Value const& jvSource)
 bool
 operator==(STAmount const& lhs, STAmount const& rhs)
 {
-    return areComparable(lhs, rhs) && lhs.negative() == rhs.negative() && lhs.exponent() == rhs.exponent() &&
-        lhs.mantissa() == rhs.mantissa();
+    return areComparable(lhs, rhs) && lhs.negative() == rhs.negative() &&
+        lhs.exponent() == rhs.exponent() && lhs.mantissa() == rhs.mantissa();
 }
 
 bool
@@ -1136,7 +1191,12 @@ operator-(STAmount const& value)
     if (value.mantissa() == 0)
         return value;
     return STAmount(
-        value.getFName(), value.asset(), value.mantissa(), value.exponent(), !value.negative(), STAmount::unchecked{});
+        value.getFName(),
+        value.asset(),
+        value.mantissa(),
+        value.exponent(),
+        !value.negative(),
+        STAmount::unchecked{});
 }
 
 //------------------------------------------------------------------------------
@@ -1158,15 +1218,19 @@ muldiv(std::uint64_t multiplier, std::uint64_t multiplicand, std::uint64_t divis
     if (ret > std::numeric_limits<std::uint64_t>::max())
     {
         Throw<std::overflow_error>(
-            "overflow: (" + std::to_string(multiplier) + " * " + std::to_string(multiplicand) + ") / " +
-            std::to_string(divisor));
+            "overflow: (" + std::to_string(multiplier) + " * " + std::to_string(multiplicand) +
+            ") / " + std::to_string(divisor));
     }
 
     return static_cast<uint64_t>(ret);
 }
 
 static std::uint64_t
-muldiv_round(std::uint64_t multiplier, std::uint64_t multiplicand, std::uint64_t divisor, std::uint64_t rounding)
+muldiv_round(
+    std::uint64_t multiplier,
+    std::uint64_t multiplicand,
+    std::uint64_t divisor,
+    std::uint64_t rounding)
 {
     boost::multiprecision::uint128_t ret;
 
@@ -1177,8 +1241,8 @@ muldiv_round(std::uint64_t multiplier, std::uint64_t multiplicand, std::uint64_t
     if (ret > std::numeric_limits<std::uint64_t>::max())
     {
         Throw<std::overflow_error>(
-            "overflow: ((" + std::to_string(multiplier) + " * " + std::to_string(multiplicand) + ") + " +
-            std::to_string(rounding) + ") / " + std::to_string(divisor));
+            "overflow: ((" + std::to_string(multiplier) + " * " + std::to_string(multiplicand) +
+            ") + " + std::to_string(rounding) + ") / " + std::to_string(divisor));
     }
 
     return static_cast<uint64_t>(ret);
@@ -1223,7 +1287,10 @@ divide(STAmount const& num, STAmount const& den, Asset const& asset)
     // 10^32 to 10^33) followed by a division, so the result
     // is in the range of 10^16 to 10^15.
     return STAmount(
-        asset, muldiv(numVal, tenTo17, denVal) + 5, numOffset - denOffset - 17, num.negative() != den.negative());
+        asset,
+        muldiv(numVal, tenTo17, denVal) + 5,
+        numOffset - denOffset - 17,
+        num.negative() != den.negative());
 }
 
 STAmount
@@ -1292,7 +1359,11 @@ multiply(STAmount const& v1, STAmount const& v2, Asset const& asset)
     // and 10^16), so their product is in the 10^30 to 10^32
     // range. Dividing their product by 10^14 maintains the
     // precision, by scaling the result to 10^16 to 10^18.
-    return STAmount(asset, muldiv(value1, value2, tenTo14) + 7, offset1 + offset2 + 14, v1.negative() != v2.negative());
+    return STAmount(
+        asset,
+        muldiv(value1, value2, tenTo14) + 7,
+        offset1 + offset2 + 14,
+        v1.negative() != v2.negative());
 }
 
 // This is the legacy version of canonicalizeRound.  It's been in use
@@ -1509,7 +1580,8 @@ mulRoundImpl(STAmount const& v1, STAmount const& v2, Asset const& asset, bool ro
     // If the we're rounding up, we want to round up away
     // from zero, and if we're rounding down, truncation
     // is implicit.
-    std::uint64_t amount = muldiv_round(value1, value2, tenTo14, (resultNegative != roundUp) ? tenTo14m1 : 0);
+    std::uint64_t amount =
+        muldiv_round(value1, value2, tenTo14, (resultNegative != roundUp) ? tenTo14m1 : 0);
 
     int offset = offset1 + offset2 + 14;
     if (resultNegative != roundUp)
@@ -1597,7 +1669,8 @@ divRoundImpl(STAmount const& num, STAmount const& den, Asset const& asset, bool 
     //
     // We round away from zero if we're rounding up or
     // truncate if we're rounding down.
-    std::uint64_t amount = muldiv_round(numVal, tenTo17, denVal, (resultNegative != roundUp) ? denVal - 1 : 0);
+    std::uint64_t amount =
+        muldiv_round(numVal, tenTo17, denVal, (resultNegative != roundUp) ? denVal - 1 : 0);
 
     int offset = numOffset - denOffset - 17;
 

@@ -15,7 +15,7 @@ namespace beast {
 //
 //------------------------------------------------------------------------------
 
-PropertyStream::Item::Item(Source* source) : m_source(source)
+PropertyStream::Item::Item(Source* source) : ListNode(), m_source(source)
 {
 }
 
@@ -151,7 +151,8 @@ PropertyStream::Set::stream() const
 //
 //------------------------------------------------------------------------------
 
-PropertyStream::Source::Source(std::string const& name) : m_name(name), item_(this), parent_(nullptr)
+PropertyStream::Source::Source(std::string const& name)
+    : m_name(name), item_(this), parent_(nullptr)
 {
 }
 
@@ -176,7 +177,8 @@ PropertyStream::Source::add(Source& source)
     std::lock_guard lk1(lock_, std::adopt_lock);
     std::lock_guard lk2(source.lock_, std::adopt_lock);
 
-    XRPL_ASSERT(source.parent_ == nullptr, "beast::PropertyStream::Source::add : null source parent");
+    XRPL_ASSERT(
+        source.parent_ == nullptr, "beast::PropertyStream::Source::add : null source parent");
     children_.push_back(source.item_);
     source.parent_ = this;
 }
@@ -188,7 +190,8 @@ PropertyStream::Source::remove(Source& child)
     std::lock_guard lk1(lock_, std::adopt_lock);
     std::lock_guard lk2(child.lock_, std::adopt_lock);
 
-    XRPL_ASSERT(child.parent_ == this, "beast::PropertyStream::Source::remove : child parent match");
+    XRPL_ASSERT(
+        child.parent_ == this, "beast::PropertyStream::Source::remove : child parent match");
     children_.erase(children_.iterator_to(child.item_));
     child.parent_ = nullptr;
 }
@@ -234,9 +237,13 @@ PropertyStream::Source::write(PropertyStream& stream, std::string const& path)
         return;
 
     if (result.second)
+    {
         result.first->write(stream);
+    }
     else
+    {
         result.first->write_one(stream);
+    }
 }
 
 std::pair<PropertyStream::Source*, bool>
@@ -298,9 +305,13 @@ PropertyStream::Source::peel_name(std::string* path)
     std::string s(first, pos);
 
     if (pos != last)
+    {
         *path = std::string(pos + 1, last);
+    }
     else
+    {
         *path = std::string();
+    }
 
     return s;
 }
@@ -368,9 +379,13 @@ void
 PropertyStream::add(std::string const& key, bool value)
 {
     if (value)
+    {
         add(key, "true");
+    }
     else
+    {
         add(key, "false");
+    }
 }
 
 void
@@ -461,9 +476,13 @@ void
 PropertyStream::add(bool value)
 {
     if (value)
+    {
         add("true");
+    }
     else
+    {
         add("false");
+    }
 }
 
 void

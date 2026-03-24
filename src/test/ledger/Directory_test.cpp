@@ -3,6 +3,7 @@
 #include <xrpl/basics/random.h>
 #include <xrpl/ledger/BookDirs.h>
 #include <xrpl/ledger/Sandbox.h>
+#include <xrpl/ledger/helpers/DirectoryHelpers.h>
 #include <xrpl/protocol/Feature.h>
 #include <xrpl/protocol/Protocol.h>
 #include <xrpl/protocol/TER.h>
@@ -46,14 +47,22 @@ struct Directory_test : public beast::unit_test::suite
             p->setFieldV256(sfIndexes, STVector256{});
 
             if (i + 1 == n)
+            {
                 p->setFieldU64(sfIndexNext, 0);
+            }
             else
+            {
                 p->setFieldU64(sfIndexNext, i + 1);
+            }
 
             if (i == 0)
+            {
                 p->setFieldU64(sfIndexPrevious, n - 1);
+            }
             else
+            {
                 p->setFieldU64(sfIndexPrevious, i - 1);
+            }
 
             sb.insert(p);
         }
@@ -254,8 +263,10 @@ struct Directory_test : public beast::unit_test::suite
 
         // Fill up three pages of offers
         for (int i = 0; i < 3; ++i)
+        {
             for (int j = 0; j < dirNodeMaxEntries; ++j)
                 env(offer(alice, XRP(1), USD(1)));
+        }
         env.close();
 
         // remove all the offers. Remove the middle page last
@@ -449,7 +460,9 @@ struct Directory_test : public beast::unit_test::suite
                     // All of the other directories, including the order
                     // book, did get touched, so they should have those
                     // fields
-                    BEAST_EXPECT(directory.isMember("PreviousTxnID") && directory["PreviousTxnID"].asString() == txID);
+                    BEAST_EXPECT(
+                        directory.isMember("PreviousTxnID") &&
+                        directory["PreviousTxnID"].asString() == txID);
                     BEAST_EXPECT(
                         directory.isMember("PreviousTxnLgrSeq") &&
                         directory["PreviousTxnLgrSeq"].asUInt() == ledgerSeq);
@@ -521,10 +534,12 @@ struct Directory_test : public beast::unit_test::suite
             env.close();
         };
 
-        testCase(testable_amendments() - fixDirectoryLimit, [this](Env&) -> std::tuple<std::uint64_t, bool> {
-            testcase("directory full without fixDirectoryLimit");
-            return {dirNodeMaxPages - 1, true};
-        });
+        testCase(
+            testable_amendments() - fixDirectoryLimit,
+            [this](Env&) -> std::tuple<std::uint64_t, bool> {
+                testcase("directory full without fixDirectoryLimit");
+                return {dirNodeMaxPages - 1, true};
+            });
         testCase(
             testable_amendments(),  //
             [this](Env&) -> std::tuple<std::uint64_t, bool> {

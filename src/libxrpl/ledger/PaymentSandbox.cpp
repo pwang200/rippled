@@ -11,9 +11,11 @@ auto
 DeferredCredits::makeKey(AccountID const& a1, AccountID const& a2, Currency const& c) -> Key
 {
     if (a1 < a2)
+    {
         return std::make_tuple(a1, a2, c);
-    else
-        return std::make_tuple(a2, a1, c);
+    }
+
+    return std::make_tuple(a2, a1, c);
 }
 
 void
@@ -23,7 +25,8 @@ DeferredCredits::credit(
     STAmount const& amount,
     STAmount const& preCreditSenderBalance)
 {
-    XRPL_ASSERT(sender != receiver, "xrpl::detail::DeferredCredits::credit : sender is not receiver");
+    XRPL_ASSERT(
+        sender != receiver, "xrpl::detail::DeferredCredits::credit : sender is not receiver");
     XRPL_ASSERT(!amount.negative(), "xrpl::detail::DeferredCredits::credit : positive amount");
 
     auto const k = makeKey(sender, receiver, amount.getCurrency());
@@ -52,9 +55,13 @@ DeferredCredits::credit(
         // only record the balance the first time, do not record it here
         auto& v = i->second;
         if (sender < receiver)
+        {
             v.highAcctCredits += amount;
+        }
         else
+        {
             v.lowAcctCredits += amount;
+        }
     }
 }
 
@@ -81,8 +88,10 @@ DeferredCredits::ownerCount(AccountID const& id) const
 
 // Get the adjustments for the balance between main and other.
 auto
-DeferredCredits::adjustments(AccountID const& main, AccountID const& other, Currency const& currency) const
-    -> std::optional<Adjustment>
+DeferredCredits::adjustments(
+    AccountID const& main,
+    AccountID const& other,
+    Currency const& currency) const -> std::optional<Adjustment>
 {
     std::optional<Adjustment> result;
 
@@ -98,11 +107,9 @@ DeferredCredits::adjustments(AccountID const& main, AccountID const& other, Curr
         result.emplace(v.highAcctCredits, v.lowAcctCredits, v.lowAcctOrigBalance);
         return result;
     }
-    else
-    {
-        result.emplace(v.lowAcctCredits, v.highAcctCredits, -v.lowAcctOrigBalance);
-        return result;
-    }
+
+    result.emplace(v.lowAcctCredits, v.highAcctCredits, -v.lowAcctOrigBalance);
+    return result;
 }
 
 void
@@ -136,7 +143,10 @@ DeferredCredits::apply(DeferredCredits& to)
 }  // namespace detail
 
 STAmount
-PaymentSandbox::balanceHook(AccountID const& account, AccountID const& issuer, STAmount const& amount) const
+PaymentSandbox::balanceHook(
+    AccountID const& account,
+    AccountID const& issuer,
+    STAmount const& amount) const
 {
     /*
     There are two algorithms here. The pre-switchover algorithm takes the
@@ -173,11 +183,13 @@ PaymentSandbox::balanceHook(AccountID const& account, AccountID const& issuer, S
     adjustedAmt.setIssuer(amount.getIssuer());
 
     if (isXRP(issuer) && adjustedAmt < beast::zero)
+    {
         // A calculated negative XRP balance is not an error case. Consider a
         // payment snippet that credits a large XRP amount and then debits the
         // same amount. The credit can't be used but we subtract the debit and
         // calculate a negative value. It's not an error case.
         adjustedAmt.clear();
+    }
 
     return adjustedAmt;
 }
@@ -205,7 +217,10 @@ PaymentSandbox::creditHook(
 }
 
 void
-PaymentSandbox::adjustOwnerCountHook(AccountID const& account, std::uint32_t cur, std::uint32_t next)
+PaymentSandbox::adjustOwnerCountHook(
+    AccountID const& account,
+    std::uint32_t cur,
+    std::uint32_t next)
 {
     tab_.ownerCount(account, cur, next);
 }

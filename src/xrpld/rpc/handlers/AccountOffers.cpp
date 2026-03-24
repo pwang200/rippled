@@ -6,6 +6,7 @@
 #include <xrpl/json/json_value.h>
 #include <xrpl/ledger/ReadView.h>
 #include <xrpl/ledger/View.h>
+#include <xrpl/ledger/helpers/DirectoryHelpers.h>
 #include <xrpl/protocol/ErrorCodes.h>
 #include <xrpl/protocol/RPCErr.h>
 #include <xrpl/protocol/jss.h>
@@ -63,7 +64,7 @@ doAccountOffers(RPC::JsonContext& context)
     if (!ledger->exists(keylet::account(accountID)))
         return rpcError(rpcACT_NOT_FOUND);
 
-    unsigned int limit;
+    unsigned int limit = 0;
     if (auto err = readLimitField(limit, RPC::Tuning::accountOffers, context))
         return *err;
 
@@ -119,7 +120,8 @@ doAccountOffers(RPC::JsonContext& context)
             startAfter,
             startHint,
             limit + 1,
-            [&offers, &count, &marker, &limit, &nextHint, &accountID](std::shared_ptr<SLE const> const& sle) {
+            [&offers, &count, &marker, &limit, &nextHint, &accountID](
+                std::shared_ptr<SLE const> const& sle) {
                 if (!sle)
                 {
                     // LCOV_EXCL_START

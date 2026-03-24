@@ -44,7 +44,7 @@ protected:
     // All the constructed public keys are valid, non-empty and contain 33
     // bytes of data.
     static constexpr std::size_t size_ = 33;
-    std::uint8_t buf_[size_];  // should be large enough
+    std::uint8_t buf_[size_]{};  // should be large enough
 
 public:
     using const_iterator = std::uint8_t const*;
@@ -125,7 +125,8 @@ operator==(PublicKey const& lhs, PublicKey const& rhs)
 inline bool
 operator<(PublicKey const& lhs, PublicKey const& rhs)
 {
-    return std::lexicographical_compare(lhs.data(), lhs.data() + lhs.size(), rhs.data(), rhs.data() + rhs.size());
+    return std::lexicographical_compare(
+        lhs.data(), lhs.data() + lhs.size(), rhs.data(), rhs.data() + rhs.size());
 }
 
 template <class Hasher>

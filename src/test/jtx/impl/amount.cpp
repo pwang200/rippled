@@ -28,7 +28,8 @@ operator<<(std::ostream&& os,
 }
 #endif
 
-PrettyAmount::operator AnyAmount() const
+PrettyAmount::
+operator AnyAmount() const
 {
     return {amount_};
 }
@@ -61,9 +62,13 @@ operator<<(std::ostream& os, PrettyAmount const& amount)
         if (n < c)
         {
             if (amount.value().negative())
+            {
                 os << "-" << n << " drops";
+            }
             else
+            {
                 os << n << " drops";
+            }
             return os;
         }
         auto const d = double(n) / dropsPerXRP.drops();
@@ -74,8 +79,8 @@ operator<<(std::ostream& os, PrettyAmount const& amount)
     }
     else if (amount.value().holds<Issue>())
     {
-        os << amount.value().getText() << "/" << to_string(amount.value().issue().currency) << "(" << amount.name()
-           << ")";
+        os << amount.value().getText() << "/" << to_string(amount.value().issue().currency) << "("
+           << amount.name() << ")";
     }
     else
     {

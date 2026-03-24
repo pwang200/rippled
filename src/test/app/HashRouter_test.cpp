@@ -1,8 +1,9 @@
-#include <xrpld/app/misc/HashRouter.h>
+#include <xrpld/app/misc/setup_HashRouter.h>
 #include <xrpld/core/Config.h>
 
 #include <xrpl/basics/chrono.h>
 #include <xrpl/beast/unit_test.h>
+#include <xrpl/core/HashRouter.h>
 
 namespace xrpl {
 namespace test {
@@ -230,7 +231,7 @@ class HashRouter_test : public beast::unit_test::suite
         ++stopwatch;
         // Confirm that peers list is empty.
         peers = router.shouldRelay(key1);
-        BEAST_EXPECT(peers && peers->size() == 0);
+        BEAST_EXPECT(peers && peers->empty());
     }
 
     void
@@ -242,7 +243,7 @@ class HashRouter_test : public beast::unit_test::suite
         HashRouter router(getSetup(5s, 1s), stopwatch);
         uint256 const key(1);
         HashRouter::PeerShortID peer = 1;
-        HashRouterFlags flags;
+        HashRouterFlags flags = HashRouterFlags::UNDEFINED;
 
         BEAST_EXPECT(router.shouldProcess(key, peer, flags, 1s));
         BEAST_EXPECT(!router.shouldProcess(key, peer, flags, 1s));

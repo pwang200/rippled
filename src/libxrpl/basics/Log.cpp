@@ -163,7 +163,11 @@ Logs::partition_severities() const
 }
 
 void
-Logs::write(beast::severities::Severity level, std::string const& partition, std::string const& text, bool console)
+Logs::write(
+    beast::severities::Severity level,
+    std::string const& partition,
+    std::string const& text,
+    bool console)
 {
     std::string s;
     format(s, text, level, partition);
@@ -413,9 +417,13 @@ public:
         swap(holder_, sink);
 
         if (holder_)
+        {
             sink_ = *holder_;
+        }
         else
+        {
             sink_ = beast::Journal::getNullSink();
+        }
 
         return sink;
     }

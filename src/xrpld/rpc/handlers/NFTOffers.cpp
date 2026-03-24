@@ -6,6 +6,7 @@
 #include <xrpl/json/json_value.h>
 #include <xrpl/ledger/ReadView.h>
 #include <xrpl/ledger/View.h>
+#include <xrpl/ledger/helpers/DirectoryHelpers.h>
 #include <xrpl/protocol/ErrorCodes.h>
 #include <xrpl/protocol/RPCErr.h>
 #include <xrpl/protocol/jss.h>
@@ -14,7 +15,10 @@
 namespace xrpl {
 
 static void
-appendNftOfferJson(Application const& app, std::shared_ptr<SLE const> const& offer, Json::Value& offers)
+appendNftOfferJson(
+    Application const& app,
+    std::shared_ptr<SLE const> const& offer,
+    Json::Value& offers)
 {
     Json::Value& obj(offers.append(Json::objectValue));
 
@@ -41,7 +45,7 @@ appendNftOfferJson(Application const& app, std::shared_ptr<SLE const> const& off
 static Json::Value
 enumerateNFTOffers(RPC::JsonContext& context, uint256 const& nftId, Keylet const& directory)
 {
-    unsigned int limit;
+    unsigned int limit = 0;
     if (auto err = readLimitField(limit, RPC::Tuning::nftOffers, context))
         return *err;
 
@@ -91,7 +95,12 @@ enumerateNFTOffers(RPC::JsonContext& context, uint256 const& nftId, Keylet const
     }
 
     if (!forEachItemAfter(
-            *ledger, directory, startAfter, startHint, reserve, [&offers](std::shared_ptr<SLE const> const& offer) {
+            *ledger,
+            directory,
+            startAfter,
+            startHint,
+            reserve,
+            [&offers](std::shared_ptr<SLE const> const& offer) {
                 if (offer->getType() == ltNFTOKEN_OFFER)
                 {
                     offers.emplace_back(offer);

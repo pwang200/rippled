@@ -31,7 +31,10 @@ getFeatureValue(boost::beast::http::fields const& headers, std::string const& fe
 }
 
 bool
-isFeatureValue(boost::beast::http::fields const& headers, std::string const& feature, std::string const& value)
+isFeatureValue(
+    boost::beast::http::fields const& headers,
+    std::string const& feature,
+    std::string const& value)
 {
     if (auto const fvalue = getFeatureValue(headers, feature))
         return beast::rfc2616::token_in_list(fvalue.value(), value);
@@ -168,7 +171,8 @@ buildHandshake(
     h.insert("Public-Key", toBase58(TokenType::NodePublic, app.nodeIdentity().first));
 
     {
-        auto const sig = signDigest(app.nodeIdentity().first, app.nodeIdentity().second, sharedValue);
+        auto const sig =
+            signDigest(app.nodeIdentity().first, app.nodeIdentity().second, sharedValue);
         h.insert("Session-Signature", base64_encode(sig.data(), sig.size()));
     }
 
@@ -207,7 +211,7 @@ verifyHandshake(
 
     if (auto const iter = headers.find("Network-ID"); iter != headers.end())
     {
-        std::uint32_t nid;
+        std::uint32_t nid = 0;
 
         if (!beast::lexicalCastChecked(nid, iter->value()))
             throw std::runtime_error("Invalid peer network identifier");
@@ -219,7 +223,7 @@ verifyHandshake(
     if (auto const iter = headers.find("Network-Time"); iter != headers.end())
     {
         auto const netTime = [str = iter->value()]() -> TimeKeeper::time_point {
-            TimeKeeper::duration::rep val;
+            TimeKeeper::duration::rep val = 0;
 
             if (beast::lexicalCastChecked(val, str))
                 return TimeKeeper::time_point{TimeKeeper::duration{val}};
@@ -296,8 +300,11 @@ verifyHandshake(
             throw std::runtime_error("Invalid Local-IP");
 
         if (beast::IP::is_public(remote) && remote != local_ip)
+        {
             throw std::runtime_error(
-                "Incorrect Local-IP: " + remote.to_string() + " instead of " + local_ip.to_string());
+                "Incorrect Local-IP: " + remote.to_string() + " instead of " +
+                local_ip.to_string());
+        }
     }
 
     if (auto const iter = headers.find("Remote-IP"); iter != headers.end())
@@ -313,8 +320,11 @@ verifyHandshake(
             // We know our public IP and peer reports our connection came
             // from some other IP.
             if (remote_ip != public_ip)
+            {
                 throw std::runtime_error(
-                    "Incorrect Remote-IP: " + public_ip.to_string() + " instead of " + remote_ip.to_string());
+                    "Incorrect Remote-IP: " + public_ip.to_string() + " instead of " +
+                    remote_ip.to_string());
+            }
         }
     }
 
@@ -340,7 +350,8 @@ makeRequest(
     m.insert("Crawl", crawlPublic ? "public" : "private");
     m.insert(
         "X-Protocol-Ctl",
-        makeFeaturesRequestHeader(comprEnabled, ledgerReplayEnabled, txReduceRelayEnabled, vpReduceRelayEnabled));
+        makeFeaturesRequestHeader(
+            comprEnabled, ledgerReplayEnabled, txReduceRelayEnabled, vpReduceRelayEnabled));
     return m;
 }
 

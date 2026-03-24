@@ -49,7 +49,10 @@ results::add(suite_results const& r)
     if (elapsed >= std::chrono::seconds{1})
     {
         auto const iter = std::lower_bound(
-            top.begin(), top.end(), elapsed, [](run_time const& t1, typename clock_type::duration const& t2) {
+            top.begin(),
+            top.end(),
+            elapsed,
+            [](run_time const& t1, typename clock_type::duration const& t2) {
                 return t1.second > t2;
             });
 
@@ -105,7 +108,7 @@ results::print(S& s)
 {
     using namespace beast::unit_test;
 
-    if (top.size() > 0)
+    if (!top.empty())
     {
         s << "Longest suite times:\n";
         for (auto const& [name, dur] : top)
@@ -207,7 +210,10 @@ multi_runner_base<IsParent>::multi_runner_base()
         }
 
         shared_mem_ = boost::interprocess::shared_memory_object{
-            std::conditional_t<IsParent, boost::interprocess::create_only_t, boost::interprocess::open_only_t>{},
+            std::conditional_t<
+                IsParent,
+                boost::interprocess::create_only_t,
+                boost::interprocess::open_only_t>{},
             shared_mem_name_,
             boost::interprocess::read_write};
 
@@ -228,9 +234,13 @@ multi_runner_base<IsParent>::multi_runner_base()
 
         region_ = boost::interprocess::mapped_region{shared_mem_, boost::interprocess::read_write};
         if (IsParent)
+        {
             inner_ = new (region_.get_address()) inner{};
+        }
         else
+        {
             inner_ = reinterpret_cast<inner*>(region_.get_address());
+        }
     }
     catch (...)
     {
@@ -457,7 +467,10 @@ multi_runner_parent::add_failures(std::size_t failures)
 //------------------------------------------------------------------------------
 
 multi_runner_child::multi_runner_child(std::size_t num_jobs, bool quiet, bool print_log)
-    : job_index_{checkout_job_index()}, num_jobs_{num_jobs}, quiet_{quiet}, print_log_{!quiet || print_log}
+    : job_index_{checkout_job_index()}
+    , num_jobs_{num_jobs}
+    , quiet_{quiet}
+    , print_log_{!quiet || print_log}
 {
     if (num_jobs_ > 1)
     {
@@ -478,7 +491,8 @@ multi_runner_child::multi_runner_child(std::size_t num_jobs, bool quiet, bool pr
                     if (cur_count == last_count)
                     {
                         // assume parent process is no longer alive
-                        std::cerr << "multi_runner_child " << job_index_ << ": Assuming parent died, exiting.\n";
+                        std::cerr << "multi_runner_child " << job_index_
+                                  << ": Assuming parent died, exiting.\n";
                         std::exit(EXIT_FAILURE);
                     }
                 }
@@ -533,8 +547,8 @@ multi_runner_child::on_suite_end()
         std::stringstream s;
         if (num_jobs_ > 1)
             s << job_index_ << "> ";
-        s << (suite_results_.failed > 0 ? "failed: " : "") << suite_results_.name << " had " << suite_results_.failed
-          << " failures." << std::endl;
+        s << (suite_results_.failed > 0 ? "failed: " : "") << suite_results_.name << " had "
+          << suite_results_.failed << " failures." << std::endl;
         message_queue_send(MessageType::log, s.str());
     }
     results_.add(suite_results_);
@@ -552,7 +566,8 @@ multi_runner_child::on_case_begin(std::string const& name)
     std::stringstream s;
     if (num_jobs_ > 1)
         s << job_index_ << "> ";
-    s << suite_results_.name << (case_results_.name.empty() ? "" : (" " + case_results_.name)) << '\n';
+    s << suite_results_.name << (case_results_.name.empty() ? "" : (" " + case_results_.name))
+      << '\n';
     message_queue_send(MessageType::log, s.str());
 }
 

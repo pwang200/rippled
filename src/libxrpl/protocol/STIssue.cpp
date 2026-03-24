@@ -46,7 +46,10 @@ STIssue::STIssue(SerialIter& sit, SField const& name) : STBase{name}
             std::uint32_t sequence = sit.get32();
             static_assert(MPTID::size() == sizeof(sequence) + sizeof(currencyOrAccount));
             memcpy(mptID.data(), &sequence, sizeof(sequence));
-            memcpy(mptID.data() + sizeof(sequence), currencyOrAccount.data(), sizeof(currencyOrAccount));
+            memcpy(
+                mptID.data() + sizeof(sequence),
+                currencyOrAccount.data(),
+                sizeof(currencyOrAccount));
             MPTIssue issue{mptID};
             asset_ = issue;
         }
@@ -97,7 +100,7 @@ STIssue::add(Serializer& s) const
         auto const& issue = asset_.get<MPTIssue>();
         s.addBitString(issue.getIssuer());
         s.addBitString(noAccount());
-        std::uint32_t sequence;
+        std::uint32_t sequence = 0;
         memcpy(&sequence, issue.getMptID().data(), sizeof(sequence));
         s.add32(sequence);
     }

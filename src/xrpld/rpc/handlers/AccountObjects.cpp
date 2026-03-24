@@ -1,4 +1,3 @@
-#include <xrpld/app/tx/detail/NFTokenUtils.h>
 #include <xrpld/rpc/Context.h>
 #include <xrpld/rpc/detail/RPCHelpers.h>
 #include <xrpld/rpc/detail/RPCLedgerHelpers.h>
@@ -12,6 +11,7 @@
 #include <xrpl/protocol/jss.h>
 #include <xrpl/protocol/nftPageMask.h>
 #include <xrpl/resource/Fees.h>
+#include <xrpl/tx/transactors/nft/NFTokenUtils.h>
 
 #include <string>
 
@@ -53,7 +53,7 @@ doAccountNFTs(RPC::JsonContext& context)
     if (!ledger->exists(keylet::account(accountID)))
         return rpcError(rpcACT_NOT_FOUND);
 
-    unsigned int limit;
+    unsigned int limit = 0;
     if (auto err = readLimitField(limit, RPC::Tuning::accountNFTokens, context))
         return *err;
 
@@ -73,7 +73,8 @@ doAccountNFTs(RPC::JsonContext& context)
     auto const first = keylet::nftpage(keylet::nftpage_min(accountID), marker);
     auto const last = keylet::nftpage_max(accountID);
 
-    auto cp = ledger->read(Keylet(ltNFTOKEN_PAGE, ledger->succ(first.key, last.key.next()).value_or(last.key)));
+    auto cp = ledger->read(
+        Keylet(ltNFTOKEN_PAGE, ledger->succ(first.key, last.key.next()).value_or(last.key)));
 
     std::uint32_t cnt = 0;
     auto& nfts = (result[jss::account_nfts] = Json::arrayValue);
@@ -143,9 +144,13 @@ doAccountNFTs(RPC::JsonContext& context)
         }
 
         if (auto npm = (*cp)[~sfNextPageMin])
+        {
             cp = ledger->read(Keylet(ltNFTOKEN_PAGE, *npm));
+        }
         else
+        {
             cp = nullptr;
+        }
     }
 
     if (markerSet && !markerFound)
@@ -179,7 +184,8 @@ getAccountObjects(
     if (!dirIndex.isZero() && !ledger.read({ltDIR_NODE, dirIndex}))
         return false;
 
-    auto typeMatchesFilter = [](std::vector<LedgerEntryType> const& typeFilter, LedgerEntryType ledgerType) {
+    auto typeMatchesFilter = [](std::vector<LedgerEntryType> const& typeFilter,
+                                LedgerEntryType ledgerType) {
         auto it = std::find(typeFilter.begin(), typeFilter.end(), ledgerType);
         return it != typeFilter.end();
     };
@@ -187,7 +193,8 @@ getAccountObjects(
     // if dirIndex != 0, then all NFTs have already been returned.  only
     // iterate NFT pages if the filter says so AND dirIndex == 0
     bool iterateNFTPages =
-        (!typeFilter.has_value() || typeMatchesFilter(typeFilter.value(), ltNFTOKEN_PAGE)) && dirIndex == beast::zero;
+        (!typeFilter.has_value() || typeMatchesFilter(typeFilter.value(), ltNFTOKEN_PAGE)) &&
+        dirIndex == beast::zero;
 
     Keylet const firstNFTPage = keylet::nftpage_min(account);
 
@@ -210,7 +217,8 @@ getAccountObjects(
     // iterate NFTokenPages preferentially
     if (iterateNFTPages)
     {
-        Keylet const first = entryIndex == beast::zero ? firstNFTPage : Keylet{ltNFTOKEN_PAGE, entryIndex};
+        Keylet const first =
+            entryIndex == beast::zero ? firstNFTPage : Keylet{ltNFTOKEN_PAGE, entryIndex};
 
         Keylet const last = keylet::nftpage_max(account);
 
@@ -225,9 +233,13 @@ getAccountObjects(
             jvObjects.append(cp->getJson(JsonOptions::none));
             auto const npm = (*cp)[~sfNextPageMin];
             if (npm)
+            {
                 cp = ledger.read(Keylet(ltNFTOKEN_PAGE, *npm));
+            }
             else
+            {
                 cp = nullptr;
+            }
 
             if (--mlimit == 0)
             {
@@ -307,7 +319,8 @@ getAccountObjects(
         {
             auto const sleNode = ledger.read(keylet::child(*iter));
 
-            if (!typeFilter.has_value() || typeMatchesFilter(typeFilter.value(), sleNode->getType()))
+            if (!typeFilter.has_value() ||
+                typeMatchesFilter(typeFilter.value(), sleNode->getType()))
             {
                 jvObjects.append(sleNode->getJson(JsonOptions::none));
             }
@@ -376,7 +389,8 @@ doAccountObjects(RPC::JsonContext& context)
 
     std::optional<std::vector<LedgerEntryType>> typeFilter;
 
-    if (params.isMember(jss::deletion_blockers_only) && params[jss::deletion_blockers_only].asBool())
+    if (params.isMember(jss::deletion_blockers_only) &&
+        params[jss::deletion_blockers_only].asBool())
     {
         struct
         {
@@ -423,13 +437,13 @@ doAccountObjects(RPC::JsonContext& context)
             rpcStatus.inject(result);
             return result;
         }
-        else if (type != ltANY)
+        if (type != ltANY)
         {
             typeFilter = std::vector<LedgerEntryType>({type});
         }
     }
 
-    unsigned int limit;
+    unsigned int limit = 0;
     if (auto err = readLimitField(limit, RPC::Tuning::accountObjects, context))
         return *err;
 

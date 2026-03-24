@@ -125,7 +125,11 @@ private:
      * @param initialSet the transaction set
      */
     void
-    addTx(LedgerIndex seq, PublicKey const& vp, NegativeUNLModify modify, std::shared_ptr<SHAMap> const& initialSet);
+    addTx(
+        LedgerIndex seq,
+        PublicKey const& vp,
+        NegativeUNLModify modify,
+        std::shared_ptr<SHAMap> const& initialSet);
 
     /**
      * Pick one candidate from a vector of candidates.
@@ -168,7 +172,7 @@ private:
      * @param scoreTable the score table
      * @return the candidates to disable and the candidates to re-enable
      */
-    Candidates const
+    Candidates
     findAllCandidates(
         hash_set<NodeID> const& unl,
         hash_set<NodeID> const& negUnl,

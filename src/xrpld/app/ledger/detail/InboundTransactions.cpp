@@ -2,13 +2,14 @@
 #include <xrpld/app/ledger/InboundTransactions.h>
 #include <xrpld/app/ledger/detail/TransactionAcquire.h>
 #include <xrpld/app/main/Application.h>
-#include <xrpld/app/misc/NetworkOPs.h>
 
 #include <xrpl/basics/Log.h>
 #include <xrpl/core/JobQueue.h>
 #include <xrpl/protocol/RippleLedgerHash.h>
 #include <xrpl/resource/Fees.h>
+#include <xrpl/server/NetworkOPs.h>
 
+#include <algorithm>
 #include <memory>
 #include <mutex>
 
@@ -30,7 +31,8 @@ public:
     TransactionAcquire::pointer mAcquire;
     std::shared_ptr<SHAMap> mSet;
 
-    InboundTransactionSet(std::uint32_t seq, std::shared_ptr<SHAMap> const& set) : mSeq(seq), mSet(set)
+    InboundTransactionSet(std::uint32_t seq, std::shared_ptr<SHAMap> const& set)
+        : mSeq(seq), mSet(set)
     {
         ;
     }
@@ -49,13 +51,13 @@ public:
         std::function<void(std::shared_ptr<SHAMap> const&, bool)> gotSet,
         std::unique_ptr<PeerSetBuilder> peerSetBuilder)
         : app_(app)
-        , m_seq(0)
         , m_zeroSet(m_map[uint256()])
         , m_gotSet(std::move(gotSet))
         , m_peerSetBuilder(std::move(peerSetBuilder))
         , j_(app_.journal("InboundTransactions"))
     {
-        m_zeroSet.mSet = std::make_shared<SHAMap>(SHAMapType::TRANSACTION, uint256(), app_.getNodeFamily());
+        m_zeroSet.mSet =
+            std::make_shared<SHAMap>(SHAMapType::TRANSACTION, uint256(), app_.getNodeFamily());
         m_zeroSet.mSet->setUnbacked();
     }
 
@@ -112,12 +114,15 @@ public:
     /** We received a TMLedgerData from a peer.
      */
     void
-    gotData(LedgerHash const& hash, std::shared_ptr<Peer> peer, std::shared_ptr<protocol::TMLedgerData> packet_ptr)
-        override
+    gotData(
+        LedgerHash const& hash,
+        std::shared_ptr<Peer> peer,
+        std::shared_ptr<protocol::TMLedgerData> packet_ptr) override
     {
         protocol::TMLedgerData& packet = *packet_ptr;
 
-        JLOG(j_.trace()) << "Got data (" << packet.nodes().size() << ") for acquiring ledger: " << hash;
+        JLOG(j_.trace()) << "Got data (" << packet.nodes().size()
+                         << ") for acquiring ledger: " << hash;
 
         TransactionAcquire::pointer ta = getAcquire(hash);
 
@@ -163,13 +168,16 @@ public:
 
             auto& inboundSet = m_map[hash];
 
-            if (inboundSet.mSeq < m_seq)
-                inboundSet.mSeq = m_seq;
+            inboundSet.mSeq = std::max(inboundSet.mSeq, m_seq);
 
             if (inboundSet.mSet)
+            {
                 isNew = false;
+            }
             else
+            {
                 inboundSet.mSet = set;
+            }
 
             inboundSet.mAcquire.reset();
         }
@@ -198,9 +206,13 @@ public:
             while (it != m_map.end())
             {
                 if (it->second.mSeq < minSeq || it->second.mSeq > maxSeq)
+                {
                     it = m_map.erase(it);
+                }
                 else
+                {
                     ++it;
+                }
             }
         }
     }
@@ -222,7 +234,7 @@ private:
 
     bool stopping_{false};
     MapType m_map;
-    std::uint32_t m_seq;
+    std::uint32_t m_seq{0};
 
     // The empty transaction set whose hash is zero
     InboundTransactionSet& m_zeroSet;
@@ -244,7 +256,8 @@ make_InboundTransactions(
     beast::insight::Collector::ptr const& collector,
     std::function<void(std::shared_ptr<SHAMap> const&, bool)> gotSet)
 {
-    return std::make_unique<InboundTransactionsImp>(app, collector, std::move(gotSet), make_PeerSetBuilder(app));
+    return std::make_unique<InboundTransactionsImp>(
+        app, collector, std::move(gotSet), make_PeerSetBuilder(app));
 }
 
 }  // namespace xrpl

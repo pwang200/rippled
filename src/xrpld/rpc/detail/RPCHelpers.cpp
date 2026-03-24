@@ -1,7 +1,5 @@
 #include <xrpld/app/misc/Transaction.h>
 #include <xrpld/app/paths/TrustLine.h>
-#include <xrpld/app/rdb/RelationalDatabase.h>
-#include <xrpld/app/tx/detail/NFTokenUtils.h>
 #include <xrpld/rpc/Context.h>
 #include <xrpld/rpc/DeliveredAmount.h>
 #include <xrpld/rpc/detail/RPCHelpers.h>
@@ -10,7 +8,9 @@
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/RPCErr.h>
 #include <xrpl/protocol/nftPageMask.h>
+#include <xrpl/rdb/RelationalDatabase.h>
 #include <xrpl/resource/Fees.h>
+#include <xrpl/tx/transactors/nft/NFTokenUtils.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -24,9 +24,13 @@ getStartHint(std::shared_ptr<SLE const> const& sle, AccountID const& accountID)
     if (sle->getType() == ltRIPPLE_STATE)
     {
         if (sle->getFieldAmount(sfLowLimit).getIssuer() == accountID)
+        {
             return sle->getFieldU64(sfLowNode);
-        else if (sle->getFieldAmount(sfHighLimit).getIssuer() == accountID)
+        }
+        if (sle->getFieldAmount(sfHighLimit).getIssuer() == accountID)
+        {
             return sle->getFieldU64(sfHighNode);
+        }
     }
 
     if (!sle->isFieldPresent(sfOwnerNode))
@@ -36,14 +40,17 @@ getStartHint(std::shared_ptr<SLE const> const& sle, AccountID const& accountID)
 }
 
 bool
-isRelatedToAccount(ReadView const& ledger, std::shared_ptr<SLE const> const& sle, AccountID const& accountID)
+isRelatedToAccount(
+    ReadView const& ledger,
+    std::shared_ptr<SLE const> const& sle,
+    AccountID const& accountID)
 {
     if (sle->getType() == ltRIPPLE_STATE)
     {
         return (sle->getFieldAmount(sfLowLimit).getIssuer() == accountID) ||
             (sle->getFieldAmount(sfHighLimit).getIssuer() == accountID);
     }
-    else if (sle->isFieldPresent(sfAccount))
+    if (sle->isFieldPresent(sfAccount))
     {
         // If there's an sfAccount present, also test the sfDestination, if
         // present. This will match objects such as Escrows (ltESCROW), Payment
@@ -54,12 +61,12 @@ isRelatedToAccount(ReadView const& ledger, std::shared_ptr<SLE const> const& sle
         return sle->getAccountID(sfAccount) == accountID ||
             (sle->isFieldPresent(sfDestination) && sle->getAccountID(sfDestination) == accountID);
     }
-    else if (sle->getType() == ltSIGNER_LIST)
+    if (sle->getType() == ltSIGNER_LIST)
     {
         Keylet const accountSignerList = keylet::signers(accountID);
         return sle->key() == accountSignerList.key;
     }
-    else if (sle->getType() == ltNFTOKEN_OFFER)
+    if (sle->getType() == ltNFTOKEN_OFFER)
     {
         // Do not check the sfDestination field. NFToken Offers are NOT added to
         // the Destination account's directory.
@@ -155,8 +162,8 @@ getSeedFromRPC(Json::Value const& params, Json::Value& error)
     if (count != 1)
     {
         error = RPC::make_param_error(
-            "Exactly one of the following must be specified: " + std::string(jss::passphrase) + ", " +
-            std::string(jss::seed) + " or " + std::string(jss::seed_hex));
+            "Exactly one of the following must be specified: " + std::string(jss::passphrase) +
+            ", " + std::string(jss::seed) + " or " + std::string(jss::seed_hex));
         return std::nullopt;
     }
 
@@ -209,8 +216,9 @@ keypairForSignature(Json::Value const& params, Json::Value& error, unsigned int 
     if (count > 1)
     {
         error = RPC::make_param_error(
-            "Exactly one of the following must be specified: " + std::string(jss::passphrase) + ", " +
-            std::string(jss::secret) + ", " + std::string(jss::seed) + " or " + std::string(jss::seed_hex));
+            "Exactly one of the following must be specified: " + std::string(jss::passphrase) +
+            ", " + std::string(jss::secret) + ", " + std::string(jss::seed) + " or " +
+            std::string(jss::seed_hex));
         return {};
     }
 
@@ -230,9 +238,13 @@ keypairForSignature(Json::Value const& params, Json::Value& error, unsigned int 
         if (!keyType)
         {
             if (apiVersion > 1u)
+            {
                 error = RPC::make_error(rpcBAD_KEY_TYPE);
+            }
             else
+            {
                 error = RPC::invalid_field_error(jss::key_type);
+            }
             return {};
         }
 
@@ -240,8 +252,8 @@ keypairForSignature(Json::Value const& params, Json::Value& error, unsigned int 
         // https://developercommunity.visualstudio.com/t/assigning-constexpr-char--to-static-cha/10021357?entry=problem)
         if (strcmp(secretType, jss::secret.c_str()) == 0)
         {
-            error =
-                RPC::make_param_error("The secret field is not allowed if " + std::string(jss::key_type) + " is used.");
+            error = RPC::make_param_error(
+                "The secret field is not allowed if " + std::string(jss::key_type) + " is used.");
             return {};
         }
     }
@@ -275,7 +287,9 @@ keypairForSignature(Json::Value const& params, Json::Value& error, unsigned int 
     if (!seed)
     {
         if (has_key_type)
+        {
             seed = getSeedFromRPC(params, error);
+        }
         else
         {
             if (!params[jss::secret].isString())
@@ -310,7 +324,8 @@ chooseLedgerEntryType(Json::Value const& params)
     std::pair<RPC::Status, LedgerEntryType> result{RPC::Status::OK, ltANY};
     if (params.isMember(jss::type))
     {
-        static constexpr auto types = std::to_array<std::tuple<char const*, char const*, LedgerEntryType>>({
+        static constexpr auto types =
+            std::to_array<std::tuple<char const*, char const*, LedgerEntryType>>({
 #pragma push_macro("LEDGER_ENTRY")
 #undef LEDGER_ENTRY
 
@@ -320,7 +335,7 @@ chooseLedgerEntryType(Json::Value const& params)
 
 #undef LEDGER_ENTRY
 #pragma pop_macro("LEDGER_ENTRY")
-        });
+            });
 
         auto const& p = params[jss::type];
         if (!p.isString())

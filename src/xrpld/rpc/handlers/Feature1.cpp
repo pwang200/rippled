@@ -1,8 +1,8 @@
 #include <xrpld/app/ledger/LedgerMaster.h>
 #include <xrpld/app/main/Application.h>
-#include <xrpld/app/misc/AmendmentTable.h>
 #include <xrpld/rpc/Context.h>
 
+#include <xrpl/ledger/AmendmentTable.h>
 #include <xrpl/protocol/ErrorCodes.h>
 #include <xrpl/protocol/RPCErr.h>
 #include <xrpl/protocol/jss.h>
@@ -61,9 +61,13 @@ doFeature(RPC::JsonContext& context)
             return rpcError(rpcNO_PERMISSION);
 
         if (context.params[jss::vetoed].asBool())
+        {
             table.veto(feature);
+        }
         else
+        {
             table.unVeto(feature);
+        }
     }
 
     Json::Value jvReply = table.getJson(feature, isAdmin);

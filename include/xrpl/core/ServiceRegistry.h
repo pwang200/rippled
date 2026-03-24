@@ -4,6 +4,9 @@
 #include <xrpl/basics/SHAMapHash.h>
 #include <xrpl/basics/TaggedCache.h>
 #include <xrpl/ledger/CachedSLEs.h>
+#include <xrpl/protocol/Fees.h>
+
+#include <boost/asio.hpp>
 
 namespace xrpl {
 
@@ -18,6 +21,10 @@ namespace perf {
 class PerfLog;
 }
 
+// This is temporary until we migrate all code to use ServiceRegistry.
+class Application;
+
+// Forward declarations
 class AcceptedLedger;
 class AmendmentTable;
 class Cluster;
@@ -35,6 +42,7 @@ class LoadFeeTrack;
 class LoadManager;
 class ManifestCache;
 class NetworkOPs;
+class NetworkIDService;
 class OpenLedger;
 class OrderBookDB;
 class Overlay;
@@ -92,6 +100,9 @@ public:
 
     virtual CachedSLEs&
     cachedSLEs() = 0;
+
+    virtual NetworkIDService&
+    getNetworkIDService() = 0;
 
     // Protocol and validation services
     virtual AmendmentTable&
@@ -194,6 +205,34 @@ public:
 
     virtual perf::PerfLog&
     getPerfLog() = 0;
+
+    // Configuration and state
+    virtual bool
+    isStopping() const = 0;
+
+    virtual beast::Journal
+    journal(std::string const& name) = 0;
+
+    virtual boost::asio::io_context&
+    getIOContext() = 0;
+
+    virtual Logs&
+    logs() = 0;
+
+    virtual std::optional<uint256> const&
+    trapTxID() const = 0;
+
+    /** Retrieve the "wallet database" */
+    virtual DatabaseCon&
+    getWalletDB() = 0;
+
+    virtual Fees
+    getFees() const = 0;
+
+    // Temporary: Get the underlying Application for functions that haven't
+    // been migrated yet. This should be removed once all code is migrated.
+    virtual Application&
+    app() = 0;
 };
 
 }  // namespace xrpl

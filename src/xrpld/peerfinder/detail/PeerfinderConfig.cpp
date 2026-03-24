@@ -1,6 +1,8 @@
 #include <xrpld/peerfinder/PeerfinderManager.h>
 #include <xrpld/peerfinder/detail/Tuning.h>
 
+#include <algorithm>
+
 namespace xrpl {
 namespace PeerFinder {
 
@@ -19,8 +21,9 @@ bool
 operator==(Config const& lhs, Config const& rhs)
 {
     return lhs.autoConnect == rhs.autoConnect && lhs.peerPrivate == rhs.peerPrivate &&
-        lhs.wantIncoming == rhs.wantIncoming && lhs.inPeers == rhs.inPeers && lhs.maxPeers == rhs.maxPeers &&
-        lhs.outPeers == rhs.outPeers && lhs.features == lhs.features && lhs.ipLimit == rhs.ipLimit &&
+        lhs.wantIncoming == rhs.wantIncoming && lhs.inPeers == rhs.inPeers &&
+        lhs.maxPeers == rhs.maxPeers && lhs.outPeers == rhs.outPeers &&
+        lhs.features == lhs.features && lhs.ipLimit == rhs.ipLimit &&
         lhs.listeningPort == rhs.listeningPort;
 }
 
@@ -50,7 +53,7 @@ Config::applyTuning()
 }
 
 void
-Config::onWrite(beast::PropertyStream::Map& map)
+Config::onWrite(beast::PropertyStream::Map& map) const
 {
     map["max_peers"] = maxPeers;
     map["out_peers"] = outPeers;
@@ -62,7 +65,11 @@ Config::onWrite(beast::PropertyStream::Map& map)
 }
 
 Config
-Config::makeConfig(xrpl::Config const& cfg, std::uint16_t port, bool validationPublicKey, int ipLimit)
+Config::makeConfig(
+    xrpl::Config const& cfg,
+    std::uint16_t port,
+    bool validationPublicKey,
+    int ipLimit)
 {
     PeerFinder::Config config;
 
@@ -76,8 +83,7 @@ Config::makeConfig(xrpl::Config const& cfg, std::uint16_t port, bool validationP
         if (cfg.PEERS_MAX != 0)
             config.maxPeers = cfg.PEERS_MAX;
 
-        if (config.maxPeers < Tuning::minOutCount)
-            config.maxPeers = Tuning::minOutCount;
+        config.maxPeers = std::max<std::size_t>(config.maxPeers, Tuning::minOutCount);
         config.outPeers = config.calcOutPeers();
 
         // Calculate the number of outbound peers we want. If we dont want
@@ -88,9 +94,13 @@ Config::makeConfig(xrpl::Config const& cfg, std::uint16_t port, bool validationP
         // Calculate the largest number of inbound connections we could
         // take.
         if (config.maxPeers >= config.outPeers)
+        {
             config.inPeers = config.maxPeers - config.outPeers;
+        }
         else
+        {
             config.inPeers = 0;
+        }
     }
     else
     {

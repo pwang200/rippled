@@ -29,8 +29,10 @@ doChannelAuthorize(RPC::JsonContext& context)
 
     auto const& params(context.params);
     for (auto const& p : {jss::channel_id, jss::amount})
+    {
         if (!params.isMember(p))
             return RPC::missing_field_error(p);
+    }
 
     // Compatibility if a key type isn't specified. If it is, the
     // keypairForSignature code will validate parameters and return
@@ -42,7 +44,9 @@ doChannelAuthorize(RPC::JsonContext& context)
     std::optional<std::pair<PublicKey, SecretKey>> const keyPair =
         RPC::keypairForSignature(params, result, context.apiVersion);
 
-    XRPL_ASSERT(keyPair || RPC::contains_error(result), "xrpl::doChannelAuthorize : valid keyPair or an error");
+    XRPL_ASSERT(
+        keyPair || RPC::contains_error(result),
+        "xrpl::doChannelAuthorize : valid keyPair or an error");
     if (!keyPair || RPC::contains_error(result))
         return result;
 
@@ -72,7 +76,8 @@ doChannelAuthorize(RPC::JsonContext& context)
     catch (std::exception const& ex)
     {
         // LCOV_EXCL_START
-        result = RPC::make_error(rpcINTERNAL, "Exception occurred during signing: " + std::string(ex.what()));
+        result = RPC::make_error(
+            rpcINTERNAL, "Exception occurred during signing: " + std::string(ex.what()));
         // LCOV_EXCL_STOP
     }
     return result;
@@ -89,8 +94,10 @@ doChannelVerify(RPC::JsonContext& context)
 {
     auto const& params(context.params);
     for (auto const& p : {jss::public_key, jss::channel_id, jss::amount, jss::signature})
+    {
         if (!params.isMember(p))
             return RPC::missing_field_error(p);
+    }
 
     std::optional<PublicKey> pk;
     {
@@ -122,7 +129,7 @@ doChannelVerify(RPC::JsonContext& context)
     std::uint64_t const drops = *optDrops;
 
     auto sig = strUnHex(params[jss::signature].asString());
-    if (!sig || !sig->size())
+    if (!sig || sig->empty())
         return rpcError(rpcINVALID_PARAMS);
 
     Serializer msg;

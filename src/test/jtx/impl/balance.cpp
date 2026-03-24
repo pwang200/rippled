@@ -44,7 +44,12 @@ doBalance(Env& env, AccountID const& account, bool none, STAmount const& value, 
 }
 
 void
-doBalance(Env& env, AccountID const& account, bool none, STAmount const& value, MPTIssue const& mptIssue)
+doBalance(
+    Env& env,
+    AccountID const& account,
+    bool none,
+    STAmount const& value,
+    MPTIssue const& mptIssue)
 {
     auto const sle = env.le(keylet::mptoken(mptIssue.getMptID(), account));
     if (none)
@@ -61,8 +66,9 @@ doBalance(Env& env, AccountID const& account, bool none, STAmount const& value, 
 void
 balance::operator()(Env& env) const
 {
-    return std::visit(
-        [&](auto const& issue) { doBalance(env, account_.id(), none_, value_, issue); }, value_.asset().value());
+    std::visit(
+        [&](auto const& issue) { doBalance(env, account_.id(), none_, value_, issue); },
+        value_.asset().value());
 }
 
 }  // namespace jtx

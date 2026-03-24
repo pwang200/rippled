@@ -63,7 +63,9 @@ public:
 
         unexpected(object1.getSerializer() != object2.getSerializer(), "STObject error 1");
 
-        unexpected(object1.isFieldPresent(sfTestH256) || !object1.isFieldPresent(sfTestVL), "STObject error");
+        unexpected(
+            object1.isFieldPresent(sfTestH256) || !object1.isFieldPresent(sfTestVL),
+            "STObject error");
 
         object1.makeFieldPresent(sfTestH256);
 
@@ -167,8 +169,8 @@ public:
             BEAST_EXPECT(st[sf1Outer] == 1);
             BEAST_EXPECT(st[sf2Outer] == 2);
             except<STObject::FieldErr>([&]() { st[sf3Outer]; });
-            BEAST_EXPECT(*st[~sf1Outer] == 1);
-            BEAST_EXPECT(*st[~sf2Outer] == 2);
+            BEAST_EXPECT(*st[~sf1Outer] == 1);  // NOLINT(bugprone-unchecked-optional-access)
+            BEAST_EXPECT(*st[~sf2Outer] == 2);  // NOLINT(bugprone-unchecked-optional-access)
             BEAST_EXPECT(st[~sf3Outer] == std::nullopt);
             BEAST_EXPECT(!!st[~sf1Outer]);
             BEAST_EXPECT(!!st[~sf2Outer]);
@@ -198,9 +200,9 @@ public:
             BEAST_EXPECT(st[sf1Outer] == 1);
             BEAST_EXPECT(st[sf2Outer] == 2);
             BEAST_EXPECT(st[sf3Outer] == 0);
-            BEAST_EXPECT(*st[~sf1Outer] == 1);
-            BEAST_EXPECT(*st[~sf2Outer] == 2);
-            BEAST_EXPECT(*st[~sf3Outer] == 0);
+            BEAST_EXPECT(*st[~sf1Outer] == 1);  // NOLINT(bugprone-unchecked-optional-access)
+            BEAST_EXPECT(*st[~sf2Outer] == 2);  // NOLINT(bugprone-unchecked-optional-access)
+            BEAST_EXPECT(*st[~sf3Outer] == 0);  // NOLINT(bugprone-unchecked-optional-access)
             BEAST_EXPECT(!!st[~sf1Outer]);
             BEAST_EXPECT(!!st[~sf2Outer]);
             BEAST_EXPECT(!!st[~sf3Outer]);
@@ -325,7 +327,8 @@ public:
         {
             STObject st(sfGeneric);
             auto const v = ~st[~sf1Outer];
-            static_assert(std::is_same<std::decay_t<decltype(v)>, std::optional<std::uint32_t>>::value, "");
+            static_assert(
+                std::is_same<std::decay_t<decltype(v)>, std::optional<std::uint32_t>>::value, "");
         }
 
         // UDT scalar fields
@@ -348,7 +351,7 @@ public:
                 Buffer b(1);
                 BEAST_EXPECT(!b.empty());
                 st[sf4] = std::move(b);
-                BEAST_EXPECT(b.empty());
+                BEAST_EXPECT(b.empty());  // NOLINT(bugprone-use-after-move)
                 BEAST_EXPECT(Slice(st[sf4]).size() == 1);
                 st[~sf4] = std::nullopt;
                 BEAST_EXPECT(!~st[~sf4]);
@@ -367,7 +370,7 @@ public:
                 BEAST_EXPECT(!!~st[~sf5]);
                 Buffer b(1);
                 st[sf5] = std::move(b);
-                BEAST_EXPECT(b.empty());
+                BEAST_EXPECT(b.empty());  // NOLINT(bugprone-use-after-move)
                 BEAST_EXPECT(Slice(st[sf5]).size() == 1);
                 st[~sf4] = std::nullopt;
                 BEAST_EXPECT(!~st[~sf4]);
@@ -396,10 +399,11 @@ public:
             st[sf] = std::move(v);
             auto const& cst = st;
             BEAST_EXPECT(cst[sf].size() == 2);
-            BEAST_EXPECT(cst[~sf]->size() == 2);
+            BEAST_EXPECT(cst[~sf]->size() == 2);  // NOLINT(bugprone-unchecked-optional-access)
             BEAST_EXPECT(cst[sf][0] == 1);
             BEAST_EXPECT(cst[sf][1] == 2);
-            static_assert(std::is_same<decltype(cst[sfIndexes]), std::vector<uint256> const&>::value, "");
+            static_assert(
+                std::is_same<decltype(cst[sfIndexes]), std::vector<uint256> const&>::value, "");
         }
 
         // Default by reference field
@@ -416,9 +420,9 @@ public:
 
             STObject st(sot, sfGeneric);
             auto const& cst(st);
-            BEAST_EXPECT(cst[sf1].size() == 0);
+            BEAST_EXPECT(cst[sf1].empty());
             BEAST_EXPECT(!cst[~sf2]);
-            BEAST_EXPECT(cst[sf3].size() == 0);
+            BEAST_EXPECT(cst[sf3].empty());
             std::vector<uint256> v;
             v.emplace_back(1);
             st[sf1] = v;
@@ -433,7 +437,7 @@ public:
             BEAST_EXPECT(cst[sf3].size() == 1);
             BEAST_EXPECT(cst[sf3][0] == uint256{1});
             st[sf3] = std::vector<uint256>{};
-            BEAST_EXPECT(cst[sf3].size() == 0);
+            BEAST_EXPECT(cst[sf3].empty());
         }
     }  // namespace xrpl
 

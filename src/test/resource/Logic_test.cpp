@@ -24,7 +24,8 @@ public:
         using clock_type = boost::base_from_member<TestStopwatch>;
 
     public:
-        explicit TestLogic(beast::Journal journal) : Logic(beast::insight::NullCollector::New(), member, journal)
+        explicit TestLogic(beast::Journal journal)
+            : Logic(beast::insight::NullCollector::New(), member, journal)
         {
         }
 
@@ -65,9 +66,13 @@ public:
     testDrop(beast::Journal j, bool limited)
     {
         if (limited)
+        {
             testcase("Limited warn/drop");
+        }
         else
+        {
             testcase("Unlimited warn/drop");
+        }
 
         TestLogic logic(j);
 
@@ -89,18 +94,26 @@ public:
                 if (n == 0)
                 {
                     if (limited)
+                    {
                         fail("Loop count exceeded without warning");
+                    }
                     else
+                    {
                         pass();
+                    }
                     return;
                 }
 
                 if (c.charge(fee) == warn)
                 {
                     if (limited)
+                    {
                         pass();
+                    }
                     else
+                    {
                         fail("Should loop forever with no warning");
+                    }
                     break;
                 }
                 ++logic.clock();
@@ -112,9 +125,13 @@ public:
                 if (n == 0)
                 {
                     if (limited)
+                    {
                         fail("Loop count exceeded without dropping");
+                    }
                     else
+                    {
                         pass();
+                    }
                     return;
                 }
 
@@ -135,9 +152,13 @@ public:
             if (c.disposition() != drop)
             {
                 if (limited)
+                {
                     fail("Dropped consumer not put on blacklist");
+                }
                 else
+                {
                     pass();
+                }
                 return;
             }
         }

@@ -5,6 +5,7 @@
 #include <xrpld/rpc/detail/Tuning.h>
 
 #include <xrpl/ledger/ReadView.h>
+#include <xrpl/ledger/helpers/DirectoryHelpers.h>
 #include <xrpl/protocol/ErrorCodes.h>
 #include <xrpl/protocol/RPCErr.h>
 #include <xrpl/protocol/jss.h>
@@ -98,13 +99,14 @@ doAccountLines(RPC::JsonContext& context)
         return result;
     }
 
-    unsigned int limit;
+    unsigned int limit = 0;
     if (auto err = readLimitField(limit, RPC::Tuning::accountLines, context))
         return *err;
 
     // this flag allows the requester to ask incoming trustlines in default
     // state be omitted
-    bool ignoreDefault = params.isMember(jss::ignore_default) && params[jss::ignore_default].asBool();
+    bool ignoreDefault =
+        params.isMember(jss::ignore_default) && params[jss::ignore_default].asBool();
 
     Json::Value& jsonLines(result[jss::lines] = Json::arrayValue);
     struct VisitData
@@ -167,7 +169,8 @@ doAccountLines(RPC::JsonContext& context)
                 startAfter,
                 startHint,
                 limit + 1,
-                [&visitData, &count, &marker, &limit, &nextHint](std::shared_ptr<SLE const> const& sleCur) {
+                [&visitData, &count, &marker, &limit, &nextHint](
+                    std::shared_ptr<SLE const> const& sleCur) {
                     if (!sleCur)
                     {
                         // LCOV_EXCL_START
@@ -189,16 +192,22 @@ doAccountLines(RPC::JsonContext& context)
                     if (visitData.ignoreDefault)
                     {
                         if (sleCur->getFieldAmount(sfLowLimit).getIssuer() == visitData.accountID)
+                        {
                             ignore = !(sleCur->getFieldU32(sfFlags) & lsfLowReserve);
+                        }
                         else
+                        {
                             ignore = !(sleCur->getFieldU32(sfFlags) & lsfHighReserve);
+                        }
                     }
 
                     if (!ignore && count <= limit)
                     {
                         auto const line = RPCTrustLine::makeItem(visitData.accountID, sleCur);
 
-                        if (line && (!visitData.raPeerAccount || *visitData.raPeerAccount == line->getAccountIDPeer()))
+                        if (line &&
+                            (!visitData.raPeerAccount ||
+                             *visitData.raPeerAccount == line->getAccountIDPeer()))
                         {
                             visitData.items.emplace_back(*line);
                         }

@@ -99,15 +99,19 @@ getBookBase(Book const& book)
 {
     XRPL_ASSERT(isConsistent(book), "xrpl::getBookBase : input is consistent");
 
-    auto const index = book.domain
-        ? indexHash(
-              LedgerNameSpace::BOOK_DIR,
-              book.in.currency,
-              book.out.currency,
-              book.in.account,
-              book.out.account,
-              *(book.domain))
-        : indexHash(LedgerNameSpace::BOOK_DIR, book.in.currency, book.out.currency, book.in.account, book.out.account);
+    auto const index = book.domain ? indexHash(
+                                         LedgerNameSpace::BOOK_DIR,
+                                         book.in.currency,
+                                         book.out.currency,
+                                         book.in.account,
+                                         book.out.account,
+                                         *(book.domain))
+                                   : indexHash(
+                                         LedgerNameSpace::BOOK_DIR,
+                                         book.in.currency,
+                                         book.out.currency,
+                                         book.in.account,
+                                         book.out.account);
 
     // Return with quality 0.
     auto k = keylet::quality({ltDIR_NODE, index}, 0);
@@ -118,7 +122,8 @@ getBookBase(Book const& book)
 uint256
 getQualityNext(uint256 const& uBase)
 {
-    static constexpr uint256 nextQuality("0000000000000000000000000000000000000000000000010000000000000000");
+    static constexpr uint256 nextQuality(
+        "0000000000000000000000000000000000000000000000010000000000000000");
     return uBase + nextQuality;
 }
 
@@ -132,7 +137,7 @@ getQuality(uint256 const& uBase)
 uint256
 getTicketIndex(AccountID const& account, std::uint32_t ticketSeq)
 {
-    return indexHash(LedgerNameSpace::TICKET, account, std::uint32_t(ticketSeq));
+    return indexHash(LedgerNameSpace::TICKET, account, ticketSeq);
 }
 
 uint256
@@ -180,7 +185,8 @@ skip(LedgerIndex ledger) noexcept
 {
     return {
         ltLEDGER_HASHES,
-        indexHash(LedgerNameSpace::SKIP_LIST, std::uint32_t(static_cast<std::uint32_t>(ledger) >> 16))};
+        indexHash(
+            LedgerNameSpace::SKIP_LIST, std::uint32_t(static_cast<std::uint32_t>(ledger) >> 16))};
 }
 
 Keylet const&
@@ -213,7 +219,7 @@ book_t::operator()(Book const& b) const
 Keylet
 line(AccountID const& id0, AccountID const& id1, Currency const& currency) noexcept
 {
-    // There is code in SetTrust that calls us with id0 == id1, to allow users
+    // There is code in TrustSet that calls us with id0 == id1, to allow users
     // to locate and delete such "weird" trustlines. If we remove that code, we
     // could enable this assert:
     // XRPL_ASSERT(id0 != id1, "xrpl::keylet::line : accounts must be
@@ -228,7 +234,9 @@ line(AccountID const& id0, AccountID const& id1, Currency const& currency) noexc
     // two accounts (smallest then largest)  and hash them in that order:
     auto const accounts = std::minmax(id0, id1);
 
-    return {ltRIPPLE_STATE, indexHash(LedgerNameSpace::TRUST_LINE, accounts.first, accounts.second, currency)};
+    return {
+        ltRIPPLE_STATE,
+        indexHash(LedgerNameSpace::TRUST_LINE, accounts.first, accounts.second, currency)};
 }
 
 Keylet
@@ -303,14 +311,17 @@ depositPreauth(AccountID const& owner, AccountID const& preauthorized) noexcept
 
 // Credentials should be sorted here, use credentials::makeSorted
 Keylet
-depositPreauth(AccountID const& owner, std::set<std::pair<AccountID, Slice>> const& authCreds) noexcept
+depositPreauth(
+    AccountID const& owner,
+    std::set<std::pair<AccountID, Slice>> const& authCreds) noexcept
 {
     std::vector<uint256> hashes;
     hashes.reserve(authCreds.size());
     for (auto const& o : authCreds)
         hashes.emplace_back(sha512Half(o.first, o.second));
 
-    return {ltDEPOSIT_PREAUTH, indexHash(LedgerNameSpace::DEPOSIT_PREAUTH_CREDENTIALS, owner, hashes)};
+    return {
+        ltDEPOSIT_PREAUTH, indexHash(LedgerNameSpace::DEPOSIT_PREAUTH_CREDENTIALS, owner, hashes)};
 }
 
 //------------------------------------------------------------------------------
@@ -393,7 +404,8 @@ Keylet
 amm(Asset const& issue1, Asset const& issue2) noexcept
 {
     auto const& [minI, maxI] = std::minmax(issue1.get<Issue>(), issue2.get<Issue>());
-    return amm(indexHash(LedgerNameSpace::AMM, minI.account, minI.currency, maxI.account, maxI.currency));
+    return amm(
+        indexHash(LedgerNameSpace::AMM, minI.account, minI.currency, maxI.account, maxI.currency));
 }
 
 Keylet

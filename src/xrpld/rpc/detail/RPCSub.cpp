@@ -26,26 +26,37 @@ public:
         , m_io_context(io_context)
         , m_jobQueue(jobQueue)
         , mUrl(strUrl)
-        , mSSL(false)
         , mUsername(strUsername)
         , mPassword(strPassword)
-        , mSending(false)
         , j_(logs.journal("RPCSub"))
         , logs_(logs)
     {
         parsedURL pUrl;
 
         if (!parseUrl(pUrl, strUrl))
+        {
             Throw<std::runtime_error>("Failed to parse url.");
+        }
         else if (pUrl.scheme == "https")
+        {
             mSSL = true;
+        }
         else if (pUrl.scheme != "http")
+        {
             Throw<std::runtime_error>("Only http and https is supported.");
+        }
 
         mSeq = 1;
 
         mIp = pUrl.domain;
-        mPort = (!pUrl.port) ? (mSSL ? 443 : 80) : *pUrl.port;
+        if (!pUrl.port)
+        {
+            mPort = mSSL ? 443 : 80;
+        }
+        else
+        {
+            mPort = *pUrl.port;
+        }
         mPath = pUrl.path;
 
         JLOG(j_.info()) << "RPCCall::fromNetwork sub: ip=" << mIp << " port=" << mPort
@@ -69,7 +80,8 @@ public:
             // Start a sending thread.
             JLOG(j_.info()) << "RPCCall::fromNetwork start";
 
-            mSending = m_jobQueue.addJob(jtCLIENT_SUBSCRIBE, "RPCSubSendThr", [this]() { sendThread(); });
+            mSending =
+                m_jobQueue.addJob(jtCLIENT_SUBSCRIBE, "RPCSubSendThr", [this]() { sendThread(); });
         }
     }
 
@@ -96,7 +108,7 @@ private:
     sendThread()
     {
         Json::Value jvEvent;
-        bool bSend;
+        bool bSend = false;
 
         do
         {
@@ -131,7 +143,17 @@ private:
                     JLOG(j_.info()) << "RPCCall::fromNetwork: " << mIp;
 
                     RPCCall::fromNetwork(
-                        m_io_context, mIp, mPort, mUsername, mPassword, mPath, "event", jvEvent, mSSL, true, logs_);
+                        m_io_context,
+                        mIp,
+                        mPort,
+                        mUsername,
+                        mPassword,
+                        mPath,
+                        "event",
+                        jvEvent,
+                        mSSL,
+                        true,
+                        logs_);
                 }
                 catch (std::exception const& e)
                 {
@@ -148,14 +170,14 @@ private:
     std::string mUrl;
     std::string mIp;
     std::uint16_t mPort;
-    bool mSSL;
+    bool mSSL{false};
     std::string mUsername;
     std::string mPassword;
     std::string mPath;
 
     int mSeq;  // Next id to allocate.
 
-    bool mSending;  // Sending thread is active.
+    bool mSending{false};  // Sending thread is active.
 
     std::deque<std::pair<int, Json::Value>> mDeque;
 
@@ -180,7 +202,13 @@ make_RPCSub(
     Logs& logs)
 {
     return std::make_shared<RPCSubImp>(
-        std::ref(source), std::ref(io_context), std::ref(jobQueue), strUrl, strUsername, strPassword, logs);
+        std::ref(source),
+        std::ref(io_context),
+        std::ref(jobQueue),
+        strUrl,
+        strUsername,
+        strPassword,
+        logs);
 }
 
 }  // namespace xrpl

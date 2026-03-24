@@ -1,8 +1,7 @@
 #include <test/jtx.h>
 
-#include <xrpld/app/misc/AMMHelpers.h>
-
 #include <xrpl/protocol/Quality.h>
+#include <xrpl/tx/transactors/dex/AMMHelpers.h>
 
 #include <boost/regex.hpp>
 
@@ -44,10 +43,14 @@ class AMMCalc_test : public beast::unit_test::suite
             if (delimited)
                 *delimited = (match[3] != "");
             if (match[1] == "XRP")
+            {
                 return XRP(std::stoll(match[2]));
-            // drops
-            else if (match[1] == "XRPA")
+                // drops
+            }
+            if (match[1] == "XRPA")
+            {
                 return XRPAmount{std::stoll(match[2])};
+            }
             return amountFromString(gw[match[1]].asset(), match[2]);
         }
         return std::nullopt;
@@ -121,7 +124,9 @@ class AMMCalc_test : public beast::unit_test::suite
                     break;
             }
             else
+            {
                 return std::nullopt;
+            }
         }
         return rates;
     }
@@ -371,7 +376,8 @@ class AMMCalc_test : public beast::unit_test::suite
                 {
                     Account const amm("amm");
                     auto const LPT = amm["LPT"];
-                    std::cout << to_string(ammLPTokens(pool->first.in, pool->first.out, LPT).iou()) << std::endl;
+                    std::cout << to_string(ammLPTokens(pool->first.in, pool->first.out, LPT).iou())
+                              << std::endl;
                     return true;
                 }
             }
@@ -398,11 +404,17 @@ class AMMCalc_test : public beast::unit_test::suite
                                 env.current()->rules(),
                                 beast::Journal(beast::Journal::getNullSink()));
                             ammOffer)
-                            std::cout << "amm offer: " << toString(ammOffer->in) << " " << toString(ammOffer->out)
-                                      << "\nnew pool: " << toString(pool->first.in + ammOffer->in) << " "
-                                      << toString(pool->first.out - ammOffer->out) << std::endl;
+                        {
+                            std::cout << "amm offer: " << toString(ammOffer->in) << " "
+                                      << toString(ammOffer->out)
+                                      << "\nnew pool: " << toString(pool->first.in + ammOffer->in)
+                                      << " " << toString(pool->first.out - ammOffer->out)
+                                      << std::endl;
+                        }
                         else
+                        {
                             std::cout << "can't change the pool's SP quality" << std::endl;
+                        }
                         return true;
                     }
                 }

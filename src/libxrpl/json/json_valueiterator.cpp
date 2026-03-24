@@ -13,11 +13,12 @@ namespace Json {
 // //////////////////////////////////////////////////////////////////
 // //////////////////////////////////////////////////////////////////
 
-ValueIteratorBase::ValueIteratorBase() : current_(), isNull_(true)
+ValueIteratorBase::ValueIteratorBase() : isNull_(true)
 {
 }
 
-ValueIteratorBase::ValueIteratorBase(Value::ObjectValues::iterator const& current) : current_(current), isNull_(false)
+ValueIteratorBase::ValueIteratorBase(Value::ObjectValues::iterator const& current)
+    : current_(current), isNull_(false)
 {
 }
 
@@ -125,7 +126,8 @@ ValueIteratorBase::memberName() const
 // //////////////////////////////////////////////////////////////////
 // //////////////////////////////////////////////////////////////////
 
-ValueConstIterator::ValueConstIterator(Value::ObjectValues::iterator const& current) : ValueIteratorBase(current)
+ValueConstIterator::ValueConstIterator(Value::ObjectValues::iterator const& current)
+    : ValueIteratorBase(current)
 {
 }
 
@@ -144,7 +146,8 @@ ValueConstIterator::operator=(ValueIteratorBase const& other)
 // //////////////////////////////////////////////////////////////////
 // //////////////////////////////////////////////////////////////////
 
-ValueIterator::ValueIterator(Value::ObjectValues::iterator const& current) : ValueIteratorBase(current)
+ValueIterator::ValueIterator(Value::ObjectValues::iterator const& current)
+    : ValueIteratorBase(current)
 {
 }
 
