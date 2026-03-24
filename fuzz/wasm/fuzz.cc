@@ -1,4 +1,5 @@
 #include <test/jtx.h>
+#include <test/jtx/Oracle.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -16,10 +17,22 @@
 #include "FuzzerSuite.h"
 
 namespace {
+
+// Identifiers computed during ledger setup that the fuzzer iteration needs.
+struct LedgerIds
+{
+    xrpl::Keylet escrowKeylet;
+    xrpl::AccountID alice;
+    xrpl::AccountID bob;
+    xrpl::AccountID carol;
+    xrpl::AccountID gw;
+};
+
 struct FuzzerGlobalState
 {
     std::unique_ptr<fuzzer::FuzzerSuite> suite;
     std::unique_ptr<xrpl::test::jtx::Env> env;
+    LedgerIds ids;
 
     FuzzerGlobalState()
     {
@@ -69,12 +82,12 @@ xrpl::ApplyContext createFuzzerApplyContext(
     return ac;
 }
 
-
-
 }  // namespace
 
-// Reset and populate ledger environment
-void
+// Populate ledger with diverse object types so that host functions
+// exercise success paths instead of returning NOT_FOUND.
+// Returns identifiers needed by the fuzzer iteration.
+LedgerIds
 fundEnv(xrpl::test::jtx::Env& env);
 
 extern "C" int
@@ -83,25 +96,100 @@ LLVMFuzzerInitialize(int* argc, char*** argv)
     using namespace xrpl::test::jtx;
     auto& state = getGlobalState();
     state.env = createFuzzerEnv();
-    fundEnv(*state.env);
+    state.ids = fundEnv(*state.env);
+
     return 0;
 }
 
-// Reset and populate ledger environment
-void fundEnv(xrpl::test::jtx::Env& env) {
+LedgerIds
+fundEnv(xrpl::test::jtx::Env& env)
+{
     using namespace xrpl::test::jtx;
-    // Pre-populate with accounts
+
     Account const alice("alice");
     Account const bob("bob");
     Account const carol("carol");
+    Account const gw("gateway");
 
-    env.fund(XRP(10000), alice, bob, carol);
+    LedgerIds ids;
+    ids.alice = alice.id();
+    ids.bob = bob.id();
+    ids.carol = carol.id();
+    ids.gw = gw.id();
+
+    // --- Accounts (4) ---
+    env.fund(XRP(100'000), alice, bob, carol, gw);
     env.close();
-     // Create escrows for testing
+
+    // --- Trust lines & IOU balances ---
+    auto const USD = gw["USD"];
+    env.trust(USD(10'000), alice);
+    env.trust(USD(10'000), bob);
+    env(pay(gw, alice, USD(5'000)));
+    env(pay(gw, bob, USD(2'000)));
+    env.close();
+
+    // --- Escrow (capture alice's sequence before creation) ---
+    auto const escrowSeq = env.seq(alice);
     auto const finishTime = env.now() + std::chrono::seconds(1);
     env.apply(
         escrow::create(alice, bob, XRP(100)), escrow::finish_time(finishTime));
     env.close();
+    ids.escrowKeylet = xrpl::keylet::escrow(alice.id(), escrowSeq);
+
+    // --- Offer (DEX) ---
+    env(offer(alice, USD(50), XRP(500)));
+    env.close();
+
+    // --- NFToken + NFT sell offer ---
+    auto const nftID = token::getNextID(env, alice, 0u, tfTransferable);
+    env(token::mint(alice, 0u), txflags(tfTransferable));
+    env.close();
+    env(token::createOffer(alice, nftID, XRP(10)),
+        txflags(tfSellNFToken));
+    env.close();
+
+    // --- Payment channel ---
+    env(paychan::create(
+        alice, bob, XRP(50), std::chrono::seconds(100), alice.pk()));
+    env.close();
+
+    // --- Check ---
+    env(check::create(alice, bob, XRP(25)));
+    env.close();
+
+    // --- Deposit preauth ---
+    env(deposit::auth(bob, alice));
+    env.close();
+
+    // --- Signer list ---
+    env(signers(alice, 2, {{bob, 1}, {carol, 1}}));
+    env.close();
+
+    // --- Tickets ---
+    env(ticket::create(alice, 2));
+    env.close();
+
+    // --- DID ---
+    env(did::setValid(alice));
+    env.close();
+
+    // --- Credentials ---
+    env(credentials::create(alice, gw, "fuzz_cred"));
+    env.close();
+    env(credentials::accept(alice, gw, "fuzz_cred"));
+    env.close();
+
+    // --- Oracle ---
+    oracle::Oracle(
+        env,
+        {.owner = alice.id(),
+         .documentID = 1,
+         .series = {{"XRP", "USD", 740, 1}},
+         .assetClass = "currency",
+         .provider = "provider"});
+
+    return ids;
 }
 
 struct Slice
@@ -131,21 +219,30 @@ LLVMFuzzerTestOneInput(uint8_t const* ptr, size_t size)
     std::vector<uint8_t> wasm(module.ptr, module.ptr + module.len);
 #endif
     auto& state = getGlobalState();
+    auto const& ids = state.ids;
     fundEnv(*state.env);
-    auto const dummyEscrow =
-            xrpl::keylet::escrow(state.env->master, state.env->seq(state.env->master));
+
+    // Use the REAL escrow keylet so get_current_ledger_obj_field() works.
     xrpl::OpenView ov{*state.env->current()};
+
+    // Transaction with real account IDs so get_tx_field() returns
+    // meaningful data.  Object discovery is handled by the autarkie
+    // preamble (keylet computation + cache), not by tx fields.
     xrpl::STTx tx(
         xrpl::ttESCROW_FINISH,
         [&](xrpl::STObject& obj) {
-            obj.setAccountID(xrpl::sfAccount, state.env->master.id());
+            obj.setAccountID(xrpl::sfAccount, ids.alice);
             obj.setFieldU32(
                 xrpl::sfSequence, state.env->seq(state.env->master));
             obj.setFieldAmount(
                 xrpl::sfFee, state.env->current()->fees().base);
+            obj.setAccountID(xrpl::sfDestination, ids.bob);
+            obj.setAccountID(xrpl::sfOwner, ids.alice);
+            obj.setFieldAmount(xrpl::sfAmount, xrpl::XRP(100));
         });
+
     xrpl::ApplyContext ac = createFuzzerApplyContext(*state.env, ov, tx);
-    xrpl::WasmHostFunctionsImpl hfs(ac, dummyEscrow);
+    xrpl::WasmHostFunctionsImpl hfs(ac, ids.escrowKeylet);
     // Create import vector
     xrpl::ImportVec imp = createWasmImport(hfs);
     auto& engine = xrpl::WasmEngine::instance();

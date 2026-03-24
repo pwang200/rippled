@@ -1,3 +1,194 @@
+/// Compute rippled AccountIDs from passphrase strings, matching the C++
+/// `Account("alice")` derivation exactly.
+///
+/// Algorithm: passphrase → SHA512[0..16] (seed) → iterative SHA512-Half
+/// key derivation (rippled Generator) → secp256k1 pubkey → RIPEMD160(SHA256(pubkey))
+///
+/// Memory layout (prepended before fuzzer-generated random data):
+///   offset 0:   alice  AccountID (20 bytes)
+///   offset 20:  bob    AccountID (20 bytes)
+///   offset 40:  carol  AccountID (20 bytes)
+///   offset 60:  gw     AccountID (20 bytes)
+///   offset 80:  scratch space for keylet output (32 bytes, reused by preamble)
+///   offset 112: padding (16 bytes)
+///   offset 128: fuzzer-generated random memory begins
+///
+/// The preamble in render() uses the account IDs as input to keylet host
+/// functions, then caches the resulting objects in slots 1-8.
+mod known_ids {
+    use ripemd::Ripemd160;
+    use secp256k1::{Secp256k1, SecretKey, PublicKey};
+    use sha2::{Sha256, Sha512, Digest};
+
+    /// Replicate rippled's `generateSeed(passphrase)`: SHA512(passphrase)[0..16].
+    fn generate_seed(passphrase: &str) -> [u8; 16] {
+        let hash = Sha512::digest(passphrase.as_bytes());
+        let mut seed = [0u8; 16];
+        seed.copy_from_slice(&hash[..16]);
+        seed
+    }
+
+    /// SHA512-Half: first 32 bytes of SHA512.
+    fn sha512_half(data: &[u8]) -> [u8; 32] {
+        let hash = Sha512::digest(data);
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&hash[..32]);
+        out
+    }
+
+    /// Append a big-endian u32 to a buffer at `offset`.
+    fn put_be32(buf: &mut [u8], offset: usize, val: u32) {
+        buf[offset..offset + 4].copy_from_slice(&val.to_be_bytes());
+    }
+
+    /// Replicate rippled's `deriveDeterministicRootKey`:
+    /// SHA512Half(seed || counter) until valid secp256k1 key.
+    fn derive_root_key(seed: &[u8; 16]) -> SecretKey {
+        let secp = Secp256k1::new();
+        let mut buf = [0u8; 20]; // 16-byte seed + 4-byte counter
+        buf[..16].copy_from_slice(seed);
+        for seq in 0u32..128 {
+            put_be32(&mut buf, 16, seq);
+            let hash = sha512_half(&buf);
+            if let Ok(sk) = SecretKey::from_slice(&hash) {
+                let _ = &secp; // validate context
+                return sk;
+            }
+        }
+        panic!("derive_root_key: no valid key found");
+    }
+
+    /// Replicate rippled's `Generator::calculateTweak`:
+    /// SHA512Half(compressed_pubkey || seq || counter) until valid.
+    fn calculate_tweak(generator: &[u8; 33], seq: u32) -> SecretKey {
+        let mut buf = [0u8; 41]; // 33-byte pubkey + 4-byte seq + 4-byte counter
+        buf[..33].copy_from_slice(generator);
+        put_be32(&mut buf, 33, seq);
+        for subseq in 0u32..128 {
+            put_be32(&mut buf, 37, subseq);
+            let hash = sha512_half(&buf);
+            if let Ok(sk) = SecretKey::from_slice(&hash) {
+                return sk;
+            }
+        }
+        panic!("calculate_tweak: no valid tweak found");
+    }
+
+    /// Derive the AccountID (20 bytes) from a passphrase, matching rippled's
+    /// `Account(name)` constructor exactly.
+    pub fn account_id(passphrase: &str) -> [u8; 20] {
+        let secp = Secp256k1::new();
+        let seed = generate_seed(passphrase);
+
+        // Step 1: root key + compressed generator public key
+        let root = derive_root_key(&seed);
+        let generator_pubkey = PublicKey::from_secret_key(&secp, &root);
+        let generator_bytes: [u8; 33] = generator_pubkey.serialize();
+
+        // Step 2: tweak for ordinal 0, add to root
+        let tweak = calculate_tweak(&generator_bytes, 0);
+        let mut private_key = root;
+        private_key = private_key.add_tweak(&tweak.into()).expect("tweak add");
+
+        // Step 3: compressed public key of derived key
+        let pubkey = PublicKey::from_secret_key(&secp, &private_key);
+        let pubkey_bytes = pubkey.serialize(); // 33 bytes compressed
+
+        // Step 4: RIPEMD160(SHA256(pubkey))
+        let sha = Sha256::digest(&pubkey_bytes);
+        let ripe = Ripemd160::digest(&sha);
+        let mut id = [0u8; 20];
+        id.copy_from_slice(&ripe);
+        id
+    }
+
+    /// Byte offset of the scratch area used by the preamble for keylet output.
+    pub const SCRATCH: usize = 80;
+
+    /// Total bytes of the seed region (account IDs + scratch + padding).
+    pub const SEED_SIZE: usize = 128;
+
+    /// Build the seed region as a byte vector.
+    pub fn seed_bytes() -> Vec<u8> {
+        let mut buf = vec![0u8; SEED_SIZE];
+        buf[0..20].copy_from_slice(&account_id("alice"));
+        buf[20..40].copy_from_slice(&account_id("bob"));
+        buf[40..60].copy_from_slice(&account_id("carol"));
+        buf[60..80].copy_from_slice(&account_id("gateway"));
+        // 80..112: scratch (zeroed, written at runtime by preamble)
+        // 112..128: padding
+        buf
+    }
+
+    /// Host functions needed by the preamble (name, signature).
+    /// Always imported even if the fuzzer didn't generate calls to them.
+    pub const PREAMBLE_IMPORTS: &[(&str, &str)] = &[
+        ("account_keylet",          "(func $account_keylet (param i32 i32 i32 i32) (result i32))"),
+        ("did_keylet",              "(func $did_keylet (param i32 i32 i32 i32) (result i32))"),
+        ("signers_keylet",          "(func $signers_keylet (param i32 i32 i32 i32) (result i32))"),
+        ("deposit_preauth_keylet",  "(func $deposit_preauth_keylet (param i32 i32 i32 i32 i32 i32) (result i32))"),
+        ("oracle_keylet",           "(func $oracle_keylet (param i32 i32 i32 i32 i32) (result i32))"),
+        ("cache_ledger_obj",        "(func $cache_ledger_obj (param i32 i32 i32) (result i32))"),
+    ];
+
+    /// Generate WAT preamble that computes keylets and caches objects.
+    ///
+    /// After the preamble runs, cache slots 1-8 hold:
+    ///   1: alice account    5: alice DID
+    ///   2: bob account      6: alice signers
+    ///   3: carol account    7: deposit_preauth(bob→alice)
+    ///   4: gw account       8: oracle(alice, doc_id=1)
+    pub fn preamble_wat() -> String {
+        let s = SCRATCH;
+        let mut w = String::new();
+        w.push_str("    ;; === PREAMBLE: compute keylets and cache objects ===\n");
+
+        let mut cache_account = |acc_offset: usize, slot: u32, label: &str| {
+            w.push_str(&format!("    ;; slot {}: {} account\n", slot, label));
+            w.push_str(&format!(
+                "    (call $account_keylet (i32.const {}) (i32.const 20) (i32.const {}) (i32.const 32))\n    drop\n",
+                acc_offset, s
+            ));
+            w.push_str(&format!(
+                "    (call $cache_ledger_obj (i32.const {}) (i32.const 32) (i32.const {}))\n    drop\n",
+                s, slot
+            ));
+        };
+
+        cache_account(0,  1, "alice");
+        cache_account(20, 2, "bob");
+        cache_account(40, 3, "carol");
+        cache_account(60, 4, "gw");
+
+        w.push_str(&format!("    ;; slot 5: alice DID\n"));
+        w.push_str(&format!(
+            "    (call $did_keylet (i32.const 0) (i32.const 20) (i32.const {}) (i32.const 32))\n    drop\n", s));
+        w.push_str(&format!(
+            "    (call $cache_ledger_obj (i32.const {}) (i32.const 32) (i32.const 5))\n    drop\n", s));
+
+        w.push_str(&format!("    ;; slot 6: alice signers\n"));
+        w.push_str(&format!(
+            "    (call $signers_keylet (i32.const 0) (i32.const 20) (i32.const {}) (i32.const 32))\n    drop\n", s));
+        w.push_str(&format!(
+            "    (call $cache_ledger_obj (i32.const {}) (i32.const 32) (i32.const 6))\n    drop\n", s));
+
+        w.push_str(&format!("    ;; slot 7: deposit_preauth(bob, alice)\n"));
+        w.push_str(&format!(
+            "    (call $deposit_preauth_keylet (i32.const 20) (i32.const 20) (i32.const 0) (i32.const 20) (i32.const {}) (i32.const 32))\n    drop\n", s));
+        w.push_str(&format!(
+            "    (call $cache_ledger_obj (i32.const {}) (i32.const 32) (i32.const 7))\n    drop\n", s));
+
+        w.push_str(&format!("    ;; slot 8: oracle(alice, doc_id=1)\n"));
+        w.push_str(&format!(
+            "    (call $oracle_keylet (i32.const 0) (i32.const 20) (i32.const 1) (i32.const {}) (i32.const 32))\n    drop\n", s));
+        w.push_str(&format!(
+            "    (call $cache_ledger_obj (i32.const {}) (i32.const 32) (i32.const 8))\n    drop\n", s));
+
+        w.push_str("    ;; === END PREAMBLE ===\n");
+        w
+    }
+}
+
 /// Enumeration of all WASM host functions available in the rippled WASM runtime.
 /// Each variant represents a host function with its parameters.
 #[derive(Debug, Clone, autarkie::Grammar, serde::Serialize, serde::Deserialize)]
@@ -894,9 +1085,14 @@ impl FuzzData {
         self.memory.len() * 4
     }
 
+    /// Total memory size in bytes including the seed region.
+    fn total_memory_bytes(&self) -> usize {
+        known_ids::SEED_SIZE + self.memory_size_bytes()
+    }
+
     /// Normalizes a pointer value to be within valid memory bounds
     fn normalize_ptr(&self, ptr: i32) -> i32 {
-        let mem_size = self.memory_size_bytes() as i32;
+        let mem_size = self.total_memory_bytes() as i32;
         if mem_size == 0 {
             0
         } else {
@@ -907,7 +1103,7 @@ impl FuzzData {
 
     /// Normalizes a size parameter to prevent reads beyond memory bounds
     fn normalize_size(&self, ptr: i32, size: i32) -> i32 {
-        let mem_size = self.memory_size_bytes() as i32;
+        let mem_size = self.total_memory_bytes() as i32;
         if mem_size == 0 {
             0
         } else {
@@ -1473,40 +1669,52 @@ impl FuzzData {
         // Module header
         wat.push_str("(module\n");
 
-        // Collect unique host functions to import
+        // Collect unique host functions to import (fuzzer calls + preamble)
         let mut imported_funcs: HashSet<&str> = HashSet::new();
         for call in &self.calls {
             imported_funcs.insert(call.name());
+        }
+        for &(name, _) in known_ids::PREAMBLE_IMPORTS {
+            imported_funcs.insert(name);
         }
 
         // Generate import declarations
         wat.push_str("  ;; Import host functions\n");
         for func_name in imported_funcs.iter() {
-            // Find the signature for this function
-            if let Some(call) = self.calls.iter().find(|c| c.name() == *func_name) {
+            // Check preamble imports first (they have known signatures)
+            if let Some(&(_, sig)) = known_ids::PREAMBLE_IMPORTS.iter().find(|&&(n, _)| n == *func_name) {
+                wat.push_str(&format!("  (import \"env\" \"{}\" {})\n", func_name, sig));
+            } else if let Some(call) = self.calls.iter().find(|c| c.name() == *func_name) {
                 let sig = call.signature();
-                // Extract the signature and add the local name
                 let sig_with_name = sig.replace("(func ", &format!("(func ${} ", func_name));
                 wat.push_str(&format!("  (import \"env\" \"{}\" {})\n", func_name, sig_with_name));
             }
         }
         wat.push_str("\n");
 
-        // Memory declaration
-        let memory_pages = if self.memory.is_empty() {
-            1
-        } else {
-            // Calculate required pages (each page is 64KB = 16384 u32s)
-            ((self.memory.len() + 16383) / 16384).max(1)
-        };
+        // Memory declaration (seed region + fuzzer-generated data)
+        let total_bytes = self.total_memory_bytes();
+        let memory_pages = ((total_bytes + 65535) / 65536).max(1);
         wat.push_str(&format!("  ;; Memory (export for fuzzer access)\n"));
         wat.push_str(&format!("  (memory {} {})\n", memory_pages, memory_pages));
         wat.push_str("  (export \"memory\" (memory 0))\n\n");
 
-        // Initialize memory with data
+        // Seed region: known account IDs and identifiers at offset 0
+        // so that normalized pointers have a chance of hitting valid data.
+        {
+            let seed = known_ids::seed_bytes();
+            wat.push_str("  ;; Seed: known account IDs and identifiers\n");
+            wat.push_str(&format!("  (data (i32.const 0) \""));
+            for b in &seed {
+                wat.push_str(&format!("\\{:02x}", b));
+            }
+            wat.push_str("\")\n\n");
+        }
+
+        // Fuzzer-generated random memory (after the seed region)
         if !self.memory.is_empty() {
-            wat.push_str("  ;; Initialize memory\n");
-            let mut offset = 0;
+            wat.push_str("  ;; Fuzzer-generated memory\n");
+            let mut offset = known_ids::SEED_SIZE;
             for &value in &self.memory {
                 let bytes = value.to_le_bytes();
                 wat.push_str(&format!(
@@ -1518,10 +1726,14 @@ impl FuzzData {
             wat.push_str("\n");
         }
 
-        // Main function that calls all host functions
+        // Main function: preamble (cache real objects) + fuzzer-generated calls
         wat.push_str("  ;; Main fuzz function\n");
         wat.push_str("  (func (export \"fuzz\") (result i32)\n");
 
+        // Preamble: compute keylets and populate cache slots 1-8
+        wat.push_str(&known_ids::preamble_wat());
+
+        // Fuzzer-generated random calls
         for call in &self.calls {
             wat.push_str("    ");
             wat.push_str(&call.render_call());
