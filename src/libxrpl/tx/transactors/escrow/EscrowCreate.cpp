@@ -199,7 +199,7 @@ EscrowCreate::preflight(PreflightContext const& ctx)
         }
 
         auto const code = ctx.tx.getFieldVL(sfFinishFunction);
-        if (code.size() == 0 || code.size() > fees.extensionSizeLimit)
+        if (code.empty() || code.size() > fees.extensionSizeLimit)
         {
             JLOG(ctx.j.debug()) << "EscrowCreate.FinishFunction bad size " << code.size();
             return temMALFORMED;
