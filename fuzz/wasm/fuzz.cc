@@ -21,7 +21,7 @@ namespace {
 // Identifiers computed during ledger setup that the fuzzer iteration needs.
 struct LedgerIds
 {
-    xrpl::Keylet escrowKeylet;
+    std::optional<xrpl::Keylet> escrowKeylet;
     xrpl::AccountID alice;
     xrpl::AccountID bob;
     xrpl::AccountID carol;
@@ -142,11 +142,11 @@ fundEnv(xrpl::test::jtx::Env& env)
     env.close();
 
     // --- NFToken + NFT sell offer ---
-    auto const nftID = token::getNextID(env, alice, 0u, tfTransferable);
-    env(token::mint(alice, 0u), txflags(tfTransferable));
+    auto const nftID = token::getNextID(env, alice, 0u, xrpl::tfTransferable);
+    env(token::mint(alice, 0u), txflags(xrpl::tfTransferable));
     env.close();
     env(token::createOffer(alice, nftID, XRP(10)),
-        txflags(tfSellNFToken));
+        txflags(xrpl::tfSellNFToken));
     env.close();
 
     // --- Payment channel ---
@@ -220,7 +220,10 @@ LLVMFuzzerTestOneInput(uint8_t const* ptr, size_t size)
 #endif
     auto& state = getGlobalState();
     auto const& ids = state.ids;
-    fundEnv(*state.env);
+
+    // Ledger is populated once in LLVMFuzzerInitialize.
+    // Do NOT call fundEnv() here — it doesn't reset state, it accumulates
+    // objects, causing the child to die from resource exhaustion.
 
     // Use the REAL escrow keylet so get_current_ledger_obj_field() works.
     xrpl::OpenView ov{*state.env->current()};
@@ -238,11 +241,12 @@ LLVMFuzzerTestOneInput(uint8_t const* ptr, size_t size)
                 xrpl::sfFee, state.env->current()->fees().base);
             obj.setAccountID(xrpl::sfDestination, ids.bob);
             obj.setAccountID(xrpl::sfOwner, ids.alice);
-            obj.setFieldAmount(xrpl::sfAmount, xrpl::XRP(100));
+            obj.setFieldAmount(
+                xrpl::sfAmount, xrpl::test::jtx::XRP(100));
         });
 
     xrpl::ApplyContext ac = createFuzzerApplyContext(*state.env, ov, tx);
-    xrpl::WasmHostFunctionsImpl hfs(ac, ids.escrowKeylet);
+    xrpl::WasmHostFunctionsImpl hfs(ac, *ids.escrowKeylet);
     // Create import vector
     xrpl::ImportVec imp = createWasmImport(hfs);
     auto& engine = xrpl::WasmEngine::instance();
