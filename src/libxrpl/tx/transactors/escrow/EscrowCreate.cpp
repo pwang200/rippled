@@ -14,6 +14,10 @@
 #include <xrpl/protocol/TxFlags.h>
 #include <xrpl/protocol/XRPAmount.h>
 #include <xrpl/tx/transactors/escrow/EscrowCreate.h>
+#include <xrpl/tx/wasm/HostFunc.h>
+#include <xrpl/tx/wasm/WasmVM.h>
+
+#include <libxrpl/tx/transactors/escrow/EscrowHelpers.h>
 
 namespace xrpl {
 
@@ -191,7 +195,7 @@ EscrowCreate::preflight(PreflightContext const& ctx)
 
     if (ctx.tx.isFieldPresent(sfFinishFunction))
     {
-        auto const fees(ctx.registry.getFees());
+        auto const fees(ctx.registry.get().getFees());
         if (fees.extensionSizeLimit == 0 || fees.extensionComputeLimit == 0)
         {
             JLOG(ctx.j.debug()) << "WASM runtime deactivated by fee voting";
@@ -247,7 +251,7 @@ escrowCreatePreclaimHelper<Issue>(
     AccountID const& dest,
     STAmount const& amount)
 {
-    AccountID issuer = amount.getIssuer();
+    AccountID const issuer = amount.getIssuer();
     // If the issuer is the same as the account, return tecNO_PERMISSION
     if (issuer == account)
         return tecNO_PERMISSION;
@@ -317,7 +321,7 @@ escrowCreatePreclaimHelper<MPTIssue>(
     AccountID const& dest,
     STAmount const& amount)
 {
-    AccountID issuer = amount.getIssuer();
+    AccountID const issuer = amount.getIssuer();
     // If the issuer is the same as the account, return tecNO_PERMISSION
     if (issuer == account)
         return tecNO_PERMISSION;
@@ -437,8 +441,7 @@ escrowLockApplyHelper<Issue>(
     if (issuer == sender)
         return tecINTERNAL;  // LCOV_EXCL_LINE
 
-    auto const ter = rippleCredit(
-        view, sender, issuer, amount, amount.holds<MPTIssue>() ? false : true, journal);
+    auto const ter = rippleCredit(view, sender, issuer, amount, !amount.holds<MPTIssue>(), journal);
     if (!isTesSuccess(ter))
         return ter;  // LCOV_EXCL_LINE
     return tesSUCCESS;
@@ -461,17 +464,6 @@ escrowLockApplyHelper<MPTIssue>(
     if (!isTesSuccess(ter))
         return ter;  // LCOV_EXCL_LINE
     return tesSUCCESS;
-}
-
-template <class T>
-static uint32_t
-calculateAdditionalReserve(T const& finishFunction)
-{
-    if (!finishFunction)
-        return 1;
-    // First 500 bytes included in the normal reserve
-    // Each additional 500 bytes requires an additional reserve
-    return 1 + (finishFunction->size() / 500);
 }
 
 TER
@@ -511,7 +503,7 @@ EscrowCreate::doApply()
         auto const sled = ctx_.view().read(keylet::account(ctx_.tx[sfDestination]));
         if (!sled)
             return tecNO_DST;  // LCOV_EXCL_LINE
-        if (((*sled)[sfFlags] & lsfRequireDestTag) && !ctx_.tx[~sfDestinationTag])
+        if ((((*sled)[sfFlags] & lsfRequireDestTag) != 0u) && !ctx_.tx[~sfDestinationTag])
             return tecDST_TAG_NEEDED;
     }
 

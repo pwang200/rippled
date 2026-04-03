@@ -14,6 +14,8 @@
 #include <xrpl/protocol/TxFlags.h>
 #include <xrpl/protocol/XRPAmount.h>
 #include <xrpl/tx/transactors/escrow/EscrowFinish.h>
+#include <xrpl/tx/wasm/HostFuncImpl.h>
+#include <xrpl/tx/wasm/WasmVM.h>
 
 #include <libxrpl/tx/transactors/escrow/EscrowHelpers.h>
 
@@ -74,7 +76,7 @@ EscrowFinish::preflight(PreflightContext const& ctx)
 
     if (auto const allowance = ctx.tx[~sfComputationAllowance]; allowance)
     {
-        auto const fees(ctx.registry.getFees());
+        auto const fees(ctx.registry.get().getFees());
         if (fees.extensionComputeLimit == 0)
         {
             JLOG(ctx.j.debug()) << "WASM runtime deactivated by fee voting";
@@ -105,7 +107,7 @@ EscrowFinish::preflightSigValidated(PreflightContext const& ctx)
 
     if (cb && fb)
     {
-        auto& router = ctx.registry.getHashRouter();
+        auto& router = ctx.registry.get().getHashRouter();
 
         auto const id = ctx.tx.getTransactionID();
         auto const flags = router.getFlags(id);
@@ -164,7 +166,7 @@ escrowFinishPreclaimHelper<Issue>(
     AccountID const& dest,
     STAmount const& amount)
 {
-    AccountID issuer = amount.getIssuer();
+    AccountID const issuer = amount.getIssuer();
     // If the issuer is the same as the account, return tesSUCCESS
     if (issuer == dest)
         return tesSUCCESS;
@@ -187,7 +189,7 @@ escrowFinishPreclaimHelper<MPTIssue>(
     AccountID const& dest,
     STAmount const& amount)
 {
-    AccountID issuer = amount.getIssuer();
+    AccountID const issuer = amount.getIssuer();
     // If the issuer is the same as the dest, return tesSUCCESS
     if (issuer == dest)
         return tesSUCCESS;
@@ -314,7 +316,7 @@ EscrowFinish::doApply()
     // Check cryptocondition fulfillment
     {
         auto const id = ctx_.tx.getTransactionID();
-        auto flags = ctx_.registry.getHashRouter().getFlags(id);
+        auto flags = ctx_.registry.get().getHashRouter().getFlags(id);
 
         auto const cb = ctx_.tx[~sfCondition];
 
@@ -338,7 +340,7 @@ EscrowFinish::doApply()
                 flags = SF_CF_INVALID;
             }
 
-            ctx_.registry.getHashRouter().setFlags(id, flags);
+            ctx_.registry.get().getHashRouter().setFlags(id, flags);
             // LCOV_EXCL_STOP
         }
 
