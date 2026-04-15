@@ -139,6 +139,16 @@ public:
         return gas_;
     }
 
+    void*
+    newTrap(std::string const& msg) override
+    {
+        // LCOV_EXCL_START
+        // This mock is only used with direct host-function calls, not driven
+        // by wasmi, so the returned handle is never consumed by anything.
+        return nullptr;
+        // LCOV_EXCL_STOP
+    }
+
     void
     checkIdx(WasmValVec const& params, size_t i) const
     {

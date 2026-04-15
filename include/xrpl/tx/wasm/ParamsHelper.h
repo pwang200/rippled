@@ -44,6 +44,13 @@ struct WasmRuntimeWrapper
 
     virtual std::int64_t
     setGas(std::int64_t gas) = 0;
+
+    // Creates an engine-specific trap object for the current call. The returned
+    // pointer is an opaque handle that the caller should pass back to the host
+    // function framework (for wasmi, this is a wasm_trap_t*). Kept as void* so
+    // this header stays engine-agnostic.
+    virtual void*
+    newTrap(std::string const& msg) = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

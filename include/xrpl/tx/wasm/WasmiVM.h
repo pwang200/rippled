@@ -234,11 +234,6 @@ private:
 class WasmiEngine
 {
     EnginePtr engine_;
-    StorePtr store_;
-    std::unique_ptr<ModuleWrapper> moduleWrap_;
-    beast::Journal j_ = beast::Journal(beast::Journal::getNullSink());
-
-    std::mutex m_;  // 1 instance mutex
 
 public:
     WasmiEngine();
@@ -247,6 +242,11 @@ public:
     static EnginePtr
     init();
 
+    // Thread-safety: multiple threads may call run() or check() concurrently
+    // as long as each call owns its own HostFunctions instance. The engine
+    // mutates hfs internally (via setRT), so sharing the same HostFunctions
+    // across concurrent calls is not supported. The shared wasmi engine_
+    // handles its own internal synchronization.
     Expected<WasmResult<int32_t>, TER>
     run(Bytes const& wasmCode,
         HostFunctions& hfs,
@@ -256,6 +256,7 @@ public:
         ImportVec const& imports,
         beast::Journal j);
 
+    // See run() for thread-safety notes.
     NotTEC
     check(
         Bytes const& wasmCode,
@@ -265,55 +266,13 @@ public:
         ImportVec const& imports,
         beast::Journal j);
 
-    std::int64_t
-    getGas() const;
-
     // Host functions helper functionality
-    wasm_trap_t*
-    newTrap(std::string const& msg);
-
-    beast::Journal
-    getJournal() const;
+    static wasm_trap_t*
+    newTrap(wasm_store_t* store, std::string const& msg);
 
 private:
-    InstanceWrapper&
-    getRT(int m = 0, int i = 0) const;
-
-    wmem
-    getMem() const;
-
-    Expected<WasmResult<int32_t>, TER>
-    runHlp(
-        Bytes const& wasmCode,
-        HostFunctions& hfs,
-        int64_t gas,
-        std::string_view funcName,
-        std::vector<WasmParam> const& params,
-        ImportVec const& imports);
-
-    NotTEC
-    checkHlp(
-        Bytes const& wasmCode,
-        HostFunctions& hfs,
-        std::string_view funcName,
-        std::vector<WasmParam> const& params,
-        ImportVec const& imports);
-
-    int
-    addModule(Bytes const& wasmCode, bool instantiate, ImportVec const& imports, int64_t gas);
-    void
-    clearModules();
-
-    // int  addInstance();
-
-    int32_t
-    runFunc(std::string_view const funcName, int32_t p);
-
-    int32_t
-    makeModule(Bytes const& wasmCode, WasmExternVec const& imports = {});
-
-    FuncInfo
-    getFunc(std::string_view funcName) const;
+    StorePtr
+    createStore(int64_t gas, beast::Journal j);
 
     static std::vector<wasm_val_t>
     convertParams(std::vector<WasmParam> const& params);
@@ -327,37 +286,20 @@ private:
     add_param(std::vector<wasm_val_t>& in, int64_t p);
 
     template <int NR, class... Types>
-    inline WasmiResult
-    call(std::string_view func, Types&&... args);
+    static WasmiResult
+    callFunc(FuncInfo const& f, std::vector<wasm_val_t>& in, beast::Journal j);
 
     template <int NR, class... Types>
-    inline WasmiResult
-    call(FuncInfo const& f, Types&&... args);
+    static WasmiResult
+    callFunc(FuncInfo const& f, std::vector<wasm_val_t>& in, std::int32_t p, Types&&... args);
 
     template <int NR, class... Types>
-    inline WasmiResult
-    call(FuncInfo const& f, std::vector<wasm_val_t>& in);
+    static WasmiResult
+    callFunc(FuncInfo const& f, std::vector<wasm_val_t>& in, std::int64_t p, Types&&... args);
 
     template <int NR, class... Types>
-    inline WasmiResult
-    call(FuncInfo const& f, std::vector<wasm_val_t>& in, std::int32_t p, Types&&... args);
-
-    template <int NR, class... Types>
-    inline WasmiResult
-    call(FuncInfo const& f, std::vector<wasm_val_t>& in, std::int64_t p, Types&&... args);
-
-    template <int NR, class... Types>
-    inline WasmiResult
-    call(
-        FuncInfo const& f,
-        std::vector<wasm_val_t>& in,
-        uint8_t const* d,
-        int32_t sz,
-        Types&&... args);
-
-    template <int NR, class... Types>
-    inline WasmiResult
-    call(FuncInfo const& f, std::vector<wasm_val_t>& in, Bytes const& p, Types&&... args);
+    static WasmiResult
+    callFunc(FuncInfo const& f, std::vector<wasm_val_t>& in, Bytes const& p, Types&&... args);
 };
 
 }  // namespace xrpl

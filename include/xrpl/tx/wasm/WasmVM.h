@@ -58,13 +58,6 @@ public:
         std::vector<WasmParam> const& params = {},
         ImportVec const& imports = {},
         beast::Journal j = beast::Journal{beast::Journal::getNullSink()});
-
-    // Host functions helper functionality
-    void*
-    newTrap(std::string const& txt = std::string());
-
-    beast::Journal
-    getJournal() const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

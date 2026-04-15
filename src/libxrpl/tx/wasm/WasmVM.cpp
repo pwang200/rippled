@@ -192,18 +192,4 @@ WasmEngine::check(
     return impl_->check(wasmCode, hfs, funcName, params, imports, j);
 }
 
-void*
-WasmEngine::newTrap(std::string const& msg)
-{
-    return impl_->newTrap(msg);
-}
-
-// LCOV_EXCL_START
-beast::Journal
-WasmEngine::getJournal() const
-{
-    return impl_->getJournal();
-}
-// LCOV_EXCL_STOP
-
 }  // namespace xrpl

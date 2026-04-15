@@ -391,29 +391,27 @@ checkGas(void* env)
     auto const* udata = reinterpret_cast<WasmUserData*>(env);
     HostFunctions const* hf = reinterpret_cast<HostFunctions*>(udata->first);
 
+    // The runtime is always set by the engine before any host callback can
+    // fire — including during instantiation, where a pre-instantiation runtime
+    // is installed so WASM start-section imports can still trap properly.
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
-    if (runtime == nullptr)
-    {
-        wasm_trap_t* trap = reinterpret_cast<wasm_trap_t*>(    // NOLINT
-            WasmEngine::instance().newTrap("hf no runtime"));  // LCOV_EXCL_LINE
-        return Unexpected(trap);                               // LCOV_EXCL_LINE
-    }
-
     int64_t const gas = runtime->getGas();
     WasmImportFunc const& impFunc = udata->second;
     int64_t const x = gas >= impFunc.gas ? gas - impFunc.gas : 0;
 
     if (runtime->setGas(x) < 0)
     {
-        wasm_trap_t* trap = reinterpret_cast<wasm_trap_t*>(    // NOLINT
-            WasmEngine::instance().newTrap("can't set gas"));  // LCOV_EXCL_LINE
-        return Unexpected(trap);                               // LCOV_EXCL_LINE
+        // LCOV_EXCL_START
+        wasm_trap_t* trap =
+            reinterpret_cast<wasm_trap_t*>(runtime->newTrap("can't set gas"));
+        return Unexpected(trap);
+        // LCOV_EXCL_STOP
     }
 
     if (gas < impFunc.gas)
     {
-        wasm_trap_t* const trap =  // NOLINT
-            reinterpret_cast<wasm_trap_t*>(WasmEngine::instance().newTrap("hf out of gas"));
+        wasm_trap_t* const trap =
+            reinterpret_cast<wasm_trap_t*>(runtime->newTrap("hf out of gas"));
         return Unexpected(trap);
     }
 

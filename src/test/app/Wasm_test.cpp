@@ -6,7 +6,9 @@
 
 #include <xrpl/tx/wasm/HostFuncWrapper.h>
 
+#include <atomic>
 #include <source_location>
+#include <thread>
 
 namespace xrpl {
 namespace test {
@@ -351,6 +353,67 @@ struct Wasm_test : public beast::unit_test::suite
         auto const re = engine.run(fibWasm, hfs, 10'000'000, "fib", wasmParams(10));
 
         checkResult(re, 55, 1'137);
+    }
+
+    void
+    testConcurrentExecution()
+    {
+        testcase("Wasm concurrent run/check");
+
+        // Each thread drives the shared WasmEngine with its own HostFunctions
+        // instance. If the engine still serialized execution or held shared
+        // mutable state, this would either deadlock, produce wrong results,
+        // or trip TSan.
+        auto const fibWasm = hexToBytes(fibWasmHex);
+        auto& engine = WasmEngine::instance();
+
+        constexpr unsigned kThreads = 8;
+        constexpr unsigned kItersPerThread = 16;
+
+        std::atomic<unsigned> runSuccesses{0};
+        std::atomic<unsigned> checkSuccesses{0};
+        std::atomic<unsigned> mismatches{0};
+
+        auto worker = [&](bool doRun) {
+            HostFunctions hfs;
+            for (unsigned i = 0; i < kItersPerThread; ++i)
+            {
+                if (doRun)
+                {
+                    auto const re = engine.run(
+                        fibWasm, hfs, 10'000'000, "fib", wasmParams(10));
+                    if (re.has_value() && re->result == 55 && re->cost == 1'137)
+                        ++runSuccesses;
+                    else
+                        ++mismatches;
+                }
+                else
+                {
+                    auto const re =
+                        engine.check(fibWasm, hfs, "fib", wasmParams(10));
+                    if (isTesSuccess(re))
+                        ++checkSuccesses;
+                    else
+                        ++mismatches;
+                }
+            }
+        };
+
+        std::vector<std::thread> threads;
+        threads.reserve(kThreads);
+        // Mix of run()/check() callers to exercise both concurrent code paths
+        // against the shared engine.
+        for (unsigned t = 0; t < kThreads; ++t)
+            threads.emplace_back(worker, /*doRun=*/(t % 2 == 0));
+
+        for (auto& th : threads)
+            th.join();
+
+        BEAST_EXPECT(mismatches.load() == 0);
+        BEAST_EXPECT(
+            runSuccesses.load() == (kThreads / 2) * kItersPerThread);
+        BEAST_EXPECT(
+            checkSuccesses.load() == (kThreads / 2) * kItersPerThread);
     }
 
     void
@@ -1523,6 +1586,7 @@ struct Wasm_test : public beast::unit_test::suite
         testImpExp();
 
         testWasmFib();
+        testConcurrentExecution();
 
         testHFCost();
         testEscrowWasmDN();
