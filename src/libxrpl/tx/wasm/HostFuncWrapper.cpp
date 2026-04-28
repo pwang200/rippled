@@ -387,8 +387,8 @@ getHF(void* env)
     return hf;
 }
 
-static inline Expected<std::int64_t, wasm_trap_t*>
-checkGas(void* env)
+static inline wasm_trap_t*
+chargeCall(void* env)
 {
     auto const* udata = reinterpret_cast<WasmUserData*>(env);
     HostFunctions const* hf = reinterpret_cast<HostFunctions*>(udata->first);
@@ -396,9 +396,8 @@ checkGas(void* env)
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     if (runtime == nullptr)
     {
-        wasm_trap_t* trap = reinterpret_cast<wasm_trap_t*>(    // NOLINT
+        return reinterpret_cast<wasm_trap_t*>(                 // NOLINT
             WasmEngine::instance().newTrap("hf no runtime"));  // LCOV_EXCL_LINE
-        return Unexpected(trap);                               // LCOV_EXCL_LINE
     }
 
     int64_t const gas = runtime->getGas();
@@ -407,27 +406,25 @@ checkGas(void* env)
 
     if (runtime->setGas(x) < 0)
     {
-        wasm_trap_t* trap = reinterpret_cast<wasm_trap_t*>(    // NOLINT
+        return reinterpret_cast<wasm_trap_t*>(                 // NOLINT
             WasmEngine::instance().newTrap("can't set gas"));  // LCOV_EXCL_LINE
-        return Unexpected(trap);                               // LCOV_EXCL_LINE
     }
 
     if (gas < impFunc.gas)
     {
-        wasm_trap_t* const trap =  // NOLINT
-            reinterpret_cast<wasm_trap_t*>(WasmEngine::instance().newTrap("hf out of gas"));
-        return Unexpected(trap);
+        return reinterpret_cast<wasm_trap_t*>(  // NOLINT
+            WasmEngine::instance().newTrap("hf out of gas"));
     }
 
-    return x;
+    return nullptr;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 wasm_trap_t*
 getLedgerSqn_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int const index = 0;
@@ -438,8 +435,8 @@ getLedgerSqn_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 getParentLedgerTime_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int const index = 0;
@@ -450,8 +447,8 @@ getParentLedgerTime_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t
 wasm_trap_t*
 getParentLedgerHash_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int const index = 0;
@@ -462,8 +459,8 @@ getParentLedgerHash_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t
 wasm_trap_t*
 getBaseFee_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int const index = 0;
@@ -474,8 +471,8 @@ getBaseFee_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
 wasm_trap_t*
 isAmendmentEnabled_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -505,8 +502,8 @@ isAmendmentEnabled_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t*
 wasm_trap_t*
 cacheLedgerObj_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -529,8 +526,8 @@ cacheLedgerObj_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* res
 wasm_trap_t*
 getTxField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -546,8 +543,8 @@ getTxField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
 wasm_trap_t*
 getCurrentLedgerObjField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -564,8 +561,8 @@ getCurrentLedgerObjField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_
 wasm_trap_t*
 getLedgerObjField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -588,8 +585,8 @@ getLedgerObjField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* 
 wasm_trap_t*
 getTxNestedField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -609,8 +606,8 @@ getCurrentLedgerObjNestedField_wrap(
     wasm_val_vec_t const* params,
     wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -627,8 +624,8 @@ getCurrentLedgerObjNestedField_wrap(
 wasm_trap_t*
 getLedgerObjNestedField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -652,8 +649,8 @@ getLedgerObjNestedField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_v
 wasm_trap_t*
 getTxArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -670,8 +667,8 @@ getTxArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 getCurrentLedgerObjArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -688,8 +685,8 @@ getCurrentLedgerObjArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_v
 wasm_trap_t*
 getLedgerObjArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -712,8 +709,8 @@ getLedgerObjArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_
 wasm_trap_t*
 getTxNestedArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -733,8 +730,8 @@ getCurrentLedgerObjNestedArrayLen_wrap(
     wasm_val_vec_t const* params,
     wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -751,8 +748,8 @@ getCurrentLedgerObjNestedArrayLen_wrap(
 wasm_trap_t*
 getLedgerObjNestedArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -775,8 +772,8 @@ getLedgerObjNestedArrayLen_wrap(void* env, wasm_val_vec_t const* params, wasm_va
 wasm_trap_t*
 updateData_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -793,8 +790,8 @@ updateData_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
 wasm_trap_t*
 checkSignature_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -824,8 +821,8 @@ checkSignature_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* res
 wasm_trap_t*
 computeSha512HalfHash_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -841,8 +838,8 @@ computeSha512HalfHash_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec
 wasm_trap_t*
 accountKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -859,8 +856,8 @@ accountKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 ammKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -884,8 +881,8 @@ ammKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 checkKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -908,8 +905,8 @@ checkKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 credentialKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -939,8 +936,8 @@ credentialKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* r
 wasm_trap_t*
 delegateKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -964,8 +961,8 @@ delegateKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* res
 wasm_trap_t*
 depositPreauthKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -989,8 +986,8 @@ depositPreauthKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_
 wasm_trap_t*
 didKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1007,8 +1004,8 @@ didKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 escrowKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1031,8 +1028,8 @@ escrowKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 lineKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1066,8 +1063,8 @@ lineKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
 wasm_trap_t*
 mptIssuanceKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1091,8 +1088,8 @@ mptIssuanceKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* 
 wasm_trap_t*
 mptokenKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1121,8 +1118,8 @@ mptokenKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 nftOfferKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1146,8 +1143,8 @@ nftOfferKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* res
 wasm_trap_t*
 offerKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1170,8 +1167,8 @@ offerKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 oracleKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1193,8 +1190,8 @@ oracleKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 paychanKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1224,8 +1221,8 @@ paychanKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 permissionedDomainKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1249,8 +1246,8 @@ permissionedDomainKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_
 wasm_trap_t*
 signersKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1267,8 +1264,8 @@ signersKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 ticketKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1292,8 +1289,8 @@ ticketKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 vaultKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1316,8 +1313,8 @@ vaultKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 getNFT_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1340,8 +1337,8 @@ getNFT_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 getNFTIssuer_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1358,8 +1355,8 @@ getNFTIssuer_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 getNFTTaxon_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1376,8 +1373,8 @@ getNFTTaxon_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 getNFTFlags_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1394,8 +1391,8 @@ getNFTFlags_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 getNFTTransferFee_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1412,8 +1409,8 @@ getNFTTransferFee_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* 
 wasm_trap_t*
 getNFTSerial_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1430,8 +1427,8 @@ getNFTSerial_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 trace_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1476,8 +1473,8 @@ trace_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 traceNum_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
     int index = 0;
@@ -1511,8 +1508,8 @@ traceNum_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 traceAccount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1546,8 +1543,8 @@ traceAccount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 traceFloat_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1581,8 +1578,8 @@ traceFloat_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
 wasm_trap_t*
 traceAmount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1634,8 +1631,8 @@ traceAmount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 floatFromInt_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1656,8 +1653,8 @@ floatFromInt_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 floatFromUint_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1678,8 +1675,8 @@ floatFromUint_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 floatFromSTAmount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1713,8 +1710,8 @@ floatFromSTAmount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* 
 wasm_trap_t*
 floatFromSTNumber_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1748,8 +1745,8 @@ floatFromSTNumber_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* 
 wasm_trap_t*
 floatToInt_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1770,8 +1767,8 @@ floatToInt_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
 wasm_trap_t*
 floatToMantissaAndExponent_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1787,8 +1784,8 @@ floatToMantissaAndExponent_wrap(void* env, wasm_val_vec_t const* params, wasm_va
 wasm_trap_t*
 floatNegate_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1804,8 +1801,8 @@ floatNegate_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 floatAbs_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1821,8 +1818,8 @@ floatAbs_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 floatSet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1847,8 +1844,8 @@ floatSet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 floatCompare_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1867,8 +1864,8 @@ floatCompare_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
 wasm_trap_t*
 floatAdd_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1893,8 +1890,8 @@ floatAdd_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 floatSubtract_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1919,8 +1916,8 @@ floatSubtract_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 floatMultiply_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1945,8 +1942,8 @@ floatMultiply_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resu
 wasm_trap_t*
 floatDivide_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1971,8 +1968,8 @@ floatDivide_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
 wasm_trap_t*
 floatRoot_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -1997,8 +1994,8 @@ floatRoot_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 wasm_trap_t*
 floatPower_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
@@ -2023,8 +2020,8 @@ floatPower_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
 wasm_trap_t*
 floatLog_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
 {
-    if (auto g = checkGas(env); !g)
-        return g.error();  // LCOV_EXCL_LINE
+    if (auto* trap = chargeCall(env))
+        return trap;  // LCOV_EXCL_LINE
     auto* hf = getHF(env);
     auto* runtime = reinterpret_cast<WasmRuntimeWrapper*>(hf->getRT());
 
