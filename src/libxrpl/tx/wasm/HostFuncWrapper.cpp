@@ -16,6 +16,19 @@ namespace xrpl {
 
 using SFieldCRef = std::reference_wrapper<SField const>;
 
+// Global per-byte / per-unit gas rates. One value per category, shared across
+// all host functions. Wrappers invoke chargeParam / chargeRead / chargeWrite /
+// chargeCompute only when the corresponding cost component genuinely scales
+// with input/output size for that function; fixed costs are folded into the
+// per-function entry gas at registration time.
+//
+// These values default to 0 until measured. With rates at 0, the helpers are
+// effective no-ops and host-function behavior is unchanged.
+static constexpr uint32_t gasPerParamByte = 0;    // wasm -> host memcpy (input)
+static constexpr uint32_t gasPerReadByte = 0;     // host -> wasm + amortized ledger fetch
+static constexpr uint32_t gasPerWriteByte = 0;    // bytes persisted to ledger
+static constexpr uint32_t gasPerComputeUnit = 0;  // input-scaled compute (hash, sig verify)
+
 static int32_t
 setData(
     WasmRuntimeWrapper* runtime,
@@ -388,7 +401,7 @@ getHF(void* env)
 }
 
 static inline wasm_trap_t*
-chargeCall(void* env)
+chargeGas(void* env, int64_t cost)
 {
     auto const* udata = reinterpret_cast<WasmUserData*>(env);
     HostFunctions const* hf = reinterpret_cast<HostFunctions*>(udata->first);
@@ -401,8 +414,7 @@ chargeCall(void* env)
     }
 
     int64_t const gas = runtime->getGas();
-    WasmImportFunc const& impFunc = udata->second;
-    int64_t const x = gas >= impFunc.gas ? gas - impFunc.gas : 0;
+    int64_t const x = gas >= cost ? gas - cost : 0;
 
     if (runtime->setGas(x) < 0)
     {
@@ -410,13 +422,51 @@ chargeCall(void* env)
             WasmEngine::instance().newTrap("can't set gas"));  // LCOV_EXCL_LINE
     }
 
-    if (gas < impFunc.gas)
+    if (gas < cost)
     {
         return reinterpret_cast<wasm_trap_t*>(  // NOLINT
             WasmEngine::instance().newTrap("hf out of gas"));
     }
 
     return nullptr;
+}
+
+static inline wasm_trap_t*
+chargeCall(void* env)
+{
+    auto const* udata = reinterpret_cast<WasmUserData*>(env);
+    return chargeGas(env, static_cast<int64_t>(udata->second.gas));
+}
+
+static inline wasm_trap_t*
+chargeParam(void* env, std::size_t nBytes)
+{
+    int64_t const cost =
+        static_cast<int64_t>(nBytes) * static_cast<int64_t>(gasPerParamByte);
+    return chargeGas(env, cost);
+}
+
+static inline wasm_trap_t*
+chargeRead(void* env, std::size_t nBytes)
+{
+    int64_t const cost =
+        static_cast<int64_t>(nBytes) * static_cast<int64_t>(gasPerReadByte);
+    return chargeGas(env, cost);
+}
+
+static inline wasm_trap_t*
+chargeWrite(void* env, std::size_t nBytes)
+{
+    int64_t const cost =
+        static_cast<int64_t>(nBytes) * static_cast<int64_t>(gasPerWriteByte);
+    return chargeGas(env, cost);
+}
+
+static inline wasm_trap_t*
+chargeCompute(void* env, int64_t units)
+{
+    int64_t const cost = units * static_cast<int64_t>(gasPerComputeUnit);
+    return chargeGas(env, cost);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
