@@ -15,15 +15,15 @@ namespace xrpl {
 using SFieldCRef = std::reference_wrapper<SField const>;
 
 // Global per-byte / per-unit gas rates. One value per category, shared across
-// all host functions. Wrappers invoke chargeParam / chargeRead / chargeWrite /
+// all host functions. Wrappers invoke chargeMem / chargeRead / chargeWrite /
 // chargeCompute only when the corresponding cost component genuinely scales
 // with input/output size for that function; fixed costs are folded into the
 // per-function entry gas at registration time.
 //
 // These values default to 0 until measured. With rates at 0, the helpers are
 // effective no-ops and host-function behavior is unchanged.
-static constexpr uint32_t gasPerParamByte = 0;    // wasm -> host memcpy (input)
-static constexpr uint32_t gasPerReadByte = 0;     // host -> wasm + amortized ledger fetch
+static constexpr uint32_t gasPerMemByte = 0;      // wasm <-> host memcpy
+static constexpr uint32_t gasPerReadByte = 0;     // ledger object fetch
 static constexpr uint32_t gasPerWriteByte = 0;    // bytes persisted to ledger
 static constexpr uint32_t gasPerComputeUnit = 0;  // input-scaled compute (hash, sig verify)
 
@@ -437,13 +437,17 @@ chargeCall(void* env)
 }
 
 static inline wasm_trap_t*
-chargeParam(void* env, std::size_t nBytes)
+chargeMem(void* env, std::size_t nBytes)
 {
-    int64_t const cost =
-        static_cast<int64_t>(nBytes) * static_cast<int64_t>(gasPerParamByte);
+    int64_t const cost = static_cast<int64_t>(nBytes) * static_cast<int64_t>(gasPerMemByte);
     return chargeGas(env, cost);
 }
 
+// chargeRead is reserved for host functions that perform a real ledger read
+// (SHAMap traversal + SLE deserialization, with potential NuDB disk hit).
+// At present only cacheLedgerObj qualifies. The call site there is currently
+// commented out because we cannot cheaply obtain the SLE's serialized size
+// without a small API change -- see the TODO inside cacheLedgerObj_wrap.
 static inline wasm_trap_t*
 chargeRead(void* env, std::size_t nBytes)
 {
@@ -531,6 +535,9 @@ isAmendmentEnabled_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t*
         return hfResult(results, slice.error());
     }
 
+    if (auto* trap = chargeMem(env, slice->size()))
+        return trap;
+
     if (slice->size() == uint256::bytes)
     {
         if (auto ret = hf->isAmendmentEnabled(uint256::fromVoid(slice->data())); *ret == 1)
@@ -569,7 +576,36 @@ cacheLedgerObj_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* res
         return hfResult(results, cache.error());  // LCOV_EXCL_LINE
     }
 
-    return returnResult(runtime, params, results, hf->cacheLedgerObj(*id, *cache), index);
+    auto const result = hf->cacheLedgerObj(*id, *cache);
+    // TODO: cacheLedgerObj is the only host function that performs a real
+    // ledger read (SHAMap traversal + SLE deserialization, with potential
+    // NuDB disk hit on a cold cache). We want to charge chargeRead based on
+    // the serialized SLE size, but the deserialized SLE does not cheaply
+    // expose that size today. Three possible solutions in increasing order
+    // of preference:
+    //
+    //   1. Plumb the size through ReadView::read (or add a sibling method).
+    //      Clean, exact, zero per-SLE memory. Touches ~5 files (ReadView and
+    //      its concrete impls Ledger / OpenView / ApplyViewBase / CachedView)
+    //      and makes serialized size first-class in the API. Preferred.
+    //
+    //   2. Re-serialize on demand: cache_[idx]->getSerializer().getDataLength().
+    //      Exact and contained, but does work proportional to the SLE size
+    //      just to count bytes. Acceptable if the rate ends up small enough
+    //      that the latency hit is negligible. Easy to remove later.
+    //
+    //   3. Add an 8-byte serializedSize_ field to STLedgerEntry, set when
+    //      constructing from a SerialIter. Exact and O(1), at a memory cost
+    //      that scales with the live SLE count (worst-case ~tens of MB on a
+    //      busy node, negligible on a 64 GB box). Architecturally muddier
+    //      since SLE didn't need to know its own serialized size before.
+    //
+    // Once the size is available, replace the line below with:
+    //   if (result)
+    //       if (auto* trap = chargeRead(env, sleSize)) return trap;
+    // if (result)
+    //     if (auto* trap = chargeRead(env, /* sleSize */)) return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -586,7 +622,11 @@ getTxField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
     {
         return hfResult(results, fname.error());
     }
-    return returnResult(runtime, params, results, hf->getTxField(*fname), index);
+    auto const result = hf->getTxField(*fname);
+    if (result)
+        if (auto* trap = chargeMem(env, result->size()))
+            return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -604,7 +644,11 @@ getCurrentLedgerObjField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_
         return hfResult(results, fname.error());
     }
 
-    return returnResult(runtime, params, results, hf->getCurrentLedgerObjField(*fname), index);
+    auto const result = hf->getCurrentLedgerObjField(*fname);
+    if (result)
+        if (auto* trap = chargeMem(env, result->size()))
+            return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -628,7 +672,11 @@ getLedgerObjField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* 
         return hfResult(results, fname.error());
     }
 
-    return returnResult(runtime, params, results, hf->getLedgerObjField(*cache, *fname), index);
+    auto const result = hf->getLedgerObjField(*cache, *fname);
+    if (result)
+        if (auto* trap = chargeMem(env, result->size()))
+            return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -646,7 +694,11 @@ getTxNestedField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* r
         return hfResult(results, bytes.error());
     }
 
-    return returnResult(runtime, params, results, hf->getTxNestedField(*bytes), index);
+    auto const result = hf->getTxNestedField(*bytes);
+    if (result)
+        if (auto* trap = chargeMem(env, result->size()))
+            return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -666,8 +718,12 @@ getCurrentLedgerObjNestedField_wrap(
     {
         return hfResult(results, bytes.error());
     }
-    return returnResult(
-        runtime, params, results, hf->getCurrentLedgerObjNestedField(*bytes), index);
+
+    auto const result = hf->getCurrentLedgerObjNestedField(*bytes);
+    if (result)
+        if (auto* trap = chargeMem(env, result->size()))
+            return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -691,8 +747,11 @@ getLedgerObjNestedField_wrap(void* env, wasm_val_vec_t const* params, wasm_val_v
         return hfResult(results, bytes.error());
     }
 
-    return returnResult(
-        runtime, params, results, hf->getLedgerObjNestedField(*cache, *bytes), index);
+    auto const result = hf->getLedgerObjNestedField(*cache, *bytes);
+    if (result)
+        if (auto* trap = chargeMem(env, result->size()))
+            return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -833,6 +892,11 @@ updateData_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
         return hfResult(results, bytes.error());
     }
 
+    if (auto* trap = chargeMem(env, bytes->size()))
+        return trap;
+    if (auto* trap = chargeWrite(env, bytes->size()))
+        return trap;
+
     return returnResult(runtime, params, results, hf->updateData(*bytes), index);
 }
 
@@ -863,6 +927,11 @@ checkSignature_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* res
         return hfResult(results, pubkey.error());
     }
 
+    if (auto* trap = chargeMem(env, message->size() + signature->size() + pubkey->size()))
+        return trap;
+    if (auto* trap = chargeCompute(env, static_cast<int64_t>(message->size())))
+        return trap;
+
     return returnResult(
         runtime, params, results, hf->checkSignature(*message, *signature, *pubkey), index);
 }
@@ -881,6 +950,12 @@ computeSha512HalfHash_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec
     {
         return hfResult(results, bytes.error());
     }
+
+    if (auto* trap = chargeMem(env, bytes->size()))
+        return trap;
+    if (auto* trap = chargeCompute(env, static_cast<int64_t>(bytes->size())))
+        return trap;
+
     return returnResult(runtime, params, results, hf->computeSha512HalfHash(*bytes), index);
 }
 
@@ -977,6 +1052,9 @@ credentialKeylet_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* r
     {
         return hfResult(results, credType.error());
     }
+
+    if (auto* trap = chargeMem(env, credType->size()))
+        return trap;
 
     return returnResult(
         runtime, params, results, hf->credentialKeylet(*subj, *iss, *credType), index);
@@ -1380,7 +1458,11 @@ getNFT_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
         return hfResult(results, nftId.error());
     }
 
-    return returnResult(runtime, params, results, hf->getNFT(*acc, *nftId), index);
+    auto const result = hf->getNFT(*acc, *nftId);
+    if (result)
+        if (auto* trap = chargeMem(env, result->size()))
+            return trap;
+    return returnResult(runtime, params, results, result, index);
 }
 
 wasm_trap_t*
@@ -1499,6 +1581,9 @@ trace_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
         return hfResult(results, data.error());
     }
 
+    if (auto* trap = chargeMem(env, msg->size() + data->size()))
+        return trap;
+
     auto const asHex = getDataInt32(runtime, params, index);
     if (!asHex)
     {
@@ -1531,6 +1616,9 @@ traceNum_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results)
         return hfResult(results, msg.error());
     }
 
+    if (auto* trap = chargeMem(env, msg->size()))
+        return trap;
+
     auto const number = getDataInt64(runtime, params, index);
     if (!number)
     {
@@ -1556,6 +1644,9 @@ traceAccount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* resul
     if (!msg)
         return hfResult(results, msg.error());
 
+    if (auto* trap = chargeMem(env, msg->size()))
+        return trap;
+
     auto const account = getDataAccountID(runtime, params, i);
     if (!account)
         return hfResult(results, account.error());
@@ -1579,6 +1670,9 @@ traceFloat_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* results
     if (!msg)
         return hfResult(results, msg.error());
 
+    if (auto* trap = chargeMem(env, msg->size()))
+        return trap;
+
     auto const number = getDataSlice(runtime, params, i);
     if (!number)
         return hfResult(results, number.error());
@@ -1601,6 +1695,9 @@ traceAmount_wrap(void* env, wasm_val_vec_t const* params, wasm_val_vec_t* result
     auto const msg = getDataString(runtime, params, i);
     if (!msg)
         return hfResult(results, msg.error());
+
+    if (auto* trap = chargeMem(env, msg->size()))
+        return trap;
 
     auto const amountSliceOpt = getDataSlice(runtime, params, i);
     if (!amountSliceOpt)
