@@ -35,6 +35,7 @@
 #include <xrpl/tx/wasm/HostFuncImpl.h>
 #include <xrpl/tx/wasm/WasmVM.h>
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -309,6 +310,7 @@ EscrowFinish::preclaim(PreclaimContext const& ctx)
 TER
 EscrowFinish::doApply()
 {
+    auto const t_apply_start = std::chrono::steady_clock::now();
     auto const seqProxy = SeqProxy::rawSequence(ctx_.tx[sfOfferSequence]);
     auto const k = keylet::escrow(ctx_.tx[sfOwner], seqProxy);
     auto const slep = ctx_.view().peek(k);
@@ -412,6 +414,25 @@ EscrowFinish::doApply()
             return err;
     }
 
+    // Per-tx WASM timing state; only populated when sfBytecode is present.
+    std::size_t wasm_code_sz = 0;
+    long long wasm_gas_stored = -1;
+    TER wasm_ter = tesSUCCESS;
+    std::string wasm_ret = "-";
+    bool wasm_ran = false;
+    auto const emitWasmTiming = [&]() {
+        auto const t_apply_end = std::chrono::steady_clock::now();
+        using us = std::chrono::microseconds;
+        JLOG(j_.info()) << "WASM_TIMING_FINISH"
+                         << " tx=" << ctx_.tx.getTransactionID()
+                         << " time="
+                         << std::chrono::duration_cast<us>(t_apply_end - t_apply_start).count()
+                         << " code_sz=" << wasm_code_sz
+                         << " gas=" << wasm_gas_stored
+                         << " ter=" << transToken(wasm_ter)
+                         << " ret=" << wasm_ret;
+    };
+
     // Execute custom release function
     if ((*slep)[~sfBytecode])
     {
@@ -430,6 +451,8 @@ EscrowFinish::doApply()
         std::uint32_t const allowance = ctx_.tx[sfGas];
         auto const re = runEscrowWasm(wasm, ledgerDataProvider, allowance, escrowFunctionName);
         JLOG(j_.trace()) << "Escrow WASM ran";
+        wasm_ran = true;
+        wasm_code_sz = wasm.size();
 
         // Gas consumed, reported in the tx metadata whenever the engine has a
         // trustworthy number: a completed run, out of gas, or a wasm fault.
@@ -441,12 +464,15 @@ EscrowFinish::doApply()
             if (*cost < 0 || *cost > allowance)
                 return tecINTERNAL;  // LCOV_EXCL_LINE
             ctx_.setGasUsed(static_cast<std::uint32_t>(*cost));
+            wasm_gas_stored = *cost;
         }
 
         if (!re.has_value())
         {
             // No return code, and any data it wrote goes away with the view.
             JLOG(j_.debug()) << "WASM Failure: " + transHuman(re.error().ter);
+            wasm_ter = re.error().ter;
+            emitWasmTiming();
             return re.error().ter;
         }
 
@@ -469,8 +495,13 @@ EscrowFinish::doApply()
         }
 
         // 0 or negative is a contract-defined reject code, reported as sfVMReturnCode.
+        wasm_ret = std::to_string(reValue);
         if (reValue <= 0)
+        {
+            wasm_ter = tecBYTECODE_REJECTED;
+            emitWasmTiming();
             return tecBYTECODE_REJECTED;
+        }
     }
 
     AccountID const account = (*slep)[sfAccount];
@@ -563,6 +594,9 @@ EscrowFinish::doApply()
 
     // Remove escrow from ledger
     ctx_.view().erase(slep);
+
+    if (wasm_ran)
+        emitWasmTiming();
     return tesSUCCESS;
 }
 

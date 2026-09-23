@@ -36,6 +36,7 @@
 #include <xrpl/tx/applySteps.h>
 #include <xrpl/tx/wasm/WasmVM.h>
 
+#include <chrono>
 #include <memory>
 #include <system_error>
 #include <variant>
@@ -438,7 +439,17 @@ EscrowCreate::preclaim(PreclaimContext const& ctx)
             return temMALFORMED;
         }
 
-        if (auto const re = preflightEscrowWasm(code, ctx.j, escrowFunctionName); !isTesSuccess(re))
+        auto const t_parse_start = std::chrono::steady_clock::now();
+        auto const re = preflightEscrowWasm(code, ctx.j, escrowFunctionName);
+        auto const t_parse_end = std::chrono::steady_clock::now();
+        using us = std::chrono::microseconds;
+        JLOG(ctx.j.info()) << "WASM_TIMING_CREATE_PREFLIGHT"
+                           << " tx=" << ctx.tx.getTransactionID()
+                           << " time="
+                           << std::chrono::duration_cast<us>(t_parse_end - t_parse_start).count()
+                           << " code_sz=" << code.size()
+                           << " ter=" << transToken(TER(re));
+        if (!isTesSuccess(re))
         {
             JLOG(ctx.j.debug()) << "EscrowCreate.Bytecode bad WASM";
             return re;
@@ -499,6 +510,7 @@ escrowLockApplyHelper<MPTIssue>(
 TER
 EscrowCreate::doApply()
 {
+    auto const t_apply_start = std::chrono::steady_clock::now();
     auto const closeTime = ctx_.view().header().parentCloseTime;
 
     if (ctx_.tx[~sfCancelAfter] && after(closeTime, ctx_.tx[sfCancelAfter]))
@@ -638,6 +650,17 @@ EscrowCreate::doApply()
     increaseOwnerCount(ctx_.getApplyViewContext(), sle, reserveToAdd, ctx_.journal);
     addSponsorToLedgerEntry(ctx_.getApplyViewContext(), slep);
     ctx_.view().update(sle);
+
+    if (ctx_.tx.isFieldPresent(sfBytecode))
+    {
+        auto const t_apply_end = std::chrono::steady_clock::now();
+        using us = std::chrono::microseconds;
+        JLOG(j_.info()) << "WASM_TIMING_CREATE_APPLY"
+                        << " tx=" << ctx_.tx.getTransactionID()
+                        << " time="
+                        << std::chrono::duration_cast<us>(t_apply_end - t_apply_start).count()
+                        << " code_sz=" << ctx_.tx.getFieldVL(sfBytecode).size();
+    }
     return tesSUCCESS;
 }
 
