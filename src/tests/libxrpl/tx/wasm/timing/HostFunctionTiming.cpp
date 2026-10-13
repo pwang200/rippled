@@ -1,3 +1,4 @@
+#include <xrpl/beast/utility/Journal.h>
 #include <xrpl/protocol/TER.h>
 #include <xrpl/tx/wasm/WasmCommon.h>
 #include <xrpl/tx/wasm/WasmVM.h>
@@ -142,8 +143,9 @@ struct HostFunctionTiming : RealHostFixture
 
 // The `.wasm` files in `timing/wasm/` are handed to other people as-is, so this runs the
 // committed bytes themselves (not a fresh assembly of the `.wat`): each must be exactly what
-// the `.wat` assembles to, run to completion under its budget, return 1, and use at least
-// `minGas` (most of the budget for the loops).
+// the `.wat` assembles to, pass the preflight check EscrowCreate applies to bytecode, run to
+// completion under its budget, return 1, and use at least `minGas` (most of the budget for the
+// loops).
 TEST_F(HostFunctionTiming, CommittedWasmFilesRun)
 {
     struct Case
@@ -166,12 +168,60 @@ TEST_F(HostFunctionTiming, CommittedWasmFilesRun)
         EXPECT_EQ(wasm, assembleWat(readTextFile(watDir() / (std::string{c.name} + ".wat"))))
             << "the committed .wasm is stale relative to its .wat";
 
+        EXPECT_EQ(
+            preflightEscrowWasm(wasm, beast::Journal{beast::Journal::getNullSink()}),
+            tesSUCCESS)
+            << "EscrowCreate would refuse this bytecode";
+
         auto host = makeHost();
         auto const outcome = runEscrowWasm(wasm, *host, c.gasLimit);
         ASSERT_TRUE(outcome.has_value()) << transToken(outcome.error().ter);
         EXPECT_EQ(outcome->result, 1);
         EXPECT_LE(outcome->cost, c.gasLimit);
         EXPECT_GE(outcome->cost, c.minGas);
+    }
+}
+
+// The `call_indirect_unroll*` modules come from the wasmi `module-new-time` experiment
+// (`real_total/t-b-*`): `case.wasm` is generated there, and the `.wat` here is only its sketch
+// (it elides the repeated parts), so there is no assembly to compare with. The experiment
+// exports `finish`; the export in these files was renamed to `escrow_finish`, the name
+// EscrowCreate requires. They import nothing. Each must pass preflight, run to completion
+// under its budget, return 1, and use most of it.
+TEST_F(HostFunctionTiming, CallIndirectUnrollRuns)
+{
+    struct Case
+    {
+        char const* name;
+        std::int64_t gasLimit;
+        std::int64_t minGas;
+    };
+    for (auto const& c : {
+             Case{"call_indirect_unroll", 1'000'000, 930'000},
+             Case{"call_indirect_unroll_400k", 400'000, 370'000},
+         })
+    {
+        SCOPED_TRACE(c.name);
+        auto const wasm =
+            readBinaryFile(watDir().parent_path() / "wasm" / (std::string{c.name} + ".wasm"));
+
+        EXPECT_EQ(
+            preflightEscrowWasm(wasm, beast::Journal{beast::Journal::getNullSink()}),
+            tesSUCCESS)
+            << "EscrowCreate would refuse this bytecode";
+
+        auto host = makeHost();
+        auto const start = std::chrono::steady_clock::now();
+        auto const outcome = runEscrowWasm(wasm, *host, c.gasLimit);
+        auto const elapsed = std::chrono::steady_clock::now() - start;
+        ASSERT_TRUE(outcome.has_value()) << transToken(outcome.error().ter);
+        EXPECT_EQ(outcome->result, 1);
+        EXPECT_LE(outcome->cost, c.gasLimit);
+        EXPECT_GE(outcome->cost, c.minGas);
+
+        std::cout << c.name << ": " << wasm.size() << " bytes, gas consumed " << outcome->cost
+                  << " of " << c.gasLimit << ", one run "
+                  << std::chrono::duration<double>(elapsed).count() * 1e3 << " ms\n";
     }
 }
 
