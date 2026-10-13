@@ -113,7 +113,7 @@ struct HostFunctionTiming : RealHostFixture
     {
         auto const wasm = assembleWat(readTextFile(watDir() / (name + ".wat")));
         writeBinaryFile(watDir().parent_path() / "wasm" / (name + ".wasm"), wasm);
-        auto const baselineWasm = assembleWat(readTextFile(watDir() / "baseline_no_host_calls.wat"));
+        auto const baselineWasm = assembleWat(readTextFile(watDir() / "return_1.wat"));
 
         auto const baseline = time(baselineWasm, gasLimit);
         auto const loaded = time(wasm, gasLimit);
@@ -142,19 +142,22 @@ struct HostFunctionTiming : RealHostFixture
 
 // The `.wasm` files in `timing/wasm/` are handed to other people as-is, so this runs the
 // committed bytes themselves (not a fresh assembly of the `.wat`): each must be exactly what
-// the `.wat` assembles to, run to completion under its budget, return 1, and use most of it.
+// the `.wat` assembles to, run to completion under its budget, return 1, and use at least
+// `minGas` (most of the budget for the loops).
 TEST_F(HostFunctionTiming, CommittedWasmFilesRun)
 {
     struct Case
     {
         char const* name;
         std::int64_t gasLimit;
+        std::int64_t minGas;
     };
     for (auto const& c : {
-             Case{"sha512_half_loop", 1'000'000},
-             Case{"sha512_half_loop_400k", 400'000},
-             Case{"cache_ledger_obj_soak", 1'000'000},
-             Case{"cache_ledger_obj_soak_400k", 400'000},
+             Case{"return_1", 1'000'000, 1},
+             Case{"sha512_half_loop", 1'000'000, 980'000},
+             Case{"sha512_half_loop_400k", 400'000, 392'000},
+             Case{"cache_ledger_obj_soak", 1'000'000, 980'000},
+             Case{"cache_ledger_obj_soak_400k", 400'000, 392'000},
          })
     {
         SCOPED_TRACE(c.name);
@@ -168,7 +171,7 @@ TEST_F(HostFunctionTiming, CommittedWasmFilesRun)
         ASSERT_TRUE(outcome.has_value()) << transToken(outcome.error().ter);
         EXPECT_EQ(outcome->result, 1);
         EXPECT_LE(outcome->cost, c.gasLimit);
-        EXPECT_GT(outcome->cost, c.gasLimit * 98 / 100);
+        EXPECT_GE(outcome->cost, c.minGas);
     }
 }
 
@@ -205,7 +208,8 @@ TEST_F(HostFunctionTiming, CacheLedgerObjSoakProbe400K)
 // out rather than folding into its per-call estimate.
 TEST_F(HostFunctionTiming, BaselineNoHostCalls)
 {
-    auto const wasm = assembleWat(readTextFile(watDir() / "baseline_no_host_calls.wat"));
+    auto const wasm = assembleWat(readTextFile(watDir() / "return_1.wat"));
+    writeBinaryFile(watDir().parent_path() / "wasm" / "return_1.wasm", wasm);
     auto const result = time(wasm, 1'000'000);
 
     std::cout << "baseline (no host calls): best of 10 runs = " << (result.bestSeconds * 1e9)
