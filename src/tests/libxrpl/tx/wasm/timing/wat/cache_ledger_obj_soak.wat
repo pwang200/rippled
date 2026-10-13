@@ -22,13 +22,14 @@
   ;;   [56,88) sha512_half's output (32 bytes) — used directly as cache_le's obj_id, giving
   ;;           142 effectively-independent, uniformly-distributed keys per run.
   ;;
-  ;; Fuel: 142 was sized for the flat 5000 (cache_le) + 2000 (sha512_half) gas per iteration
-  ;; against a 1,000,000 budget (~7020/iteration incl. loop bookkeeping), leaving headroom
-  ;; over the one-time tx_field/ldgr_index setup cost so the run completes rather than
-  ;; trapping OutOfFuel. See HostFunctionTiming.cpp for the calibration methodology.
+  ;; Fuel: 142 iterations, sized for the flat 5000 (cache_le) + 2000 (sha512_half) gas per
+  ;; iteration against a 1,000,000 budget (~7022/iteration incl. loop bookkeeping), leaving
+  ;; headroom over the one-time tx_field/ldgr_index setup cost so the run completes rather
+  ;; than trapping OutOfFuel. Measured: 997,833 gas consumed; one more iteration would
+  ;; exceed the budget. The result of every host call is dropped and the function returns 1.
+  ;; See HostFunctionTiming.cpp for the calibration methodology.
   (func (export "escrow_finish") (result i32)
     (local $i i32)
-    (local $r i32)
 
     (drop (call $tx_field (i32.const 524289) (i32.const 0) (i32.const 20)))
     (drop (call $ldgr_index (i32.const 20) (i32.const 32)))
@@ -39,7 +40,7 @@
         (br_if $done (i32.eq (local.get $i) (i32.const 142)))
         (i32.store (i32.const 52) (local.get $i))
         (drop (call $sha512_half (i32.const 0) (i32.const 56) (i32.const 56) (i32.const 32)))
-        (local.set $r (call $cache_le (i32.const 56) (i32.const 32) (i32.const 1)))
+        (drop (call $cache_le (i32.const 56) (i32.const 32) (i32.const 1)))
         (local.set $i (i32.add (local.get $i) (i32.const 1)))
         (br $again)))
-    (local.get $r)))
+    (i32.const 1)))

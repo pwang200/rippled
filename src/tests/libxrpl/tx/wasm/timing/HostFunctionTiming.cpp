@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -44,6 +45,15 @@ readTextFile(std::filesystem::path const& path)
     return buf.str();
 }
 
+Bytes
+readBinaryFile(std::filesystem::path const& path)
+{
+    std::ifstream in{path, std::ios::binary};
+    if (!in)
+        throw std::runtime_error("cannot open " + path.string());
+    return Bytes{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
+
 void
 writeBinaryFile(std::filesystem::path const& path, Bytes const& bytes)
 {
@@ -73,16 +83,8 @@ struct HostFunctionTiming : RealHostFixture
     // engine actually costs" on a shared, unpinned machine. A fresh host every time: a host
     // serves exactly one run, since `runEscrowWasm` asserts it was handed a clean one
     // (`checkSelf`).
-    //
-    // `allowNegativeResult`: some cases (e.g. a deliberate "object not found" run) expect every
-    // call to answer a negative `HostFunctionError` code, which is the point of the run, not a
-    // bug in it.
     Timing
-    time(
-        Bytes const& wasm,
-        std::int64_t gasLimit,
-        int repeats = 10,
-        bool allowNegativeResult = false)
+    time(Bytes const& wasm, std::int64_t gasLimit, int repeats = 10)
     {
         auto bestSeconds = std::numeric_limits<double>::infinity();
         std::int64_t gasConsumed = 0;
@@ -98,58 +100,104 @@ struct HostFunctionTiming : RealHostFixture
                 ADD_FAILURE() << "the run did not complete: " << transToken(outcome.error().ter);
                 return {};
             }
-            if (!allowNegativeResult)
-                EXPECT_GE(outcome->result, 0)
-                    << "the contract's host call returned error code " << outcome->result;
+            EXPECT_EQ(outcome->result, 1) << "the contract did not return 1";
 
             gasConsumed = outcome->cost;
             bestSeconds = std::min(bestSeconds, std::chrono::duration<double>(elapsed).count());
         }
         return {bestSeconds, gasConsumed};
     }
+
+    void
+    runSha512HalfLoop(std::string const& name, std::int64_t gasLimit, int callCount)
+    {
+        auto const wasm = assembleWat(readTextFile(watDir() / (name + ".wat")));
+        writeBinaryFile(watDir().parent_path() / "wasm" / (name + ".wasm"), wasm);
+        auto const baselineWasm = assembleWat(readTextFile(watDir() / "baseline_no_host_calls.wat"));
+
+        auto const baseline = time(baselineWasm, gasLimit);
+        auto const loaded = time(wasm, gasLimit);
+        auto const perCallSeconds =
+            std::max(0.0, loaded.bestSeconds - baseline.bestSeconds) / callCount;
+
+        std::cout << name << ": raw best " << (loaded.bestSeconds * 1e9) << " ns over "
+                   << callCount << " calls (gas consumed " << loaded.gasConsumed
+                   << " of " << gasLimit << " budget); baseline (compile+instantiate, no host calls) "
+                   << (baseline.bestSeconds * 1e9) << " ns; baseline-corrected ~"
+                   << (perCallSeconds * 1e9) << " ns/call\n";
+    }
+
+    void
+    runCacheLedgerObjSoak(std::string const& name, std::int64_t gasLimit)
+    {
+        auto const wasm = assembleWat(readTextFile(watDir() / (name + ".wat")));
+        writeBinaryFile(watDir().parent_path() / "wasm" / (name + ".wasm"), wasm);
+
+        auto const result = time(wasm, gasLimit);
+
+        std::cout << name << ": best of 10 runs = " << (result.bestSeconds * 1e9)
+                   << " ns, gas consumed = " << result.gasConsumed << " of " << gasLimit << "\n";
+    }
 };
+
+// The `.wasm` files in `timing/wasm/` are handed to other people as-is, so this runs the
+// committed bytes themselves (not a fresh assembly of the `.wat`): each must be exactly what
+// the `.wat` assembles to, run to completion under its budget, return 1, and use most of it.
+TEST_F(HostFunctionTiming, CommittedWasmFilesRun)
+{
+    struct Case
+    {
+        char const* name;
+        std::int64_t gasLimit;
+    };
+    for (auto const& c : {
+             Case{"sha512_half_loop", 1'000'000},
+             Case{"sha512_half_loop_400k", 400'000},
+             Case{"cache_ledger_obj_soak", 1'000'000},
+             Case{"cache_ledger_obj_soak_400k", 400'000},
+         })
+    {
+        SCOPED_TRACE(c.name);
+        auto const wasm =
+            readBinaryFile(watDir().parent_path() / "wasm" / (std::string{c.name} + ".wasm"));
+        EXPECT_EQ(wasm, assembleWat(readTextFile(watDir() / (std::string{c.name} + ".wat"))))
+            << "the committed .wasm is stale relative to its .wat";
+
+        auto host = makeHost();
+        auto const outcome = runEscrowWasm(wasm, *host, c.gasLimit);
+        ASSERT_TRUE(outcome.has_value()) << transToken(outcome.error().ter);
+        EXPECT_EQ(outcome->result, 1);
+        EXPECT_LE(outcome->cost, c.gasLimit);
+        EXPECT_GT(outcome->cost, c.gasLimit * 98 / 100);
+    }
+}
 
 TEST_F(HostFunctionTiming, Sha512HalfLoop)
 {
-    constexpr std::int64_t gasLimit = 1'000'000;
-    constexpr int callCount = 496;
+    runSha512HalfLoop("sha512_half_loop", 1'000'000, 496);
+}
 
-    auto const wasm = assembleWat(readTextFile(watDir() / "sha512_half_loop.wat"));
-    writeBinaryFile(watDir().parent_path() / "wasm" / "sha512_half_loop.wasm", wasm);
-    auto const baselineWasm = assembleWat(readTextFile(watDir() / "baseline_no_host_calls.wat"));
-
-    auto const baseline = time(baselineWasm, gasLimit);
-    auto const loaded = time(wasm, gasLimit);
-    auto const perCallSeconds =
-        std::max(0.0, loaded.bestSeconds - baseline.bestSeconds) / callCount;
-
-    std::cout << "sha512_half loop: raw best " << (loaded.bestSeconds * 1e9) << " ns over "
-               << callCount << " calls (gas consumed " << loaded.gasConsumed
-               << " of " << gasLimit << " budget); baseline (compile+instantiate, no host calls) "
-               << (baseline.bestSeconds * 1e9) << " ns; baseline-corrected ~"
-               << (perCallSeconds * 1e9) << " ns/call\n";
+TEST_F(HostFunctionTiming, Sha512HalfLoop400K)
+{
+    runSha512HalfLoop("sha512_half_loop_400k", 400'000, 198);
 }
 
 // Sanity-checks the handoff soak probe (cache_ledger_obj_soak.wat): assembles and runs it
 // against a real host/tx, confirming it completes within budget and reports the actual gas
 // consumed, rather than trusting the by-hand fuel estimate in the wat's own comment.
+//
+// Uniformly-random 32-byte keys essentially never coincide with a real ledger object (10M
+// objects in a 2^256 space, or a handful in this tiny test fixture — either way the collision
+// probability is negligible), so every `cache_le` call is expected to answer
+// `LedgerObjNotFound`, not a hit. The contract ignores that code and returns 1.
 TEST_F(HostFunctionTiming, CacheLedgerObjSoakProbe)
 {
-    constexpr std::int64_t gasLimit = 1'000'000;
+    runCacheLedgerObjSoak("cache_ledger_obj_soak", 1'000'000);
+}
 
-    auto const watText = readTextFile(watDir() / "cache_ledger_obj_soak.wat");
-    auto const wasm = assembleWat(watText);
-    writeBinaryFile(watDir().parent_path() / "wasm" / "cache_ledger_obj_soak.wasm", wasm);
-
-    // Uniformly-random 32-byte keys essentially never coincide with a real ledger object
-    // (10M objects in a 2^256 space, or a handful in this tiny test fixture — either way the
-    // collision probability is negligible), so every one of the 142 calls is expected to
-    // answer `LedgerObjNotFound`, not a hit. That's the correct outcome for this probe, not a
-    // bug — see the discussion this wat came out of for why "found" needs a different design.
-    auto const result = time(wasm, gasLimit, 10, /* allowNegativeResult */ true);
-
-    std::cout << "cache_ledger_obj soak probe: best of 10 runs = " << (result.bestSeconds * 1e9)
-               << " ns, gas consumed = " << result.gasConsumed << " of " << gasLimit << "\n";
+TEST_F(HostFunctionTiming, CacheLedgerObjSoakProbe400K)
+{
+    runCacheLedgerObjSoak("cache_ledger_obj_soak_400k", 400'000);
 }
 
 // Isolates the fixed cost of compiling, instantiating, and running a module to completion
