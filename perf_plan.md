@@ -35,17 +35,10 @@ Gas allowance: every Finish in every case sets Gas to 1,000,000 (400,000 in the 
 
 The Create side is not equal across cases: modules range from 59 bytes to ~100 KB, so the Create fee and the work done at Create differ.
 
-Funding and reserve: Owner reserves per escrow = ⌈bytecode bytes / 500⌉, at least 1: 200 for 100 KB. Held until Finish or Cancel. Actor funding = account reserve + escrows in stock × (owner reserves per escrow × owner reserve + Amount + Create fee) + Finish fees.
+Funding and reserve: Owner reserves per escrow = ⌈bytecode bytes / 500⌉, at least 1: 200 for 100 KB. Held until Finish or Cancel. Actor funding = account reserve + escrows in stock × (owner reserves per escrow × owner reserve + Amount + Create fee) + Finish fees. Actors are funded far above this for the largest stock we expect; genesis holds the whole supply on a fresh network, so overfunding costs nothing. A Create failing with tecINSUFFICIENT_RESERVE means the stock outgrew the funding.
 
 TODO footnote:
 Each Create check and each Finish run at least twice on every validator: once when applied to the open ledger, once when the consensus ledger is built.
-
-TODO footnote:
-Local time sources used in this plan. They are not directly comparable, so compare candidates within one source:
-
-- **[r]** xrpld's own code from the Rust crates on `se-hostfn-timing`, in one long-running process on a Mac, median of 25 runs: the Create check, or the Finish path (compile, instantiate, call). Run-to-run noise is about ±20%.
-- **[w]** standalone wasmi on a Mac, median of 25 runs, not through xrpld. Its interpreter build runs execution about 3× faster than xrpld's (W1a: 0.34 ms [w] against 0.89 ms [r]).
-- **[x]** xrpld release build (Oct 1), `WASM_TIMING`, single shot. Includes a fixed cost of about 140 µs per Finish, and reads high against [r]: se-soak's 15 KB translation case took 838 µs [x] but 0.11 ms [r].
 
 ## 3. Tx flows
 
@@ -114,7 +107,7 @@ We build two snapshots once, on a standalone node, with standard transactions, u
 
 | Snapshot | Contents | Used by |
 | --- | --- | --- |
-| Small | The test accounts, funded per §3 | B1, A1, W1–W3, CW1–CW3 |
+| Small | The test accounts, funded per §2 | B1, A1, W1–W3, CW1–CW3 |
 | Data | The small snapshot, plus filler accounts and NFT owners holding full pages | W4, plus B1 as W4's own baseline |
 
 - The data snapshot is built on top of the small one, so the test accounts and keys are identical and the tool config doesn't change.
@@ -141,15 +134,26 @@ Sizes are still open: the number of filler accounts and of NFT pages. For refere
 
 ## 5. Baseline
 
-The contract simply return 1.
+This is the simplest contract. It returns 1 when executed. 
 
-| ID | Module | Flow | Snapshot | Create | Finish |
-| --- | --- | --- | --- | --- | --- |
-| B1 | `return_1` (60 bytes, no host calls) | F1 | Small, and Data (as W4's baseline) | tesSUCCESS. Fee 10 × base + 300 drops; check ~0.002 ms [r] (for a 39-byte module) | tesSUCCESS, GasUsed 30 |
+| ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
+| --- | --- | --- | --- | --- | --- | --- |
+| B1 | `return_1` | | | Returns 1, no host calls | F1 | Small, and Data (as W4's baseline) |
+
+Notes:
+
+- Local time: Create check ~0.002 ms [r] (for a 39-byte module).
+
+TODO footnote:
+Local time sources used in this plan. They are not directly comparable, so compare candidates within one source:
+
+- **[r]** xrpld's own code from the Rust crates on `se-hostfn-timing`, in one long-running process on a Mac, median of 25 runs: the Create check, or the Finish path (compile, instantiate, call). Run-to-run noise is about ±20%.
+- **[w]** standalone wasmi on a Mac, median of 25 runs, not through xrpld. Its interpreter build runs execution about 3× faster than xrpld's (W1a: 0.34 ms [w] against 0.89 ms [r]).
+- **[x]** xrpld release build (Oct 1), `WASM_TIMING`, single shot. Includes a fixed cost of about 140 µs per Finish, and reads high against [r]: se-soak's 15 KB translation case took 838 µs [x] but 0.11 ms [r].
 
 ## 6. Average case
 
-**A1 `refill_when_low`**: "the escrow is a reserve tank that unlocks only when the owner's XRP balance is low."
+**`refill_when_low`**: "the escrow is a reserve tank that unlocks only when the owner's XRP balance is low."
 
 The contract:
 
@@ -158,9 +162,9 @@ The contract:
 3. Converts drops to XRP with float ops (`float_from_int`, `float_divide` by 1e6).
 4. Check if the balance is below 1,000,000 XRP (`float_compare`), but always return 1 to simply tx flow.
 
-| Flow | Snapshot | Create | Finish |
-| --- | --- | --- | --- |
-| F1 | Small; actors funded with less than 1,000,000 XRP | tesSUCCESS. Size to measure, likely a few KB; fee 10 × base + 5 drops per byte | tesSUCCESS. GasUsed estimated 15K–40K. |
+| ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
+| --- | --- | --- | --- | --- | --- | --- |
+| A1 | To Be Generated | | | Reads the owner's balance, compares it, returns 1 | F1 | Small |
 
 Notes:
 
@@ -171,20 +175,24 @@ Notes:
 
 Create charges no gas. Its fee is 10 × base + 5 drops per bytecode byte, and its node cost is the check EscrowCreate preclaim runs after reading the ledger's fee settings (upload switch and size limit): compile the module, then screen its imports, entry point and exported memory and table. The check reads only the blob, builds a fresh engine and caches nothing, so a fixed blob per case costs the same on every Create. Preclaim runs on every apply, so the check runs at least twice on each validator, like a Finish. Create cases are compared on time per Create and time per fee drop.
 
-All Create worst cases use the small snapshot. Each is the Create phase of an F1 run (§3), so its Finish phase follows.
+Each is the Create phase of an F1 run (§3), so its Finish phase follows.
 
-All are ~100 KB. Times per fee drop assume base = 10 drops.
-
-| ID | Module | What it does | Create check [r] | `Module::new` [w] | Time per fee drop | Status |
+| ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| CW1 | `09-many-exports` | One function exported under ~19.4k short names | 4.20 ms | 5.22 ms | ~8.4 ns | Same blob as W1h |
-| CW2 | `08-many-types` | ~7.7k distinct function types | 3.22 ms | 4.30 ms | ~6.4 ns | Same blob as W1g |
-| CW3 | `07-combo` shape | ~2,400 never-called 40-byte functions, each declaring 50k locals, filled with a short `br_table` | 1.64 ms | 1.79 ms | ~3.3 ns | Use W1f's blob (T-0): the same shape with a finish that returns 1 |
+| CW1 | `09-many-exports` (= W1h) | | | ~19.4k exports of one function | F1 | Small |
+| CW2 | `08-many-types` (= W1g) | | | ~7.7k distinct function types | F1 | Small |
+| CW3 | `create_padding` (= W1f) | | | ~2,400 unused functions with 50k locals each | F1 | Small |
+
+Why chosen (local times; all ~100 KB; time per fee drop assumes base = 10 drops):
+
+- CW1: one function exported under ~19.4k short names. Create check 4.20 ms [r], `Module::new` 5.22 ms [w], ~8.4 ns per fee drop.
+- CW2: ~7.7k distinct function types. 3.22 ms [r], 4.30 ms [w], ~6.4 ns per fee drop.
+- CW3: Create case 07's shape: ~2,400 never-called 40-byte functions, each declaring 50k locals, filled with a short `br_table`. W1f's blob (wasmi T-0) has this shape with a finish that returns 1. 1.64 ms [r], 1.79 ms [w], ~3.3 ns per fee drop.
 
 Notes:
 
 - The 40-byte average rule limits function bodies only. CW1 and CW2 fill the module with sections that have no bodies; CW3 sits on the rule.
-- [r] and [w] are defined in §2. Both are a Mac, not a server, so the ranking may differ on the network; that is why all three are kept.
+- [r] and [w] are defined in §5. Both are a Mac, not a server, so the ranking may differ on the network; that is why all three are kept.
 - The same blobs serve W1f–W1h (§8), so finishing one of these escrows also exercises its W1 case.
 - Source: the wasmi experiment `experiments/module-new-time/create_cases` on branch `experiment/module-new-time`. 07 is from the earlier hunt; 08–11 were added on 2026-10-15.
 - Dropped:
@@ -195,43 +203,53 @@ Notes:
 
 ## 8. Worst-case candidates (EscrowFinish)
 
-Gas values below are from our unit tests on `se-hostfn-timing` (based on smart-escrow 4103ade0ba) or from the local runs noted. Re-measure them on the network build. Each case is listed with its S1 module. `_400k` variants exist where noted; they are set aside for the S2-sized follow-up (§2).
+Gas values in the "Why chosen" notes are from our unit tests on `se-hostfn-timing` (based on smart-escrow 4103ade0ba) or from the local runs noted. The tables' Size and GasUsed columns are filled from the network build (§9). Each case is listed with its S1 module. `_400k` variants exist where noted; they are set aside for the S2-sized follow-up (§2).
 
 Combo cases come later. Each case below isolates one trick. Once they are measured on the network, we build a few combos from the worst ones. Only tricks that spend different budgets add up: module size (W1d, W1f–W1h) versus gas (execution in W1a–W1c, host calls in W2–W4). Two tricks that spend the same budget only trade against each other. For example, W1h's exports use bytes and almost no gas, so the gas left over can run the worst execution or host-call kernel in the same module.
 
 ### W1. Pure wasm instructions
 
-Cost comes from the engine alone: no host calls. The time goes to five different places, and each is a separate pricing question, so there is one candidate per place, except module load, which has three different code paths. All W1 cases use F1 and the small snapshot.
+Cost comes from the engine alone: no host calls. The time goes to five different places, and each is a separate pricing question, so there is one candidate per place, except module load, which has three different code paths.
 
-| ID | Where the time goes | Module | What it does | GasUsed | Local time | Status |
+| ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| W1a | Execution (reference) | `br_loop` (wasmi T-00) | 59-byte counted loop | ~948K | 0.89 ms, ~0.94 ns/gas [r]; 0.34 ms [w] | Exists; export needs renaming to `escrow_finish` |
-| W1b | Execution | `call_indirect_unroll` (+ `_400k`) | 32 `call_indirect` per loop, in a ~100 KB / ~50 KB module | 939,965 (`_400k`: 378,958) | 4.25 ms [r], of which ~1.6 ms is module load | Exists |
-| W1c | Execution, memory | `chain_8mb` (new, from se-soak's `chain_full_footprint`) | Pointer chase whose working set spans the full 8 MB memory cap | to measure | to measure | To build; replaces se-soak's 1 MB version |
-| W1d | Translation | `if_else_100k` (new) | One ~100 KB function body of repeated `local.get 0; if; else; end`, translated on first call | ~750K | 2.0–2.4 ms [r] | To build; replaces se-soak's 15 KB `dos_large_finish_linear` |
-| W1e | Function entry | `dos_large_finish_many_helpers` (se-soak) | Calls 250 small functions once each (~18 KB) | 136,671 | 0.26 ms, ~1.9 ns/gas [r] | Exists in se-soak; extract a fixed blob |
-| W1f | Module load, not in gas: function bodies | `create_padding` (wasmi T-0; Create case 07's shape) | ~2,400 never-called functions at the 40-byte floor, each declaring 50k locals; trivial finish | ~275 | 1.66 ms [r] | Exists; export needs renaming to `escrow_finish` |
-| W1g | Module load, not in gas: types | `08-many-types` (wasmi create_cases) | ~7.7k distinct function types, one trivial function | 30 | 3.21 ms [r] | Exists; needs `escrow_finish` returning 1 |
-| W1h | Module load and instantiation, not in gas: exports | `09-many-exports` (wasmi create_cases) | One function exported under ~19.4k short names; every instantiation builds the export map again | 30 | 8.40 ms [r] (about half compile, half instantiate) | Exists; needs `escrow_finish` returning 1 |
+| W1a | `br_loop` | | | Execution (reference): counted loop | F1 | Small |
+| W1b | `call_indirect_unroll` (+ `_400k`) | | | Execution: 32 `call_indirect` per loop | F1 | Small |
+| W1c | To Be Generated | | | Execution, memory: pointer chase over the full 8 MB | F1 | Small |
+| W1d | To Be Generated | | | Translation: one 100 KB if/else body | F1 | Small |
+| W1e | `dos_large_finish_many_helpers` | | | Function entry: calls 250 small functions once | F1 | Small |
+| W1f | `create_padding` | | | Module load: ~2,400 unused functions with 50k locals each | F1 | Small |
+| W1g | `08-many-types` | | | Module load: ~7.7k distinct function types | F1 | Small |
+| W1h | `09-many-exports` | | | Module load and instantiation: ~19.4k exports of one function | F1 | Small |
+
+Why chosen:
+
+- W1a (wasmi T-00): the reference, not a worst case. A 59-byte counted loop: ~948K gas, 0.89 ms, ~0.94 ns/gas [r]; 0.34 ms [w]. Any candidate well above its ~0.94 ns/gas [r] is underpriced.
+- W1b: 32 `call_indirect` per loop in a ~100 KB module (`_400k`: ~50 KB). 939,965 gas (`_400k`: 378,958), 4.25 ms [r], of which ~1.6 ms is module load.
+- W1c: 8 MB is the largest working set a module can have, so it is the memory case with the most room to leave the cache. Building the working set and chasing it share the gas budget. It replaces se-soak's 1 MB `chain_full_footprint` (623,563 gas, 0.63 ms, ~1.0 ns/gas [r]), which fits in a Mac's cache and mostly in a server core's L2, so it measured barely above W1a. The validators' CPU cache sizes help read W1c's result.
+- W1d: one ~100 KB function body of repeated `local.get 0; if; else; end`, translated on first call: ~750K gas, 2.0–2.4 ms [r]. It replaces se-soak's 15 KB `dos_large_finish_linear`. Translation is 7 gas per byte, and each byte is translated at most once per run, so at the 100 KB cap translation gives ~700K gas; the rest is the body running once. Reaching 1M would need a loop, which would mix in execution. The shape comes from a hunt on [r] (2026-10-16), one ~100 KB body each, in ns/gas: if/else 2.6–3.2, if without else 2.4, nested ifs 2.4, if/else with a result 2.2, nested blocks 1.9, `br_if` in a block 1.5, select 1.4, two-locals add 1.3, `br_table` 1.3, se-soak's const + add 0.85.
+- W1e (se-soak): calls 250 small functions once each, ~18 KB. 136,671 gas, 0.26 ms, ~1.9 ns/gas [r].
+- W1f (wasmi T-0, Create case 07's shape): ~2,400 never-called functions at the 40-byte floor, each declaring 50k locals; trivial finish. ~275 gas, 1.66 ms [r].
+- W1g (wasmi create_cases 08): ~7.7k distinct function types, one trivial function. 30 gas, 3.21 ms [r].
+- W1h (wasmi create_cases 09): one function exported under ~19.4k short names; every instantiation builds the export map again. 30 gas, 8.40 ms [r], about half compile, half instantiate.
+- W1f–W1h: loading and instantiating the module is not charged gas; xrpld's Finish path reports 30 gas for W1g and W1h. Every Finish pays the load again, and Create pays it once too. Their gas can't be raised to match the others, so compare them on time per Finish against B1. They are the same blobs as the Create worst cases (CW1–CW3, §7).
 
 Notes:
 
-- W1a is the reference, not a worst case: any candidate well above its ~0.94 ns/gas [r] is underpriced.
-- W1c: 8 MB is the largest working set a module can have, so it is the memory case with the most room to leave the cache. Building the working set and chasing it share the gas budget. It replaces se-soak's 1 MB `chain_full_footprint` (623,563 gas, 0.63 ms, ~1.0 ns/gas [r]), which fits in a Mac's cache and mostly in a server core's L2, so it measured barely above W1a. The validators' CPU cache sizes help read W1c's result.
-- W1d: translation is 7 gas per byte, and each byte is translated at most once per run, so at the 100 KB cap translation gives ~700K gas; the rest is the body running once. Reaching 1M would need a loop, which would mix in execution. The shape comes from a hunt on [r] (2026-10-16), one ~100 KB body each, in ns/gas: if/else 2.6–3.2, if without else 2.4, nested ifs 2.4, if/else with a result 2.2, nested blocks 1.9, `br_if` in a block 1.5, select 1.4, two-locals add 1.3, `br_table` 1.3, se-soak's const + add 0.85.
-- W1f–W1h: loading and instantiating the module is not charged gas; xrpld's Finish path reports 30 gas for W1g and W1h. Every Finish pays the load again, and Create pays it once too. Their gas can't be raised to match the others, so compare them on time per Finish against B1. They are the same blobs as the Create worst cases (CW1–CW3, §7).
 - The se-soak versions patch a random pad into each Create. That isn't needed here, because the node builds a fresh engine for every run.
 - Dropped: `inst_data` / `inst_elem` (instantiation work, 30 gas, 231 / 303 µs [x]) are the same kind of unbilled cost as W1f but much smaller. `many_locals` / `inst_locals` are fixed by the wasmi locals PR.
 
 ### W2. Host functions with compute-only cost
 
-Flat-priced host functions whose real cost depends on input or algorithm. No ledger reads. All W2 cases use F1 and the small snapshot.
+Flat-priced host functions whose real cost depends on input or algorithm. No ledger reads.
 
-| ID | Module | Shape | Status | GasUsed (`_400k` in brackets) |
-| --- | --- | --- | --- | --- |
-| W2a | `sha512_half_loop` (+ `_400k`) | `sha512_half` on 1024 bytes (the max input), 496 calls (`_400k`: 198) | Exists | 999,277 (399,105) |
-| W2b | `check_sig_loop` | `check_sig` on a constant valid signature, repeated to the cap | To build | to measure |
-| W2c | `float_loop` | Float ops repeated to the cap, with the most expensive inputs we know | To build | to measure |
+| ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
+| --- | --- | --- | --- | --- | --- | --- |
+| W2a | `sha512_half_loop` (+ `_400k`) | | | `sha512_half` on the max input, repeated | F1 | Small |
+| W2b | To Be Generated | | | `check_sig` on a valid signature, repeated | F1 | Small |
+| W2c | To Be Generated | | | Float ops on the costliest inputs, repeated | F1 | Small |
+
+W2a: `sha512_half` on 1024 bytes (the max input), 496 calls (`_400k`: 198). 999,277 gas (`_400k`: 399,105).
 
 W2b: `check_sig` is 300 gas on the remote branch. Our `update-sig-price` change raises it to 35,000. If that change is in the network build, W2b becomes a check that the new price holds.
 
@@ -241,12 +259,14 @@ Not tested: the NFT ID functions (issuer, taxon, flags, transfer fee, serial; 60
 
 ### W3. Write path: `set_data`
 
-`set_data` is the only call that writes, and the write persists only when the escrow is not released. On tesSUCCESS the escrow is deleted. So this category uses F2, with the small snapshot.
+`set_data` is the only call that writes, and the write persists only when the escrow is not released. On tesSUCCESS the escrow is deleted. So this category uses F2.
 
-| ID | Module | Shape | Status | Expected |
-| --- | --- | --- | --- | --- |
-| W3a | `set_data_max` | Writes 1024 bytes of Data (the max), different each call, returns 0 | To build | Each Finish tecBYTECODE_REJECTED, escrow Data changed (check with ledger_entry). GasUsed a few thousand. |
-| W3b | `set_data_max` with Create carrying a 1024-byte Data | Same, plus a full-size Data stored at Create | Same module | Same |
+| ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
+| --- | --- | --- | --- | --- | --- | --- |
+| W3a | To Be Generated | | | Writes 1024 bytes of Data, returns 0 | F2 | Small |
+| W3b | To Be Generated | | | W3a's module; the Create also carries 1024 bytes of Data | F2 | Small |
+
+Each write is the max size (1024 bytes) and different from the last. Besides the F2 results, each Finish must change the escrow's Data: check with ledger_entry.
 
 W3a derives each write from the Finish's own Sequence. Every Finish on the same escrow shares its OfferSequence, and two in one ledger would share the ledger sequence, so neither keeps the writes distinct.
 
@@ -254,15 +274,16 @@ F2 needs the tool to Finish the same escrow repeatedly and Cancel it after Cance
 
 ### W4. Data-dependent ledger reads
 
-Ledger reads cost a flat 5000 gas, but their real cost depends on where the object is (in memory or in the DB) and how large it is. All W4 cases use F1 and the data snapshot (§4), with B1 on the same snapshot as their baseline.
+Ledger reads cost a flat 5000 gas, but their real cost depends on where the object is (in memory or in the DB) and how large it is. B1 runs on the same data snapshot (§4) as their baseline.
 
-| ID | Module | Shape | Status | GasUsed (`_400k` in brackets) |
-| --- | --- | --- | --- | --- |
-| W4a | `cache_ledger_obj_soak` (+ `_400k`) | 142 `cache_ledger_obj` lookups of random keys (`_400k`: 56), all not found | Exists; key seed to change (below) | 997,833 (393,934) |
-| W4b | `get_nft_pages` | `get_nft` on owners holding full NFT pages, with random NFT IDs; each call reads, parses and scans a ~9 KB page | To build | to measure |
+| ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
+| --- | --- | --- | --- | --- | --- | --- |
+| W4a | `cache_ledger_obj_soak` (+ `_400k`) | | | `cache_ledger_obj` on random missing keys | F1 | Data |
+| W4b | To Be Generated | | | `get_nft` on full NFT pages, random NFT IDs | F1 | Data |
 
 #### W4a notes
 
+- 142 `cache_ledger_obj` lookups of random keys (`_400k`: 56), all not found. 997,833 gas (`_400k`: 393,934).
 - It spends about 29% of its gas on `sha512_half`, which it uses to derive keys. A variant with cheaper key derivation would fit more lookups per gas.
 - Its keys now come from the finisher account, the ledger sequence and the loop index, so one account finishing two escrows in the same ledger reads the same keys twice, and the second Finish under-measures. Change the seed to the finisher Account + OfferSequence instead of the ledger sequence: unique per escrow, even if the tool uses Tickets, so the tool needs no scheduling rule.
 
@@ -277,7 +298,7 @@ Ledger reads cost a flat 5000 gas, but their real cost depends on where the obje
 
 ## 9. Before delivery (our side)
 
-1. Build the modules: A1 `refill_when_low` (Rust, with a measured GasUsed), W1c `chain_8mb`, W1d `if_else_100k`, W2b `check_sig_loop`, W2c `float_loop`, W3 `set_data_max`, W4b `get_nft_pages`. Rename the exports of W1a and W1f, give W1g / W1h an `escrow_finish` that returns 1, and change W4a's key seed to Account + OfferSequence. Extract a fixed blob for W1e from se-soak; it exports `escrow_finish` and returns 5001, a positive value, which releases the escrow. S2-sized versions wait for the follow-up (§2).
-2. Check every blob against the network build of the time: run each through that build's Create check and one Finish, so the host-function names and signatures and the entry point all match. Repeat whenever the network build changes.
+1. Build the modules: A1 `refill_when_low` (Rust, with a measured GasUsed), W1c `chain_8mb`, W1d `if_else_100k`, W2b `check_sig_loop`, W2c `float_loop`, W3 `set_data_max`, W4b `get_nft_pages`. Rename the exports of W1a and W1f, give W1g / W1h an `escrow_finish` that returns 1, and change W4a's key seed to Account + OfferSequence. Extract a fixed blob for W1e from se-soak; it exports `escrow_finish` but returns 5001, so patch it to return 1. S2-sized versions wait for the follow-up (§2).
+2. Check every blob against the network build of the time: run each through that build's Create check and one Finish, so the host-function names and signatures and the entry point all match, and fill in each case's Size and GasUsed. Repeat whenever the network build changes.
 3. Deliver the blobs as one file per case, in one place.
 4. Build the small and data snapshots (sizes in §4), confirm both hold the S1 fee settings, and confirm a 5-validator start from each with a local 5-node trial.
