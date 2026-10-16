@@ -47,11 +47,11 @@ All escrows are self-escrows (Account = Destination = Owner). Every module expor
 | Flow | Transactions | Expected |
 | --- | --- | --- |
 | F1 | EscrowCreate {Bytecode, Amount, CancelAfter} → EscrowFinish {Owner, OfferSequence, Gas} | tesSUCCESS, tesSUCCESS. Escrow removed. |
-| F2 | EscrowCreate → EscrowFinish × N → EscrowCancel after CancelAfter | Create tesSUCCESS. Each Finish tecBYTECODE_REJECTED (fee charged, escrow kept). Cancel tesSUCCESS. |
+| F2 | EscrowCreate → EscrowFinish → EscrowCancel after CancelAfter | Create tesSUCCESS. Finish tecBYTECODE_REJECTED (fee charged, escrow kept). Cancel tesSUCCESS. |
 
 F1 is the default. F2 is needed only where the case requires the escrow to survive a Finish (W3).
 
-Each phase submits only one transaction type, so what is measured during a phase belongs to that type alone. F1 cases run in two phases: a Create-only phase builds a stock of escrows, then a Finish-only phase consumes it. A F2 case runs in three: Create, repeated Finishes on the same escrows, then Cancel after CancelAfter.
+Each phase submits only one transaction type, so what is measured during a phase belongs to that type alone. F1 cases run in two phases: a Create-only phase builds a stock of escrows, then a Finish-only phase consumes it. A F2 case runs in three: Create, one Finish per escrow, then Cancel after CancelAfter.
 
 Mixing the phases and mixing with other transaction types such as payment are planned as follow-up tests, after we found the worst cases and decided network parameters.
 
@@ -63,7 +63,7 @@ Mixing the phases and mixing with other transaction types such as payment are pl
 | Amount | A small XRP amount |
 | Bytecode | The case's fixed blob (its S1 version, or its S2-sized version in the follow-up) |
 | CancelAfter | Required whenever Bytecode is present. Long enough for the finish phase to run, and short enough to cancel leftovers if we want to keep the same number of ledger objects before and after the test. |
-| Data | None, except W3b: 1,024 bytes |
+| Data | None, except W3: 1,024 bytes |
 | FinishAfter, Condition | None |
 
 One blob for every Create in a case is fine: the check reads only the blob, i.e. the performance is not ledger data dependent.
@@ -89,7 +89,7 @@ Timing: with no FinishAfter, a Finish is valid as soon as its Create is validate
 | Cases | Each Finish | Then |
 | --- | --- | --- |
 | F1 (all except W3) | tesSUCCESS: every module returns 1 | Escrow removed |
-| F2 (W3) | tecBYTECODE_REJECTED: the module returns 0; fee charged, escrow kept | Repeat on the same escrow; EscrowCancel after CancelAfter, tesSUCCESS |
+| F2 (W3) | tecBYTECODE_REJECTED: the module returns 0; fee charged, escrow kept | EscrowCancel after CancelAfter, tesSUCCESS |
 
 Any other result means the case is broken, for example tecOUT_OF_GAS (wrong allowance or module) or tecNO_PERMISSION (past CancelAfter). The test should stop, not keep measuring.
 
@@ -173,9 +173,7 @@ Notes:
 
 ## 7. Worst-case candidates (EscrowCreate)
 
-Create charges no gas. Its fee is 10 × base + 5 drops per bytecode byte, and its node cost is the check EscrowCreate preclaim runs after reading the ledger's fee settings (upload switch and size limit): compile the module, then screen its imports, entry point and exported memory and table. The check reads only the blob, builds a fresh engine and caches nothing, so a fixed blob per case costs the same on every Create. Preclaim runs on every apply, so the check runs at least twice on each validator, like a Finish. Create cases are compared on time per Create and time per fee drop.
-
-Each is the Create phase of an F1 run (§3), so its Finish phase follows.
+Create charges no gas. Its fee is 10 × base + 5 drops per bytecode byte, and its node cost is the check EscrowCreate preclaim runs after reading the ledger's fee settings (upload switch and size limit): compile the module, then screen its imports and entry point, etc. The check reads only the blob, builds a fresh engine and caches nothing, so a fixed blob per case costs the same on every Create. Preclaim runs on every apply, so the check runs at least twice on each validator. Create cases are compared on time per Create and time per fee drop.
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -251,9 +249,7 @@ Flat-priced host functions whose real cost depends on input or algorithm. No led
 
 W2a: `sha512_half` on 1024 bytes (the max input), 496 calls (`_400k`: 198). 999,277 gas (`_400k`: 399,105).
 
-W2b: `check_sig` is 300 gas on the remote branch. Our `update-sig-price` change raises it to 35,000. If that change is in the network build, W2b becomes a check that the new price holds.
-
-W2c: if the Number exponent-loop fix is not in the network build, use the inputs from that finding. W2c is then likely the worst case overall.
+W2b: `check_sig` is priced at 35,000 gas. W2b checks that the price holds.
 
 Not tested: the NFT ID functions (issuer, taxon, flags, transfer fee, serial; 60–70 gas) are compute-only, but they only decode bits of the 32-byte ID, so their cost is small and constant.
 
@@ -263,14 +259,20 @@ Not tested: the NFT ID functions (issuer, taxon, flags, transfer fee, serial; 60
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| W3a | To Be Generated | | | Writes 1024 bytes of Data, returns 0 | F2 | Small |
-| W3b | To Be Generated | | | W3a's module; the Create also carries 1024 bytes of Data | F2 | Small |
+| W3 | To Be Generated | | | Replaces the 1 KB of Data set at Create, returns 0 | F2 | Small |
 
-Each write is the max size (1024 bytes) and different from the last. Besides the F2 results, each Finish must change the escrow's Data: check with ledger_entry.
+Each EscrowCreate sets the escrow's Data field to one fixed, non-repeating 1024-byte value, the same for every Create, so every Finish replaces 1 KB of existing Data.
 
-W3a derives each write from the Finish's own Sequence. Every Finish on the same escrow shares its OfferSequence, and two in one ledger would share the ledger sequence, so neither keeps the writes distinct.
+The module, about 1,000 gas:
 
-F2 needs the tool to Finish the same escrow repeatedly and Cancel it after CancelAfter. The local soak driver does this (`cancel_removes`, `retry_finish_until_success`).
+1. A data segment at offset 0 holds 1024 fixed, non-repeating bytes, chosen once when we build the module, so every Create uses the same blob. The data segment is part of the wasm module, not the escrow's Data field. It costs no gas: it is loaded at instantiation, and `set_data` reads it from memory, not the wasm code. Non-repeating bytes keep the DB's compression from shrinking the write.
+2. `set_data(0, 1024)` (1000 gas), called once, then return 0.
+
+Why the Data must differ: when a field changes, the metadata also records its old value, about 1 KB more per Finish. A contract that really updates its state pays that, so the worst case must too. The Create's Data and the module's data segment are two different fixed values, so every Finish changes the Data.
+
+Why one `set_data`: the escrow is written once per Finish, from the last `set_data` buffer. More calls only add 1 KB memory copies at a flat 1000 gas each, which is unlikely to beat W1a's reference rate.
+
+Each escrow is finished once, then cancelled after CancelAfter. The local soak driver does this (`cancel_removes`).
 
 ### W4. Data-dependent ledger reads
 
@@ -299,6 +301,6 @@ Ledger reads cost a flat 5000 gas, but their real cost depends on where the obje
 ## 9. Before delivery (our side)
 
 1. Build the modules: A1 `refill_when_low` (Rust, with a measured GasUsed), W1c `chain_8mb`, W1d `if_else_100k`, W2b `check_sig_loop`, W2c `float_loop`, W3 `set_data_max`, W4b `get_nft_pages`. Rename the exports of W1a and W1f, give W1g / W1h an `escrow_finish` that returns 1, and change W4a's key seed to Account + OfferSequence. Extract a fixed blob for W1e from se-soak; it exports `escrow_finish` but returns 5001, so patch it to return 1. S2-sized versions wait for the follow-up (§2).
-2. Check every blob against the network build of the time: run each through that build's Create check and one Finish, so the host-function names and signatures and the entry point all match, and fill in each case's Size and GasUsed. Repeat whenever the network build changes.
+2. Check every blob against the network build of the time: run each through that build's Create check and one Finish, so the host-function names and signatures and the entry point all match, and fill in each case's Size and GasUsed. For W3, also confirm with ledger_entry that each Finish changed the escrow's Data, since tecBYTECODE_REJECTED alone doesn't prove the write happened. Repeat whenever the network build changes.
 3. Deliver the blobs as one file per case, in one place.
 4. Build the small and data snapshots (sizes in §4), confirm both hold the S1 fee settings, and confirm a 5-validator start from each with a local 5-node trial.
