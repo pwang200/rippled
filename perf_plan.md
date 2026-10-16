@@ -121,7 +121,7 @@ Data snapshot contents:
 - NFT owners with keypairs, each minting full pages: 32 NFTs per page, each with a 256-byte URI (W4b).
 - Filler accounts, so W4a's misses walk a realistic tree depth.
 
-Sizes are still open: the number of filler accounts and of NFT pages. For reference, mainnet has about 8.4M accounts (mid-2026); its total object count isn't published. 
+Sizes are still open: the number of filler accounts and of NFT pages. The NFT page count also caps W4b's Finish rate (W4b notes, §8). For reference, mainnet has about 8.4M accounts (mid-2026); its total object count isn't published. 
 
 ### Data snapshot results are likely worse than mainnet
 
@@ -280,14 +280,14 @@ Ledger reads cost a flat 5000 gas, but their real cost depends on where the obje
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| W4a | `cache_ledger_obj_soak` (+ `_400k`) | | | `cache_ledger_obj` on random missing keys | F1 | Data |
+| W4a | To Be Generated | | | `cache_ledger_obj` on random missing keys | F1 | Data |
 | W4b | To Be Generated | | | `get_nft` on full NFT pages, random NFT IDs | F1 | Data |
 
 #### W4a notes
 
-- 142 `cache_ledger_obj` lookups of random keys (`_400k`: 56), all not found. 997,833 gas (`_400k`: 393,934).
-- It spends about 29% of its gas on `sha512_half`, which it uses to derive keys. A variant with cheaper key derivation would fit more lookups per gas.
-- Its keys now come from the finisher account, the ledger sequence and the loop index, so one account finishing two escrows in the same ledger reads the same keys twice, and the second Finish under-measures. Change the seed to the finisher Account + OfferSequence instead of the ledger sequence: unique per escrow, even if the tool uses Tickets, so the tool needs no scheduling rule.
+- Based on se-soak's `cache_ledger_obj_soak` (+ `_400k`): 142 lookups of random keys (`_400k`: 56), all not found, 997,833 gas (`_400k`: 393,934). It spends about 29% of its gas on `sha512_half` to derive keys.
+- Rework 1, keys: derive them with a cheap integer mixer, a few gas per key, instead of `sha512_half`. Keys only need to spread over the tree, not be cryptographic. That fits about 199 lookups per Finish instead of 142.
+- Rework 2, seed: the escrow's PreviousTxnID, read with one `home_le_field` call (70 gas). In F1 it is the Create's transaction ID, so it is unique per escrow, even with two Finishes of one account in the same ledger or with Tickets. The old seed (finisher account, ledger sequence, loop index) reads the same keys twice in that case, and the second Finish under-measures.
 
 #### W4b notes
 
@@ -295,12 +295,14 @@ Ledger reads cost a flat 5000 gas, but their real cost depends on where the obje
 - A miss on an owner who has pages costs about the same as a hit: the call still parses and scans the page, then reports not found. So the module needs only owner IDs, not real NFT IDs.
 - Owner IDs are embedded in the blob, 20 bytes each: up to about 4,800 owners in 100 KB, 2,400 in 50 KB.
 - Pages are ordered by the low 12 bytes of the NFT ID, which begin with the issuer's last 4 bytes. A random NFT ID must keep those 4 bytes (the owner's own, since owners mint their own NFTs), or every lookup lands on the owner's first or last page.
-- The open ledger keeps parsed objects for 1 minute, and a page read again within that minute skips parsing. So the data snapshot needs more full pages than the test reads per minute.
+- NFT IDs come from the same per-escrow seed and cheap mixer as W4a: each call picks an owner from the embedded list and a random position in that owner's pages. Without a per-escrow seed, every Finish reads the same pages.
+- Cache sizing: the open ledger keeps a parsed page until a full minute passes with no read of it, and a cached page skips parsing. With random reads, the hit rate is about 1 − e^(−reads per minute ÷ pages): equal counts give ~63%, and staying under 10% needs about 10× more full pages than reads per minute.
+- Reads per minute = Finish rate × ~200 calls × 60. Even 10 Finishes/s needs about 1.2M full pages (~38M NFTs, ~11 GB). So the snapshot size caps W4b's Finish rate: run W4b at or below the rate the snapshot was sized for. `get_counts` reports `SLE_hit_rate`, which shows whether a run stayed under the cap.
 - Dropped: AccountRoot hits (the earlier `cache_hit_storm`). A hit is W4a's lookup plus a small parse, and W4b's page parse covers it.
 
 ## 9. Before delivery (our side)
 
-1. Build the modules: A1 `refill_when_low` (Rust, with a measured GasUsed), W1c `chain_8mb`, W1d `if_else_100k`, W2b `check_sig_loop`, W2c `float_loop`, W3 `set_data_max`, W4b `get_nft_pages`. Rename the exports of W1a and W1f, give W1g / W1h an `escrow_finish` that returns 1, and change W4a's key seed to Account + OfferSequence. Extract a fixed blob for W1e from se-soak; it exports `escrow_finish` but returns 5001, so patch it to return 1. S2-sized versions wait for the follow-up (§2).
+1. Build the modules: A1 `refill_when_low` (Rust, with a measured GasUsed), W1c `chain_8mb`, W1d `if_else_100k`, W2b `check_sig_loop`, W2c `float_loop`, W3 `set_data_max`, W4a (reworked `cache_ledger_obj_soak`), W4b `get_nft_pages`. Rename the exports of W1a and W1f, and give W1g / W1h an `escrow_finish` that returns 1. Extract a fixed blob for W1e from se-soak; it exports `escrow_finish` but returns 5001, so patch it to return 1. S2-sized versions wait for the follow-up (§2).
 2. Check every blob against the network build of the time: run each through that build's Create check and one Finish, so the host-function names and signatures and the entry point all match, and fill in each case's Size and GasUsed. For W3, also confirm with ledger_entry that each Finish changed the escrow's Data, since tecBYTECODE_REJECTED alone doesn't prove the write happened. Repeat whenever the network build changes.
 3. Deliver the blobs as one file per case, in one place.
 4. Build the small and data snapshots (sizes in §4), confirm both hold the S1 fee settings, and confirm a 5-validator start from each with a local 5-node trial.
