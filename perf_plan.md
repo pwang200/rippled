@@ -1,10 +1,15 @@
 # Smart Escrow performance test plan (draft)
 
-Scope of this doc: the input to the perf test: settings, tx flows, ledger/DB snapshots, and the test cases for EscrowCreate and EscrowFinish. What is recorded, and how results are analyzed, are existing perf platform's tools. Note the smart escrow tx processing code has no per-transaction timing log, but can be added if needed. 
+Scope of this doc: the input to the perf test: settings, tx flows, ledger/DB snapshots, and the test cases for EscrowCreate and EscrowFinish. What is recorded, and how results are analyzed, are left to the perf platform's existing tools.
 
 ## 1. Purpose
 
-Measure what wasm EscrowCreate / EscrowFinish cost a real network, by comparing three kinds of contract under the same load:
+The perf test has two goals:
+
+1. **Impact**: find the average and worst-case impact of wasm EscrowCreate / EscrowFinish on node resources, network performance and anomalies, as for other xrpld features.
+2. **Calibration**: check whether the parameters smart escrow introduces are fair: GasLimit, BytecodeSizeLimit, GasPrice, the host function cost table, and possibly wasm engine flags.
+
+Both come from comparing three kinds of contract under the same load:
 
 - **Baseline**: the cheapest possible contract, for both EscrowCreate and EscrowFinish (§5).
 - **Average**: one realistic contract, for both EscrowCreate and EscrowFinish (§6).
@@ -12,9 +17,11 @@ Measure what wasm EscrowCreate / EscrowFinish cost a real network, by comparing 
 
 Each case says which tx flow (§3) and which snapshot (§4) it uses.
 
+The cases in this doc are the set we see as necessary now. Results from them will likely call for new tests, so this is a living doc, updated as the tests progress. Appendix B lists additions we can already foresee.
+
 ## 2. Settings and fees
 
-Network: 5-validator networks dedicated for performance testing. The `ripple/se/supported` branch will be used for build. We might also use other branches as needed as the performance testing progress. 
+Network: 5-validator networks dedicated for performance testing. The `ripple/se/supported` branch will be used for build. We might also use other branches as needed as the performance testing progresses. 
 
 Settings (S1): the code defaults, which the network keeps throughout. There is no fee voting: validators run without a `[voting]` section.
 
@@ -24,36 +31,33 @@ Settings (S1): the code defaults, which the network keeps throughout. There is n
 
 Every case runs under these limits. Worst cases are hunted under S1 only, since a worst case applies to any limits.
 
-S2 follow-up: once the worst cases are known, a couple of them also run with blobs of 50 KB or less and a Gas allowance of 400,000. We will config the wasm code generator to use 50KB limit, and the gas allowance is capped by the gas field in the tx. The network is still under the S1 limits. No voting needed. 
+S2 follow-up: once the worst cases are known, a couple of them also run with blobs of 50 KB or less and a Gas allowance of 400,000. We will configure the wasm code generator to use a 50 KB limit, and the gas allowance is capped by the gas field in the tx. The network is still under the S1 limits. No voting needed. 
 
 Fees. The tx generator must compute them, or its autofill must know these rules. 
 
 - Create = 10 × base + 5 drops per bytecode byte: about 0.5 XRP for 100 KB.
 - Finish = base + Gas × GasPrice / 1e6 + 1: about 1 XRP at Gas 1,000,000. The fee is on the Gas allowance, not on GasUsed.
 
-Gas allowance: every Finish in every case sets Gas to 1,000,000 (400,000 in the S2 follow-up), whatever the case actually uses. Every Finish then pays the same fee, so the comparison is how much validator time the same fee buys. GasUsed is recorded per case, to also report time per gas used.
+Gas allowance: every Finish in every case sets Gas to 1,000,000, whatever the case actually uses. Every Finish then pays the same fee, so the comparison is how much validator time the same fee buys. GasUsed is recorded per case, to also report time per gas used.
 
 The Create side is not equal across cases: modules range from 59 bytes to ~100 KB, so the Create fee and the work done at Create differ.
 
 Funding and reserve: Owner reserves per escrow = ⌈bytecode bytes / 500⌉, at least 1: 200 for 100 KB. Held until Finish or Cancel. Actor funding = account reserve + escrows in stock × (owner reserves per escrow × owner reserve + Amount + Create fee) + Finish fees. Actors are funded far above this for the largest stock we expect; genesis holds the whole supply on a fresh network, so overfunding costs nothing. A Create failing with tecINSUFFICIENT_RESERVE means the stock outgrew the funding.
 
-TODO footnote:
-Each Create check and each Finish run at least twice on every validator: once when applied to the open ledger, once when the consensus ledger is built.
-
 ## 3. Tx flows
 
-All escrows are self-escrows (Account = Destination = Owner). Every module exports `escrow_finish`. Only the parts unique to wasm escrows are here; generic perf-testing practice (actor accounts, sequences, signing, submission, rates) is the same as regular escrow.
+All escrows are self-escrows (Account = Destination = Owner). Every module exports `escrow_finish`. Only the parts unique to wasm escrows are here; generic perf-testing practice (actor accounts, sequences, signing, submission, rates) is the same as regular escrow. One exception: W4b's Finishes must rotate evenly through all test accounts (W4b notes, §8).
 
 | Flow | Transactions | Expected |
 | --- | --- | --- |
 | F1 | EscrowCreate {Bytecode, Amount, CancelAfter} → EscrowFinish {Owner, OfferSequence, Gas} | tesSUCCESS, tesSUCCESS. Escrow removed. |
-| F2 | EscrowCreate → EscrowFinish → EscrowCancel after CancelAfter | Create tesSUCCESS. Finish tecBYTECODE_REJECTED (fee charged, escrow kept). Cancel tesSUCCESS. |
+| F2 | EscrowCreate → EscrowFinish → EscrowCancel after CancelAfter | Create tesSUCCESS. Finish tecBYTECODE_REJECTED (fee charged, escrow kept). Cancel tesSUCCESS. Escrow removed. |
 
 F1 is the default. F2 is needed only where the case requires the escrow to survive a Finish (W3).
 
-Each phase submits only one transaction type, so what is measured during a phase belongs to that type alone. F1 cases run in two phases: a Create-only phase builds a stock of escrows, then a Finish-only phase consumes it. A F2 case runs in three: Create, one Finish per escrow, then Cancel after CancelAfter.
+Each phase submits only one transaction type, so what is measured during a phase belongs to that type alone. F1 cases run in two phases: a Create-only phase builds a stock of escrows, then a Finish-only phase consumes it. An F2 case runs in three: Create, one Finish per escrow, then Cancel after CancelAfter.
 
-Mixing the phases and mixing with other transaction types such as payment are planned as follow-up tests, after we found the worst cases and decided network parameters.
+Mixing the phases and mixing with other transaction types such as payment are planned as follow-up tests, after we find the worst cases and decide network parameters.
 
 ### EscrowCreate
 
@@ -61,7 +65,7 @@ Mixing the phases and mixing with other transaction types such as payment are pl
 | --- | --- |
 | Account, Destination | The actor (self-escrow) |
 | Amount | A small XRP amount |
-| Bytecode | The case's fixed blob (its S1 version, or its S2-sized version in the follow-up) |
+| Bytecode | The case's fixed blob |
 | CancelAfter | Required whenever Bytecode is present. Long enough for the finish phase to run, and short enough to cancel leftovers if we want to keep the same number of ledger objects before and after the test. |
 | Data | None, except W3: 1,024 bytes |
 | FinishAfter, Condition | None |
@@ -79,7 +83,7 @@ Size effects:
 | --- | --- |
 | Account, Owner | The actor that created the escrow (self-escrow) |
 | OfferSequence | The Create's Sequence |
-| Gas | 1,000,000 for every case (400,000 in the S2 follow-up) |
+| Gas | 1,000,000 for every case |
 | Fulfillment, Condition, CredentialIDs | None |
 
 The Finish carries no bytecode: the node reads the module from the escrow in the ledger.
@@ -99,16 +103,16 @@ Aim: the ledger is about the same size before and after the test, which helps to
 
 - F1 cleans itself: each Finish deletes its escrow, so consuming the whole stock returns the ledger to about its starting size. Only balances and sequence numbers change.
 - F2 cleans up through the Cancel it needs anyway.
-- We don't currently have a case that needs dedicated clean up. If we do, one or two failed clean up is acceptable.
+- We don't currently have a case that needs dedicated clean up. If we do, one or two failed cleanups are acceptable.
 
 ## 4. Ledger snapshots
 
-We build two snapshots once, on a standalone node, with standard transactions, using the same build, amendments and fee settings (S1) as the network. We thought about using mainnet snapshot, but unclear how to add the smart escrow amendment. We also need to add accounts and NFTs as we planned for fresh snapshots below. If we can easily customize the mainnet snapshot, we should use it since all planned tests write to the ledger, and a large and realistic ledger helps.  
+We build two snapshots once, on a standalone node, with standard transactions, using the same build, amendments and fee settings (S1) as the network. We thought about using mainnet snapshot, but unclear how to add the smart escrow amendment. We also need to add accounts and NFTs as we planned for fresh snapshots below. If we can easily customize the mainnet snapshot, we should use it since all planned tests write to the ledger, and a large and realistic ledger helps. Appendix A gives the build steps.
 
 | Snapshot | Contents | Used by |
 | --- | --- | --- |
 | Small | The test accounts, funded per §2 | B1, A1, W1–W3, CW1–CW3 |
-| Data | The small snapshot, plus filler accounts and NFT owners holding full pages | W4, plus B1 as W4's own baseline |
+| Data | The small snapshot, plus filler accounts and full NFT pages held by the test accounts | W4, plus B1 as W4's own baseline |
 
 - The data snapshot is built on top of the small one, so the test accounts and keys are identical and the tool config doesn't change.
 - B1 also runs on the data snapshot because every transaction's ledger work (account reads, escrow writes) is slower in a bigger state. W4 compared against B1 on the small snapshot would count that as wasm cost.
@@ -118,10 +122,10 @@ The perf platform copies the snapshot's DB directory to each validator and start
 
 Data snapshot contents:
 
-- NFT owners with keypairs, each minting full pages: 32 NFTs per page, each with a 256-byte URI (W4b).
+- Every test account holds 200 full pages of NFTs it minted itself: 32 NFTs per page, each with a 256-byte URI. So every test account is a W4b actor.
 - Filler accounts, so W4a's misses walk a realistic tree depth.
 
-Sizes are still open: the number of filler accounts and of NFT pages. The NFT page count also caps W4b's Finish rate (W4b notes, §8). For reference, mainnet has about 8.4M accounts (mid-2026); its total object count isn't published. 
+Sizes are still open: the number of filler accounts and of test accounts. More test accounts keep W4b's reads uncached up to a higher Finish rate (W4b notes, §8). For reference, mainnet has about 8.4M accounts (mid-2026); its total object count isn't published. 
 
 ### Data snapshot results are likely worse than mainnet
 
@@ -160,7 +164,7 @@ The contract:
 1. Reads the escrow's `Account` (the owner).
 2. Computes the owner's account keylet, loads it with `cache_ledger_obj`, and reads `Balance` (drops).
 3. Converts drops to XRP with float ops (`float_from_int`, `float_divide` by 1e6).
-4. Check if the balance is below 1,000,000 XRP (`float_compare`), but always return 1 to simply tx flow.
+4. Check if the balance is below 1,000,000 XRP (`float_compare`), but always return 1 to simplify the tx flow.
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -173,13 +177,13 @@ Notes:
 
 ## 7. Worst-case candidates (EscrowCreate)
 
-Create charges no gas. Its fee is 10 × base + 5 drops per bytecode byte, and its node cost is the check EscrowCreate preclaim runs after reading the ledger's fee settings (upload switch and size limit): compile the module, then screen its imports and entry point, etc. The check reads only the blob, builds a fresh engine and caches nothing, so a fixed blob per case costs the same on every Create. Preclaim runs on every apply, so the check runs at least twice on each validator. Create cases are compared on time per Create and time per fee drop.
+Create charges no gas. Its fee is 10 × base + 5 drops per bytecode byte, and its node cost is the check EscrowCreate preclaim runs after reading the ledger's fee settings (upload switch and size limit): compile the module, then screen its imports and entry point, etc. The check reads only the blob, builds a fresh engine and caches nothing, so a fixed blob per case costs the same on every Create. Preclaim runs on every apply, so the check runs at least twice on each validator. With the timing log build (Appendix B), Create cases are compared on time per Create and time per fee drop.
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| CW1 | `09-many-exports` (= W1h) | | | ~19.4k exports of one function | F1 | Small |
-| CW2 | `08-many-types` (= W1g) | | | ~7.7k distinct function types | F1 | Small |
-| CW3 | `create_padding` (= W1f) | | | ~2,400 unused functions with 50k locals each | F1 | Small |
+| CW1 | To Be Generated (= W1h) | | | ~19.4k exports of one function | F1 | Small |
+| CW2 | To Be Generated (= W1g) | | | ~7.7k distinct function types | F1 | Small |
+| CW3 | To Be Generated (= W1f) | | | ~2,400 unused functions with 50k locals each | F1 | Small |
 
 Why chosen (local times; all ~100 KB; time per fee drop assumes base = 10 drops):
 
@@ -201,7 +205,7 @@ Notes:
 
 ## 8. Worst-case candidates (EscrowFinish)
 
-Gas values in the "Why chosen" notes are from our unit tests on `se-hostfn-timing` (based on smart-escrow 4103ade0ba) or from the local runs noted. The tables' Size and GasUsed columns are filled from the network build (§9). Each case is listed with its S1 module. `_400k` variants exist where noted; they are set aside for the S2-sized follow-up (§2).
+Gas values in the "Why chosen" notes are from our unit tests on `se-hostfn-timing` (based on smart-escrow 4103ade0ba) or from the local runs noted. The tables' Size and GasUsed columns are filled from the network build.
 
 Combo cases come later. Each case below isolates one trick. Once they are measured on the network, we build a few combos from the worst ones. Only tricks that spend different budgets add up: module size (W1d, W1f–W1h) versus gas (execution in W1a–W1c, host calls in W2–W4). Two tricks that spend the same budget only trade against each other. For example, W1h's exports use bytes and almost no gas, so the gas left over can run the worst execution or host-call kernel in the same module.
 
@@ -211,19 +215,19 @@ Cost comes from the engine alone: no host calls. The time goes to five different
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| W1a | `br_loop` | | | Execution (reference): counted loop | F1 | Small |
-| W1b | `call_indirect_unroll` (+ `_400k`) | | | Execution: 32 `call_indirect` per loop | F1 | Small |
+| W1a | To Be Generated | | | Execution (reference): counted loop | F1 | Small |
+| W1b | `call_indirect_unroll` | | | Execution: 32 `call_indirect` per loop | F1 | Small |
 | W1c | To Be Generated | | | Execution, memory: pointer chase over the full 8 MB | F1 | Small |
 | W1d | To Be Generated | | | Translation: one 100 KB if/else body | F1 | Small |
-| W1e | `dos_large_finish_many_helpers` | | | Function entry: calls 250 small functions once | F1 | Small |
-| W1f | `create_padding` | | | Module load: ~2,400 unused functions with 50k locals each | F1 | Small |
-| W1g | `08-many-types` | | | Module load: ~7.7k distinct function types | F1 | Small |
-| W1h | `09-many-exports` | | | Module load and instantiation: ~19.4k exports of one function | F1 | Small |
+| W1e | To Be Generated | | | Function entry: calls 250 small functions once | F1 | Small |
+| W1f | To Be Generated | | | Module load: ~2,400 unused functions with 50k locals each | F1 | Small |
+| W1g | To Be Generated | | | Module load: ~7.7k distinct function types | F1 | Small |
+| W1h | To Be Generated | | | Module load and instantiation: ~19.4k exports of one function | F1 | Small |
 
 Why chosen:
 
 - W1a (wasmi T-00): the reference, not a worst case. A 59-byte counted loop: ~948K gas, 0.89 ms, ~0.94 ns/gas [r]; 0.34 ms [w]. Any candidate well above its ~0.94 ns/gas [r] is underpriced.
-- W1b: 32 `call_indirect` per loop in a ~100 KB module (`_400k`: ~50 KB). 939,965 gas (`_400k`: 378,958), 4.25 ms [r], of which ~1.6 ms is module load.
+- W1b: 32 `call_indirect` per loop in a ~100 KB module. 939,965 gas, 4.25 ms [r], of which ~1.6 ms is module load.
 - W1c: 8 MB is the largest working set a module can have, so it is the memory case with the most room to leave the cache. Building the working set and chasing it share the gas budget. It replaces se-soak's 1 MB `chain_full_footprint` (623,563 gas, 0.63 ms, ~1.0 ns/gas [r]), which fits in a Mac's cache and mostly in a server core's L2, so it measured barely above W1a. The validators' CPU cache sizes help read W1c's result.
 - W1d: one ~100 KB function body of repeated `local.get 0; if; else; end`, translated on first call: ~750K gas, 2.0–2.4 ms [r]. It replaces se-soak's 15 KB `dos_large_finish_linear`. Translation is 7 gas per byte, and each byte is translated at most once per run, so at the 100 KB cap translation gives ~700K gas; the rest is the body running once. Reaching 1M would need a loop, which would mix in execution. The shape comes from a hunt on [r] (2026-10-16), one ~100 KB body each, in ns/gas: if/else 2.6–3.2, if without else 2.4, nested ifs 2.4, if/else with a result 2.2, nested blocks 1.9, `br_if` in a block 1.5, select 1.4, two-locals add 1.3, `br_table` 1.3, se-soak's const + add 0.85.
 - W1e (se-soak): calls 250 small functions once each, ~18 KB. 136,671 gas, 0.26 ms, ~1.9 ns/gas [r].
@@ -243,11 +247,11 @@ Flat-priced host functions whose real cost depends on input or algorithm. No led
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| W2a | `sha512_half_loop` (+ `_400k`) | | | `sha512_half` on the max input, repeated | F1 | Small |
+| W2a | `sha512_half_loop` | | | `sha512_half` on the max input, repeated | F1 | Small |
 | W2b | To Be Generated | | | `check_sig` on a valid signature, repeated | F1 | Small |
 | W2c | To Be Generated | | | Float ops on the costliest inputs, repeated | F1 | Small |
 
-W2a: `sha512_half` on 1024 bytes (the max input), 496 calls (`_400k`: 198). 999,277 gas (`_400k`: 399,105).
+W2a: `sha512_half` on 1024 bytes (the max input), 496 calls. 999,277 gas.
 
 W2b: `check_sig` is priced at 35,000 gas. W2b checks that the price holds.
 
@@ -276,33 +280,153 @@ Each escrow is finished once, then cancelled after CancelAfter. The local soak d
 
 ### W4. Data-dependent ledger reads
 
-Ledger reads cost a flat 5000 gas, but their real cost depends on where the object is (in memory or in the DB) and how large it is. B1 runs on the same data snapshot (§4) as their baseline.
+Every ledger read costs a flat 5000 gas, so W4 looks for the read that takes the validator the most real time. A read's time has three parts:
+
+1. Find: walk the state tree from the root to the object.
+2. Load: get the object's bytes, from memory or the DB.
+3. Parse and use: turn the bytes into an object, then do the host function's work on it. This grows with the object's size.
+
+W4a pushes part 1: its keys don't exist, so the walk runs and nothing is loaded. W4b pushes parts 2 and 3: each call loads a full NFT page, parses it and scans its 32 NFTs. A full page with 256-byte URIs is about 9 KB, a large object for a 5000-gas read; a typical object such as an AccountRoot is about 200 bytes.
+
+Data read recently is cheaper to read again, so each case must keep reading data that isn't in a cache:
+
+- CPU cache: tens to hundreds of MB on a server. The data a case cycles through must be far larger.
+- Parsed-object cache: the open ledger keeps a parsed object until a full minute passes with no read of it. Only applying a transaction to the open ledger uses it. Building the consensus ledger reads the ledger directly, so every Finish parses its objects at least once on each validator, at any rate. `get_counts` reports this cache's `SLE_hit_rate`.
+
+B1 runs on the same data snapshot (§4) as their baseline.
 
 | ID | Module | Size | GasUsed | What it does | Flow | Snapshot |
 | --- | --- | --- | --- | --- | --- | --- |
-| W4a | To Be Generated | | | `cache_ledger_obj` on random missing keys | F1 | Data |
-| W4b | To Be Generated | | | `get_nft` on full NFT pages, random NFT IDs | F1 | Data |
+| W4a | To Be Generated | | | `cache_ledger_obj` on missing keys | F1 | Data |
+| W4b | To Be Generated | | | `get_nft` on the actor's own full NFT pages, one page per call | F1 | Data |
 
 #### W4a notes
 
-- Based on se-soak's `cache_ledger_obj_soak` (+ `_400k`): 142 lookups of random keys (`_400k`: 56), all not found, 997,833 gas (`_400k`: 393,934). It spends about 29% of its gas on `sha512_half` to derive keys.
-- Rework 1, keys: derive them with a cheap integer mixer, a few gas per key, instead of `sha512_half`. Keys only need to spread over the tree, not be cryptographic. That fits about 199 lookups per Finish instead of 142.
-- Rework 2, seed: the escrow's PreviousTxnID, read with one `home_le_field` call (70 gas). In F1 it is the Create's transaction ID, so it is unique per escrow, even with two Finishes of one account in the same ledger or with Tickets. The old seed (finisher account, ledger sequence, loop index) reads the same keys twice in that case, and the second Finish under-measures.
+Each call asks for a 32-byte key that matches no object. A miss is not cheap: the node walks the state tree from the root toward the key, reading each node on the path from memory or the DB, until it reaches an empty branch. A bigger state means a longer path and more DB reads.
+
+The module, about 1M gas:
+
+1. Call `home_le_field` once to read the escrow's PreviousTxnID into a 32-byte key buffer (70 gas). In F1 this is the Create's transaction ID, so it differs for every escrow.
+2. Repeat 199 times, the most that fit in 1M gas:
+   - Add 1 to the key's first byte (a few gas).
+   - Call `cache_ledger_obj` (wasm name `cache_le`) on the key (5000 gas). It returns not found, which the module ignores.
+3. Return 1.
+
+Why changing the first byte is enough: the tree branches on the key's hex digits, one per level: the root on the first byte's high digit, the next level on its low digit. So each new first byte sends the key into a different subtree two levels down, and below that the paths share no nodes, even though the other 31 bytes are the same. The top two levels are about 270 nodes that every lookup touches anyway. The first byte has 256 values, enough for 199 keys.
+
+Why PreviousTxnID as the base: no two Finishes read the same keys, even two Finishes from one account in the same ledger or with Tickets. Repeated keys would find the path already in memory and under-measure.
 
 #### W4b notes
 
-- `get_nft` (wasm name `nft_uri`) costs 5000 gas, the same as `cache_ledger_obj`, but each call reads, parses and scans a page of up to 32 NFTs: about 9 KB with 256-byte URIs, against about 200 bytes for an AccountRoot.
-- A miss on an owner who has pages costs about the same as a hit: the call still parses and scans the page, then reports not found. So the module needs only owner IDs, not real NFT IDs.
-- Owner IDs are embedded in the blob, 20 bytes each: up to about 4,800 owners in 100 KB, 2,400 in 50 KB.
-- Pages are ordered by the low 12 bytes of the NFT ID, which begin with the issuer's last 4 bytes. A random NFT ID must keep those 4 bytes (the owner's own, since owners mint their own NFTs), or every lookup lands on the owner's first or last page.
-- NFT IDs come from the same per-escrow seed and cheap mixer as W4a: each call picks an owner from the embedded list and a random position in that owner's pages. Without a per-escrow seed, every Finish reads the same pages.
-- Cache sizing: the open ledger keeps a parsed page until a full minute passes with no read of it, and a cached page skips parsing. With random reads, the hit rate is about 1 − e^(−reads per minute ÷ pages): equal counts give ~63%, and staying under 10% needs about 10× more full pages than reads per minute.
-- Reads per minute = Finish rate × ~200 calls × 60. Even 10 Finishes/s needs about 1.2M full pages (~38M NFTs, ~11 GB). So the snapshot size caps W4b's Finish rate: run W4b at or below the rate the snapshot was sized for. `get_counts` reports `SLE_hit_rate`, which shows whether a run stayed under the cap.
-- Dropped: AccountRoot hits (the earlier `cache_hit_storm`). A hit is W4a's lookup plus a small parse, and W4b's page parse covers it.
+Every test account in the data snapshot holds 200 full pages of NFTs it minted itself (Appendix A). Page i holds exactly the NFTs whose ID byte 24 is i. Each Finish reads 199 of its own actor's pages, one per call.
 
-## 9. Before delivery (our side)
+How the node finds a page: `get_nft` (wasm name `nft_uri`) takes an account and an NFT ID. The node builds a lookup key from the account (20 bytes) and the ID's last 12 bytes, reads the first of the account's pages whose key is greater, and compares each of its 32 NFTs with the ID. Those last 12 bytes are the issuer's last 4 bytes (ID bytes 20–23), the stored taxon (24–27) and the mint sequence (28–31). The other 20 bytes are used only in the final compare.
 
-1. Build the modules: A1 `refill_when_low` (Rust, with a measured GasUsed), W1c `chain_8mb`, W1d `if_else_100k`, W2b `check_sig_loop`, W2c `float_loop`, W3 `set_data_max`, W4a (reworked `cache_ledger_obj_soak`), W4b `get_nft_pages`. Rename the exports of W1a and W1f, and give W1g / W1h an `escrow_finish` that returns 1. Extract a fixed blob for W1e from se-soak; it exports `escrow_finish` but returns 5001, so patch it to return 1. S2-sized versions wait for the follow-up (§2).
-2. Check every blob against the network build of the time: run each through that build's Create check and one Finish, so the host-function names and signatures and the entry point all match, and fill in each case's Size and GasUsed. For W3, also confirm with ledger_entry that each Finish changed the escrow's Data, since tecBYTECODE_REJECTED alone doesn't prove the write happened. Repeat whenever the network build changes.
-3. Deliver the blobs as one file per case, in one place.
-4. Build the small and data snapshots (sizes in §4), confirm both hold the S1 fee settings, and confirm a 5-validator start from each with a local 5-node trial.
+The lookup ID, 32 bytes, preset by a data segment:
+
+| Bytes | Value | Why |
+| --- | --- | --- |
+| 0–19 | 00 | Not used to find the page |
+| 20–23 | The actor's last 4 bytes, copied at run time | Every NFT the actor issued has them, so the lookup lands among its pages |
+| 24 | i, set per call | Picks page i |
+| 25–31 | FF | Keeps the lookup above page i−1's key, which has i in byte 24 and 00 in byte 25. No real NFT has FF in byte 25, so every call misses |
+
+A miss is the worst case: the page is parsed either way, and a miss compares all 32 NFTs, while a hit can stop early.
+
+The module, about 1M gas:
+
+1. `tx_field(Account)` (field code 524289, 70 gas) writes the actor's 20-byte account to memory. In a self-escrow, the Finish's Account is the escrow owner and holds the pages.
+2. Copy the account's last 4 bytes into ID bytes 20–23.
+3. For i = 0 … 198 (199 calls, the most that fit in 1M gas):
+   - Write i into ID byte 24.
+   - Call `get_nft` with the account, the ID and a 256-byte output buffer (5000 gas). It returns not found, which the module ignores.
+4. Return 1.
+
+The blob has no account list and nothing per escrow, so every Create uses the same blob.
+
+Requirement for the tx generator: every Finish by one actor reads the same 199 pages, so W4b's Finishes must rotate evenly through all test accounts (round-robin). Then each actor's pages come back as late as possible.
+
+How the caches apply:
+
+- Parsed-object cache: an actor's pages are still cached only if it finishes again within a minute. About 60 actors per Finish/s keep the open-ledger work at 0% hits. With fewer, part of the open-ledger work is cached; the consensus-ledger work never is. `SLE_hit_rate` shows the share.
+- CPU cache: an actor's 200 pages are about 1.8 MB. With hundreds of actors in rotation, the pages read between two turns of one actor far exceed the CPU cache.
+
+#### W4c (skipped for now)
+
+We considered a W4c that reads other smart escrow objects with `cache_ledger_obj`. An escrow holds up to 100 KB of bytecode, and the read loads and parses all of it. But the wasm needs each escrow's exact key, a hash of its owner and Create sequence, which makes the setup more complex, and it is uncertain whether it costs more than W4b. So we skip it for now.
+
+## Appendix A. Building the ledger snapshots
+
+We build both snapshots once, on a standalone node with the network's build, amendments and S1 settings (§2), using standard transactions.
+
+Build node config:
+
+- Raise `minimum_txn_in_ledger_standalone` (`[transaction_queue]`, default 1,000) well above the transactions sent per ledger, so fee escalation doesn't start. Close ledgers often with `ledger_accept`.
+- Turn on `online_delete`. Every mint rewrites a page, and its metadata holds the page twice (old and new), so without pruning the DB keeps tens of GB of history.
+
+Small snapshot:
+
+1. Fund the test accounts from genesis with Payments, per §2.
+2. Close the ledger and save the DB.
+
+Data snapshot, on top of the small one:
+
+1. Fund the filler accounts from genesis with Payments (W4a).
+2. Fund every test account with 200 more owner reserves, for its NFT pages.
+3. Every test account mints its 200 pages (below).
+4. Close the ledger and save the DB.
+
+For both snapshots, confirm they hold the S1 fee settings, and confirm a 5-validator start with a local 5-node trial (§4).
+
+### NFT pages, per test account
+
+Each account mints 6,400 NFTs to itself: 200 pages × 32. Each mint is an NFTokenMint {Account = the account, NFTokenTaxon = computed, URI = 256 bytes}, with no Flags and no TransferFee.
+
+- URI: 256 bytes, different for every NFT and non-repeating (for example built from SHA-512 of account, page and NFT number), so the DB's compression can't shrink the pages.
+- Placement: NFT k (0–31) of page i (0–199) must have the stored taxon (i << 24) | (k << 16) in ID bytes 24–27. For example page 5, NFT 3 → 0x05030000. Byte 24 is then the page number.
+- Taxon to send: the ID stores Taxon XOR (384160001 × Seq + 2459) mod 2^32, where Seq is the NFT's mint sequence: the Sequence of the account's first NFTokenMint plus the number of NFTs it minted before (FirstNFTokenSequence + MintedNFTokens on its AccountRoot). So send Taxon = stored taxon XOR (384160001 × Seq + 2459) mod 2^32. If the account sends only mints, Seq is the mint's own Sequence.
+- Mint order: first NFTs 0–15 of every page, page by page (0, 1, …, 199), then NFTs 16–31 of every page, page by page. This gives 200 pages of exactly 32, page i holding exactly page i's NFTs (checked with a simulation of the split rule). Why the order matters is below.
+- Accounts mint in parallel; each account's mints go in Sequence order.
+
+Example, for an account whose first NFTokenMint has Sequence 7:
+
+| Mint # | Page | NFT | Seq | Stored taxon | Taxon to send |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 0 | 0 | 7 | 0x00000000 | 0xA048C0A2 |
+| 2 | 0 | 1 | 8 | 0x00010000 | 0xB72F91A3 |
+| 17 | 1 | 0 | 23 | 0x01000000 | 0x0FA5D0B2 |
+| 3,200 | 199 | 15 | 3206 | 0xC70F0000 | 0x05187C21 |
+| 3,201 | 0 | 16 | 3207 | 0x00100000 | 0xD8ED4D22 |
+| 6,400 | 199 | 31 | 6406 | 0xC71F0000 | 0x3DD308A1 |
+
+NFTokenTaxon takes the value as a plain integer, for example 0xA048C0A2 = 2,689,122,466.
+
+Failures and restarts: the Taxon is fixed when a mint is signed. If one mint fails, every later mint already signed for that account lands on the wrong page. After each ledger, check the results; on any failure, drop that account's pending mints, read FirstNFTokenSequence and MintedNFTokens with `account_info`, and sign again. MintedNFTokens also tells which NFT is next (the first 3,200 mints are NFTs 0–15 of each page), so a stopped build resumes from the ledger alone.
+
+Time: 6,400 mints per account. At 100 mints/s, that is about 64 seconds per account, so 1,000 accounts take about 18 hours. Signing millions of transactions needs a compiled signer or parallel processes.
+
+Checks: for a few accounts, `account_objects` type `nft_page` shows 200 pages of 32 NFTs, and every NFT on page i has ID byte 24 = i.
+
+### Why the mint order matters
+
+A new page is created only by splitting a full page in half, at the middle of what it holds at that moment. So every page starts with 16 NFTs and must receive its other 16 after the split.
+
+Scaled-down example: a page holds 4 and splits 2 + 2. Page 0 should hold {00 01 02 03}, page 1 {10 11 12 13}, page 2 {20 21 22 23}. Both orders below are the same 12 mints, one at a time:
+
+```
+increasing:   00 01 02 03 10 11 12 13 20 21 22 23
+  The first page fills with 00 01 02 03 and splits between 01 and 02.
+  [00 01] never receives another NFT; every page ends half full.
+
+halves first: 00 01 10 11 20 21 | 02 03 12 13 22 23
+  The first page fills with 00 01 10 11 and splits between 01 and 10, on the page boundary.
+  02 03 fill [00 01]. 12 splits [10 11 20 21] between 11 and 20, then 12 13 fill [10 11] and 22 23 fill [20 21].
+  Result: page 0 = {00 01 02 03}, page 1 = {10 11 12 13}, page 2 = {20 21 22 23}.
+```
+
+## Appendix B. Possible additions
+
+Not planned yet; they may be needed once first results are in:
+
+- A new xrpld build with a per-transaction timing log for EscrowCreate and EscrowFinish, and analysis of that log. The current code has none, and the perf platform's metrics give the time per transaction only indirectly. Starting point: the "time measurement logging" commit 6973159c7e on branch `se-soak`, which times EscrowCreate and EscrowFinish.
+- New or changed cases suggested by first-round results.
